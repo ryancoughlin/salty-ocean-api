@@ -1,11 +1,10 @@
 {
   "name": "salty-server",
   "version": "1.0.0",
-  "description": "Server for Salty - Marine Weather and Tide Data API",
+  "description": "API for fetching offshore weather data from NOAA",
   "main": "app.js",
   "scripts": {
-    "start": "node dist/app.js",
-    "stop": "pm2 stop ecosystem.config.js",
+    "start": "node app.js",
     "dev": "nodemon",
     "lint": "eslint .",
     "test": "jest",

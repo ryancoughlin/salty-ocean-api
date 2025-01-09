@@ -7,13 +7,15 @@ let stations = null;
 
 const loadStations = async () => {
   if (stations === null) {
-    const stationsPath = path.join(__dirname, '../data/ndbc-stations.json');
+    const stationsPath = path.join(__dirname, '../data/ndbc-stations.geojson');
     const data = await fs.readFile(stationsPath, 'utf8');
-    stations = JSON.parse(data).features.map(feature => ({
+    const geojson = JSON.parse(data);
+    stations = geojson.features.map(feature => ({
       stationId: feature.properties.id,
       name: feature.properties.name,
       location: feature.geometry,
-      state: feature.properties.state || null
+      type: feature.properties.type,
+      hasRealTimeData: feature.properties.hasRealTimeData
     }));
   }
   return stations;

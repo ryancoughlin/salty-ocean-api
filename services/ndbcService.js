@@ -70,8 +70,19 @@ class NDBCService {
 
     async loadStations() {
         try {
-            const stationsPath = path.join(__dirname, '../data/ndbc-stations.json');
-            this.stations = JSON.parse(await fs.readFile(stationsPath, 'utf8'));
+            const stationsPath = path.join(__dirname, '../data/ndbc-stations.geojson');
+            const data = await fs.readFile(stationsPath, 'utf8');
+            const geojson = JSON.parse(data);
+            this.stations = geojson.features.map(feature => ({
+                id: feature.properties.id,
+                name: feature.properties.name,
+                location: {
+                    type: feature.geometry.type,
+                    coordinates: feature.geometry.coordinates
+                },
+                type: feature.properties.type,
+                hasRealTimeData: feature.properties.hasRealTimeData
+            }));
             logger.info(`Loaded ${this.stations.length} NDBC stations`);
         } catch (error) {
             logger.error('Error loading stations:', error.message);

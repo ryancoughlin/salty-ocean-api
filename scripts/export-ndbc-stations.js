@@ -5,7 +5,7 @@ const cheerio = require('cheerio');
 const { logger } = require('../utils/logger');
 
 const NDBC_ACTIVE_STATIONS_URL = 'https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt';
-const OUTPUT_FILE = path.join(__dirname, '../data/ndbc-stations.json');
+const OUTPUT_FILE = path.join(__dirname, '../data/ndbc-stations.geojson');
 
 /**
  * Fetches and parses the list of active NDBC stations
@@ -32,14 +32,17 @@ async function fetchActiveStations() {
         if (!id.match(/^[34]\d{4}$/)) return null;
 
         return {
-          id,
-          name: null, // Will be populated later
-          location: {
+          type: 'Feature',
+          geometry: {
             type: 'Point',
             coordinates: [parseFloat(lon), parseFloat(lat)]
           },
-          type: 'buoy',
-          hasRealTimeData: true
+          properties: {
+            id,
+            name: null, // Will be populated later
+            type: 'buoy',
+            hasRealTimeData: true
+          }
         };
       })
       .filter(station => station !== null);
@@ -181,21 +184,27 @@ async function exportStations() {
     const verifiedStations = [];
     
     for (const station of stations) {
-      const hasRequiredData = await verifyStationData(station.id);
+      const hasRequiredData = await verifyStationData(station.properties.id);
       if (hasRequiredData) {
         // Fetch station metadata
-        const metadata = await getStationMetadata(station.id);
-        station.name = metadata.name;
-        station.owner = metadata.owner;
-        station.type = metadata.type;
+        const metadata = await getStationMetadata(station.properties.id);
+        station.properties.name = metadata.name;
+        station.properties.owner = metadata.owner;
+        station.properties.type = metadata.type;
         
         verifiedStations.push(station);
-        logger.info(`Verified station ${station.id} - ${station.name}`);
+        logger.info(`Verified station ${station.properties.id} - ${station.properties.name}`);
       }
     }
 
     // Sort stations by ID
-    verifiedStations.sort((a, b) => a.id.localeCompare(b.id));
+    verifiedStations.sort((a, b) => a.properties.id.localeCompare(b.properties.id));
+
+    // Create GeoJSON FeatureCollection
+    const geojson = {
+      type: 'FeatureCollection',
+      features: verifiedStations
+    };
 
     // Create data directory if it doesn't exist
     await fs.mkdir(path.dirname(OUTPUT_FILE), { recursive: true });
@@ -203,7 +212,7 @@ async function exportStations() {
     // Write to file
     await fs.writeFile(
       OUTPUT_FILE,
-      JSON.stringify(verifiedStations, null, 2)
+      JSON.stringify(geojson, null, 2)
     );
 
     logger.info(`Successfully exported ${verifiedStations.length} NDBC stations to ${OUTPUT_FILE}`);

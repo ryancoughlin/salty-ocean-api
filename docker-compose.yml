@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  salty-server:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "5010:5010"
+    environment:
+      - NODE_ENV=production
+      - PORT=5010
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5010/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - salty_network
+
+networks:
+  salty_network:
+    driver: bridge 

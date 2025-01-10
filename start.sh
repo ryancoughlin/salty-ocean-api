@@ -8,4 +8,4 @@ echo "Node version: $(node --version)"
 echo "Environment variables:"
 env
 echo "Starting application..."
-node app.js 
+npm start

@@ -16,7 +16,7 @@ const errorHandler = (err, req, res, next) => {
   err.status = err.status || 'error';
 
   // Log error
-  logger.error('Error:', {
+  console.error('Error:', {
     message: err.message,
     stack: err.stack,
     statusCode: err.statusCode,
@@ -24,28 +24,14 @@ const errorHandler = (err, req, res, next) => {
     method: req.method,
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    res.status(err.statusCode).json({
-      status: err.status,
-      error: err,
-      message: err.message,
-      stack: err.stack
-    });
-  } else {
-    // Production error response
-    if (err.isOperational) {
-      res.status(err.statusCode).json({
-        status: err.status,
-        message: err.message
-      });
-    } else {
-      // Programming or unknown errors
-      res.status(500).json({
-        status: 'error',
-        message: 'Something went wrong'
-      });
-    }
-  }
+  // Send error response with more details
+  res.status(err.statusCode).json({
+    status: err.status,
+    message: err.message,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
 };
 
 module.exports = {

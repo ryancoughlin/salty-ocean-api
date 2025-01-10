@@ -262,14 +262,8 @@ async function getPointForecast(lat, lon) {
                             acc[date] = { date, periods: [] };
                         }
                         acc[date].periods.push(period);
-                        logger.debug(`Added period for ${date}: ${period.time} - Wave Height: ${period.waveHeight}ft`);
                         return acc;
                     }, {});
-
-                    logger.info(`Grouped forecast into ${Object.keys(groupedForecast).length} days`);
-                    Object.entries(groupedForecast).forEach(([date, day]) => {
-                        logger.info(`${date}: ${day.periods.length} periods`);
-                    });
 
                     return {
                         location: { latitude: lat, longitude: lon },

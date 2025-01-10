@@ -1,16 +1,22 @@
 const { logger } = require('./logger');
 const CONFIG = require('../config/waveModelConfig');
 
-// Cache types and their TTL calculators
-const CACHE_TYPES = {
-    waveModel: {
-        keyPrefix: 'wave_model',
-        getTTL: getModelRunCacheDuration
-    },
-    buoyData: {
-        keyPrefix: 'ndbc_buoy',
-        getTTL: getNDBCCacheDuration
-    }
+// NDBC updates every 30 minutes at :26 and :56 past the hour
+const NDBC_UPDATE_MINUTES = [26, 56];
+
+/**
+ * Calculate TTL until next NDBC update
+ */
+const getNDBCCacheDuration = () => {
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const nextUpdate = NDBC_UPDATE_MINUTES.find(min => min > currentMinute) || NDBC_UPDATE_MINUTES[0];
+    
+    const minutesUntilUpdate = nextUpdate > currentMinute ? 
+        nextUpdate - currentMinute : 
+        (60 - currentMinute) + nextUpdate;
+    
+    return (minutesUntilUpdate * 60) + 60; // Add 60s buffer
 };
 
 /**
@@ -58,22 +64,16 @@ const getModelRunCacheDuration = (() => {
     };
 })();
 
-// NDBC updates every 30 minutes at :26 and :56 past the hour
-const NDBC_UPDATE_MINUTES = [26, 56];
-
-/**
- * Calculate TTL until next NDBC update
- */
-const getNDBCCacheDuration = () => {
-    const now = new Date();
-    const currentMinute = now.getMinutes();
-    const nextUpdate = NDBC_UPDATE_MINUTES.find(min => min > currentMinute) || NDBC_UPDATE_MINUTES[0];
-    
-    const minutesUntilUpdate = nextUpdate > currentMinute ? 
-        nextUpdate - currentMinute : 
-        (60 - currentMinute) + nextUpdate;
-    
-    return (minutesUntilUpdate * 60) + 60; // Add 60s buffer
+// Cache types and their TTL calculators
+const CACHE_TYPES = {
+    waveModel: {
+        keyPrefix: 'wave_model',
+        getTTL: getModelRunCacheDuration
+    },
+    buoyData: {
+        keyPrefix: 'ndbc_buoy',
+        getTTL: getNDBCCacheDuration
+    }
 };
 
 /**

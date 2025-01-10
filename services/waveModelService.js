@@ -192,7 +192,6 @@ const checkModelAvailability = async (modelRun) => {
 
 const retryRequest = async (url, attempt = 1) => {
     try {
-        logger.info(`Attempt ${attempt} to fetch data from ${url}`);
         return await axios.get(url, { 
             timeout: CONFIG.request.timeout,
             headers: { 'Accept-Encoding': 'gzip, deflate' }

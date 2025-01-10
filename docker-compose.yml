@@ -13,10 +13,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5010
-      - TZ=UTC
+    init: true
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://0.0.0.0:5010/health"]
+      test: ["CMD-SHELL", "wget --spider -q http://0.0.0.0:5010/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -2,7 +2,16 @@ const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const { logger } = require('../utils/logger');
-const { getOrSet, DEFAULT_TTL } = require('../utils/cache');
+const { getOrSet } = require('../utils/cache');
+const { 
+    formatWaveHeight,
+    formatWindSpeed,
+    formatTemperature,
+    formatPressure,
+    formatDirection,
+    formatPeriod,
+    formatTimestamp
+} = require('../utils/formatters');
 
 const NDBC_BASE_URL = 'https://www.ndbc.noaa.gov/data/realtime2';
 const SPECTRAL_URL = 'https://www.ndbc.noaa.gov/data/realtime2';
@@ -33,11 +42,6 @@ const getTimeToNextUpdate = () => {
     // Add 60 seconds buffer to ensure data is available
     return secondsToNextUpdate + 60;
 };
-
-// Conversion helpers
-const metersToFeet = meters => meters * 3.28084;
-const knotsToMph = knots => knots * 1.15078;
-const celsiusToFahrenheit = celsius => (celsius * 9/5) + 32;
 
 // Beaufort Scale Wind Categories
 const BEAUFORT_SCALE = [
@@ -147,17 +151,17 @@ class NDBCService {
         if (isNaN(num)) return null;
         
         switch(type) {
-            case 'WVHT': return parseFloat((metersToFeet(num)).toFixed(1));
+            case 'WVHT': return formatWaveHeight(num);
             case 'WSPD':
-            case 'GST': return parseFloat((knotsToMph(num)).toFixed(1));
+            case 'GST': return formatWindSpeed(num);
             case 'DPD':
-            case 'APD':
+            case 'APD': return formatPeriod(num);
             case 'MWD':
-            case 'WDIR': return Math.round(num);
+            case 'WDIR': return formatDirection(num);
             case 'WTMP':
             case 'ATMP':
-            case 'DEWP': return parseFloat(celsiusToFahrenheit(num).toFixed(1));
-            case 'PRES': return parseFloat(num.toFixed(1));
+            case 'DEWP': return formatTemperature(num);
+            case 'PRES': return formatPressure(num);
             default: return num;
         }
     }
@@ -247,13 +251,13 @@ class NDBCService {
 
     parseDataLine(values) {
         return {
-            time: new Date(Date.UTC(
+            time: formatTimestamp(new Date(Date.UTC(
                 parseInt(values[COLUMNS.YEAR]),
                 parseInt(values[COLUMNS.MONTH]) - 1,
                 parseInt(values[COLUMNS.DAY]),
                 parseInt(values[COLUMNS.HOUR]),
                 parseInt(values[COLUMNS.MINUTE])
-            )).toISOString(),
+            ))),
             wind: {
                 direction: this.parseValue(values[COLUMNS.WIND_DIR], 'WDIR'),
                 speed: this.parseValue(values[COLUMNS.WIND_SPEED], 'WSPD'),

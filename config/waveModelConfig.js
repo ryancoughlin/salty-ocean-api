@@ -1,3 +1,10 @@
+const { 
+    formatWaveHeight,
+    formatWindSpeed,
+    formatDirection,
+    formatPeriod
+} = require('../utils/formatters');
+
 /**
  * Wave Model Configuration
  * Contains all configuration for NOAA wave models including grid specifications,
@@ -66,27 +73,27 @@ const CONFIG = {
         waveHeight: { 
             key: 'htsgwsfc', 
             unit: 'ft', 
-            convert: v => (v * 3.28084).toFixed(1) 
+            convert: formatWaveHeight
         },
         wavePeriod: { 
             key: 'perpwsfc', 
             unit: 'seconds', 
-            convert: v => parseFloat(v.toFixed(1)) 
+            convert: formatPeriod
         },
         waveDirection: { 
             key: 'dirpwsfc', 
             unit: 'degrees', 
-            convert: v => Math.round(v) 
+            convert: formatDirection
         },
         windSpeed: { 
             key: 'windsfc', 
             unit: 'mph', 
-            convert: v => (v * 2.237).toFixed(1) 
+            convert: formatWindSpeed
         },
         windDirection: { 
             key: 'wdirsfc', 
             unit: 'degrees', 
-            convert: v => Math.round(v) 
+            convert: formatDirection
         }
     },
     modelRuns: {

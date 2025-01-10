@@ -103,38 +103,6 @@ const getWindImpact = (windDirection, windSpeed, location) => {
 };
 
 /**
- * Score conditions for activity suitability
- */
-const scoreConditions = (period) => {
-    let score = 0;
-    
-    // Wave height scoring (2-5ft ideal)
-    if (period.waveHeight >= 2 && period.waveHeight <= 5) {
-        score += 50;
-    } else if (period.waveHeight > 5) {
-        score += 30;
-    } else {
-        score += 10;
-    }
-
-    // Wind impact scoring
-    const windImpact = getWindImpact(period.windDirection, period.windSpeed, period.location);
-    const impactScores = {
-        'excellent': 50,
-        'good': 40,
-        'good-breezy': 30,
-        'fair': 20,
-        'fair-strong': 10,
-        'poor': 5,
-        'poor-choppy': 0
-    };
-
-    score += impactScores[windImpact] || 0;
-
-    return score;
-};
-
-/**
  * Generate human-readable summaries for conditions
  */
 const generateSummaries = (modelData, location) => {
@@ -186,11 +154,36 @@ const generateSummaries = (modelData, location) => {
                 (peakDay.windSpeed ? ` with ${getWindDescription(peakDay.windSpeed)}mph winds` : '');
         }
 
+        // Analyze current conditions
+        let conditions = 'unknown';
+        if (current.waveHeight && current.wavePeriod) {
+            const waveQuality = analyzeWaveQuality(current.waveHeight, current.wavePeriod);
+            const windImpact = current.windSpeed && current.windDirection ? 
+                getWindImpact(current.windDirection, current.windSpeed, location) : 
+                'unknown';
+
+            // Combine wave quality and wind impact
+            if (waveQuality && windImpact !== 'unknown') {
+                if (windImpact.includes('poor')) {
+                    conditions = windImpact; // Wind is the limiting factor
+                } else if (windImpact === 'excellent') {
+                    conditions = waveQuality.quality === 'clean' ? 'excellent' : waveQuality.quality;
+                } else if (windImpact === 'good' || windImpact === 'good-breezy') {
+                    conditions = waveQuality.quality === 'rough' ? 'fair' : waveQuality.quality;
+                } else {
+                    conditions = waveQuality.quality === 'clean' ? 'fair' : 'poor';
+                }
+            } else {
+                conditions = waveQuality?.quality || 'unknown';
+            }
+        }
+
         return {
             current: currentSummary || 'No current observations available',
             week: weekSummary || 'No forecast available',
-            conditions: current.waveHeight && current.wavePeriod ? 
-                analyzeWaveQuality(current.waveHeight, current.wavePeriod)?.quality : 
+            conditions,
+            windImpact: current.windSpeed && current.windDirection ? 
+                getWindImpact(current.windDirection, current.windSpeed, location) : 
                 'unknown'
         };
     } catch (error) {
@@ -198,39 +191,13 @@ const generateSummaries = (modelData, location) => {
         return {
             current: 'Forecast unavailable',
             week: 'Forecast unavailable',
-            conditions: 'unknown'
+            conditions: 'unknown',
+            windImpact: 'unknown'
         };
     }
 };
 
-/**
- * Get processed marine conditions including forecast and summaries
- */
-async function getProcessedMarineConditions(lat, lon) {
-    try {
-        logger.info(`Processing marine conditions for lat: ${lat}, lon: ${lon}`);
-        
-        const modelData = await waveModelService.getPointForecast(lat, lon);
-        if (!modelData) {
-            throw new Error('No model data available');
-        }
-
-        const location = { latitude: lat, longitude: lon };
-        const summaries = generateSummaries(modelData, location);
-
-        return {
-            ...modelData,
-            summaries,
-            location
-        };
-    } catch (error) {
-        logger.error('Error processing marine conditions:', error);
-        throw error;
-    }
-}
-
 module.exports = {
-    getProcessedMarineConditions,
     generateSummaries,
     getWindImpact,
     getWaveDescription,

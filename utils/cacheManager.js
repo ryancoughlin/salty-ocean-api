@@ -49,6 +49,58 @@ const getModelRunCacheDuration = (() => {
     };
 })();
 
+// NDBC updates every 30 minutes at :26 and :56 past the hour
+const NDBC_UPDATE_MINUTES = [26, 56];
+
+/**
+ * Calculate TTL until next NDBC update
+ */
+const getNDBCCacheDuration = () => {
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    
+    // Find next update minute
+    const nextUpdate = NDBC_UPDATE_MINUTES.find(min => min > currentMinute) || NDBC_UPDATE_MINUTES[0];
+    
+    // Calculate minutes until next update
+    let minutesUntilUpdate = nextUpdate > currentMinute ? 
+        nextUpdate - currentMinute : 
+        (60 - currentMinute) + nextUpdate;
+    
+    // Convert to seconds and add 60s buffer
+    return (minutesUntilUpdate * 60) + 60;
+};
+
+/**
+ * Get cache TTL based on data type
+ */
+const getCacheTTL = (type) => {
+    switch (type) {
+        case 'waveModel':
+            return getModelRunCacheDuration();
+        case 'buoyData':
+            return getNDBCCacheDuration();
+        default:
+            return CONFIG.cache.hours * 3600;
+    }
+};
+
+/**
+ * Generate consistent cache keys
+ */
+const getCacheKey = (type, identifier) => {
+    switch (type) {
+        case 'waveModel':
+            return `wave_model_${identifier}`;
+        case 'buoyData':
+            return `ndbc_buoy_${identifier}`;
+        default:
+            return identifier;
+    }
+};
+
 module.exports = {
-    getModelRunCacheDuration
+    getModelRunCacheDuration,
+    getCacheTTL,
+    getCacheKey
 }; 

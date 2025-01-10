@@ -10,6 +10,7 @@ const { errorHandler } = require('./middlewares/errorHandler')
 const { logger } = require('./utils/logger')
 const { scheduleCacheMonitoring } = require('./services/scheduler')
 const restrictOrigin = require('./middlewares/restrictOrigin')
+const { initializeData } = require('./services/startupService')
 
 dotenv.config()
 
@@ -62,15 +63,28 @@ app.use(errorHandler)
 // Start cache cleanup scheduler
 scheduleCacheMonitoring()
 
-// Start server
-const server = app.listen(PORT, () => {
-  logger.info(`Server is running on port ${PORT}`)
-})
+// Initialize data when app starts
+const startApp = async () => {
+    try {
+        // Prefetch initial data
+        await initializeData();
+        
+        // Start server
+        app.listen(PORT, () => {
+            logger.info(`🌊 Server running on port ${PORT}`);
+        });
+    } catch (error) {
+        logger.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
+
+startApp();
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received. Starting graceful shutdown')
-  server.close(() => {
+  app.close(() => {
     logger.info('Server closed')
     process.exit(0)
   })

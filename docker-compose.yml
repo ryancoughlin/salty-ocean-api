@@ -1,8 +1,6 @@
 services:
   salty-server:
-    build:
-      context: .
-      target: runtime
+    build: .
     ports:
       - "5010:5010"
     volumes:
@@ -11,24 +9,4 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5010
-      - DEBUG=app:*,salty:*
-    init: true
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://0.0.0.0:5010/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - salty_network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        mode: non-blocking
-
-networks:
-  salty_network:
-    driver: bridge 
+    restart: unless-stopped 

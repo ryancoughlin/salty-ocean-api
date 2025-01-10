@@ -1,4 +1,4 @@
-FROM node:18-alpine as builder
+FROM node:20.11.1-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-FROM node:18-alpine as runtime
+FROM node:20.11.1-alpine AS runtime
 
 WORKDIR /usr/src/app
 
@@ -18,6 +18,9 @@ ENV NODE_ENV=production
 ENV PORT=5010
 
 EXPOSE 5010
+
+# Install wget for healthcheck
+RUN apk add --no-cache wget
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --spider -q http://localhost:5010/health || exit 1

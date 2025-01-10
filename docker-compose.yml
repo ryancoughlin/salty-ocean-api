@@ -7,17 +7,27 @@ services:
       target: runtime
     ports:
       - "5010:5010"
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./logs:/usr/src/app/logs
     environment:
       - NODE_ENV=production
       - PORT=5010
+      - TZ=UTC
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5010/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s
     networks:
       - salty_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   salty_network:

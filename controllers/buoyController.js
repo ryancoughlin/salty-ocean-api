@@ -98,13 +98,18 @@ const getBuoyData = async (req, res, next) => {
                     gust: buoyData.wind.gust,
                     trend: buoyData.trends?.wind || null
                 } : null,
-                waves: buoyData.waves.height ? {
+                waves: buoyData.waves?.height && {
                     height: buoyData.waves.height,
                     dominantPeriod: buoyData.waves.dominantPeriod,
                     averagePeriod: buoyData.waves.averagePeriod,
                     direction: buoyData.waves.direction,
-                    trend: buoyData.trends?.waveHeight || null
-                } : null,
+                    trend: buoyData.trends?.waveHeight || null,
+                    spectral: buoyData.waves.spectral && {
+                        steepness: buoyData.waves.spectral.steepness,
+                        swell: buoyData.waves.spectral.swell,
+                        windWave: buoyData.waves.spectral.windWave
+                    }
+                },
                 weather: {
                     pressure: buoyData.conditions.pressure,
                     airTemp: buoyData.conditions.airTemp,

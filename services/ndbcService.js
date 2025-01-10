@@ -5,9 +5,34 @@ const { logger } = require('../utils/logger');
 const { getOrSet, DEFAULT_TTL } = require('../utils/cache');
 
 const NDBC_BASE_URL = 'https://www.ndbc.noaa.gov/data/realtime2';
-const CACHE_TTL = 30 * 60; // 30 minutes
+const SPECTRAL_URL = 'https://www.ndbc.noaa.gov/data/realtime2';
+
+// NDBC updates every 30 minutes at :26 and :56 past the hour
+const NDBC_UPDATE_MINUTES = [26, 56];
 const REQUEST_TIMEOUT = 10000; // 10 seconds
 const TREND_HOURS = 4; // Hours to analyze for trends
+
+// Calculate TTL to next NDBC update
+const getTimeToNextUpdate = () => {
+    const now = new Date();
+    const currentMinute = now.getMinutes();
+    const currentSecond = now.getSeconds();
+    
+    // Find next update minute
+    const nextUpdateMinute = NDBC_UPDATE_MINUTES.find(min => min > currentMinute) || NDBC_UPDATE_MINUTES[0];
+    
+    // Calculate seconds until next update
+    let secondsToNextUpdate;
+    if (nextUpdateMinute > currentMinute) {
+        secondsToNextUpdate = ((nextUpdateMinute - currentMinute) * 60) - currentSecond;
+    } else {
+        // Next update is in the next hour
+        secondsToNextUpdate = ((60 - currentMinute + nextUpdateMinute) * 60) - currentSecond;
+    }
+    
+    // Add 60 seconds buffer to ensure data is available
+    return secondsToNextUpdate + 60;
+};
 
 // Conversion helpers
 const metersToFeet = meters => meters * 3.28084;
@@ -57,6 +82,25 @@ const COLUMNS = {
     AIR_TEMP: 13,   // ATMP: Air temperature (°C)
     WATER_TEMP: 14, // WTMP: Sea surface temperature (°C)
     DEW_POINT: 15   // DEWP: Dewpoint temperature (°C)
+};
+
+// Add spectral data columns
+const SPECTRAL_COLUMNS = {
+    YEAR: 0,
+    MONTH: 1,
+    DAY: 2,
+    HOUR: 3,
+    MINUTE: 4,
+    WVHT: 5,    // Total wave height
+    SwH: 6,     // Swell height
+    SwP: 7,     // Swell period
+    WWH: 8,     // Wind wave height
+    WWP: 9,     // Wind wave period
+    SwD: 10,    // Swell direction
+    WWD: 11,    // Wind wave direction
+    STEEPNESS: 12,
+    APD: 13,    // Average wave period
+    MWD: 14     // Mean wave direction
 };
 
 class NDBCService {
@@ -230,68 +274,221 @@ class NDBCService {
         };
     }
 
+    async fetchSpectralData(buoyId) {
+        try {
+            const url = `${SPECTRAL_URL}/${buoyId}.spec`;
+            logger.info(`Fetching spectral data from: ${url}`);
+            
+            const response = await axios.get(url, { timeout: REQUEST_TIMEOUT });
+            const lines = response.data.trim().split('\n');
+            logger.debug(`Received ${lines.length} lines of spectral data`);
+            
+            // Get first data line (most recent)
+            const dataLines = lines.filter(line => !line.startsWith('#'));
+            if (dataLines.length === 0) {
+                logger.warn(`No spectral data lines found for buoy ${buoyId}`);
+                return null;
+            }
+
+            const values = dataLines[0].trim().split(/\s+/);
+            if (values.length < 15) {
+                logger.warn(`Invalid spectral data format for buoy ${buoyId}, got ${values.length} columns, expected 15`);
+                return null;
+            }
+
+            const spectralData = {
+                time: new Date(Date.UTC(
+                    parseInt(values[SPECTRAL_COLUMNS.YEAR]),
+                    parseInt(values[SPECTRAL_COLUMNS.MONTH]) - 1,
+                    parseInt(values[SPECTRAL_COLUMNS.DAY]),
+                    parseInt(values[SPECTRAL_COLUMNS.HOUR]),
+                    parseInt(values[SPECTRAL_COLUMNS.MINUTE])
+                )).toISOString(),
+                waves: {
+                    height: this.parseValue(values[SPECTRAL_COLUMNS.WVHT], 'WVHT'),
+                    swell: {
+                        height: this.parseValue(values[SPECTRAL_COLUMNS.SwH], 'WVHT'),
+                        period: this.parseValue(values[SPECTRAL_COLUMNS.SwP], 'SwP'),
+                        direction: values[SPECTRAL_COLUMNS.SwD] === 'MM' ? null : values[SPECTRAL_COLUMNS.SwD]
+                    },
+                    windWave: {
+                        height: this.parseValue(values[SPECTRAL_COLUMNS.WWH], 'WVHT'),
+                        period: this.parseValue(values[SPECTRAL_COLUMNS.WWP], 'WWP'),
+                        direction: values[SPECTRAL_COLUMNS.WWD] === 'MM' ? null : values[SPECTRAL_COLUMNS.WWD]
+                    },
+                    steepness: values[SPECTRAL_COLUMNS.STEEPNESS] === 'MM' ? null : values[SPECTRAL_COLUMNS.STEEPNESS]
+                }
+            };
+            
+            logger.debug('Parsed spectral data:', spectralData);
+            return spectralData;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                logger.info(`No spectral data available for buoy ${buoyId}`);
+            } else {
+                logger.warn(`Error fetching spectral data for buoy ${buoyId}:`, error.message);
+            }
+            return null;
+        }
+    }
+
+    createMarinerSummary(metData, spectralData) {
+        if (!metData) return 'No current conditions available';
+
+        let summary = [];
+
+        // Add wave information if available
+        if (spectralData?.waves) {
+            const { waves } = spectralData;
+            const hasSwell = waves.swell.height > 0.5; // More than 0.5m swell
+            const hasWindWaves = waves.windWave.height > 0.5;
+
+            if (hasSwell && hasWindWaves) {
+                summary.push(
+                    `Mixed conditions with ${waves.windWave.height.toFixed(1)}ft wind waves ` +
+                    `(${waves.windWave.period}s) from the ${waves.windWave.direction} and ` +
+                    `${waves.swell.height.toFixed(1)}ft swell (${waves.swell.period}s) from the ${waves.swell.direction}`
+                );
+            } else if (hasSwell) {
+                summary.push(
+                    `Clean ${waves.swell.height.toFixed(1)}ft swell from the ${waves.swell.direction} ` +
+                    `at ${waves.swell.period}s`
+                );
+            } else if (hasWindWaves) {
+                summary.push(
+                    `${waves.steepness.toLowerCase()} ${waves.windWave.height.toFixed(1)}ft ` +
+                    `wind waves from the ${waves.windWave.direction}`
+                );
+            }
+        } else if (metData.waves.height) {
+            summary.push(`${metData.waves.height.toFixed(1)}ft waves at ${metData.waves.dominantPeriod}s`);
+        }
+
+        // Add wind information
+        if (metData.wind.speed) {
+            const beaufort = getBeaufortDescription(metData.wind.speed);
+            summary.push(
+                `${beaufort.description} winds at ${metData.wind.speed}mph from the ${metData.wind.direction}` +
+                (metData.wind.gust ? ` gusting to ${metData.wind.gust}mph` : '')
+            );
+        }
+
+        return summary.join('. ');
+    }
+
     async fetchBuoyData(buoyId) {
         try {
-            const cacheKey = `buoy_data_${buoyId}`;
+            const cacheKey = `ndbc_buoy_${buoyId}`;
+            logger.info(`Fetching buoy data for ${buoyId}`);
             
             const { data: buoyData, fromCache } = await getOrSet(
                 cacheKey,
                 async () => {
-                    const url = `${NDBC_BASE_URL}/${buoyId}.txt`;
-                    const response = await axios.get(url, { timeout: REQUEST_TIMEOUT });
-                    const lines = response.data.trim().split('\n');
-                    
-                    if (lines.length < 3) {
-                        logger.error(`Invalid response for buoy ${buoyId}: insufficient data`);
+                    // Fetch both meteorological and spectral data
+                    logger.info(`Fetching fresh data for buoy ${buoyId}`);
+                    const [metData, spectralData] = await Promise.all([
+                        this.fetchMetData(buoyId),
+                        this.fetchSpectralData(buoyId)
+                    ]);
+
+                    if (!metData) {
+                        logger.warn(`No meteorological data available for buoy ${buoyId}`);
                         return null;
                     }
 
-                    const dataLines = lines.filter(line => !line.startsWith('#'));
-                    if (dataLines.length === 0) {
-                        logger.error(`No data lines found for buoy ${buoyId}`);
-                        return null;
-                    }
+                    // Use spectral wave height when available, fallback to met data
+                    const waveHeight = spectralData?.waves?.height || metData.waves.height;
 
-                    // Parse recent observations for trend analysis
-                    const recentObservations = dataLines
-                        .slice(0, 8)
-                        .map(line => {
-                            const values = line.trim().split(/\s+/);
-                            return this.parseDataLine(values);
-                        })
-                        .filter(data => data.waves.height || data.wind.speed);
-
-                    if (recentObservations.length === 0) {
-                        logger.error(`No valid observations found for buoy ${buoyId}`);
-                        return null;
-                    }
-
-                    const trends = this.analyzeTrends(recentObservations);
-                    const currentData = recentObservations[0];
-
-                    return {
-                        ...currentData,
-                        trends,
-                        stationId: buoyId,
-                        fetchTime: new Date().toISOString()
+                    // Combine the data
+                    const combinedData = {
+                        time: metData.time,
+                        wind: metData.wind,
+                        waves: {
+                            height: waveHeight,
+                            dominantPeriod: metData.waves.dominantPeriod,
+                            averagePeriod: metData.waves.averagePeriod,
+                            direction: metData.waves.direction,
+                            spectral: spectralData?.waves ? {
+                                steepness: spectralData.waves.steepness,
+                                swell: spectralData.waves.swell,
+                                windWave: spectralData.waves.windWave
+                            } : null
+                        },
+                        conditions: metData.conditions,
+                        trends: metData.trends,
+                        marinerSummary: this.createMarinerSummary(metData, spectralData)
                     };
+
+                    logger.debug('Combined buoy data:', {
+                        time: combinedData.time,
+                        hasSpectral: !!spectralData?.waves,
+                        waveHeight,
+                        spectralComponents: spectralData?.waves ? {
+                            swell: spectralData.waves.swell.height,
+                            windWave: spectralData.waves.windWave.height
+                        } : null
+                    });
+
+                    return combinedData;
                 },
-                DEFAULT_TTL
+                getTimeToNextUpdate() // Dynamic TTL based on NDBC update schedule
             );
 
             if (!buoyData) {
-                logger.error(`Failed to fetch or process data for buoy ${buoyId}`);
+                logger.warn(`No data available for buoy ${buoyId}`);
                 return null;
             }
 
-            if (!fromCache) {
-                logger.info(`Fresh buoy data fetched for ${buoyId}`);
-            }
-
+            logger.info(`Returning ${fromCache ? 'cached' : 'fresh'} data for buoy ${buoyId}`);
             return buoyData;
         } catch (error) {
             logger.error(`Error fetching buoy data for ${buoyId}:`, error);
             throw error;
+        }
+    }
+
+    // Rename existing data fetch to be more specific
+    async fetchMetData(buoyId) {
+        try {
+            const url = `${NDBC_BASE_URL}/${buoyId}.txt`;
+            const response = await axios.get(url, { timeout: REQUEST_TIMEOUT });
+            const lines = response.data.trim().split('\n');
+            
+            if (lines.length < 3) {
+                logger.error(`Invalid response for buoy ${buoyId}: insufficient data`);
+                return null;
+            }
+
+            const dataLines = lines.filter(line => !line.startsWith('#'));
+            if (dataLines.length === 0) {
+                logger.error(`No data lines found for buoy ${buoyId}`);
+                return null;
+            }
+
+            // Parse recent observations
+            const recentObservations = dataLines
+                .slice(0, 8)
+                .map(line => {
+                    const values = line.trim().split(/\s+/);
+                    return this.parseDataLine(values);
+                })
+                .filter(data => data.waves.height || data.wind.speed);
+
+            if (recentObservations.length === 0) {
+                logger.error(`No valid observations found for buoy ${buoyId}`);
+                return null;
+            }
+
+            const currentData = recentObservations[0];
+            const trends = this.analyzeTrends(recentObservations);
+
+            return {
+                ...currentData,
+                trends
+            };
+        } catch (error) {
+            logger.error(`Error fetching met data for buoy ${buoyId}:`, error);
+            return null;
         }
     }
 }

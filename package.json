@@ -5,11 +5,11 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon",
+    "dev": "NODE_ENV=development LOG_LEVEL=debug nodemon app.js",
+    "prod": "NODE_ENV=production nodemon app.js",
     "lint": "eslint .",
     "test": "jest",
-    "docs": "swagger-jsdoc -d swaggerDef.js -o swagger.json",
-    "build": "tsc"
+    "docs": "swagger-jsdoc -d swaggerDef.js -o swagger.json"
   },
   "author": "",
   "license": "ISC",

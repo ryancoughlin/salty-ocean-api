@@ -1,4 +1,4 @@
-FROM node:20.11.1-alpine AS builder
+FROM node:20.12.2-alpine AS builder
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -13,7 +13,10 @@ RUN npm ci
 # Bundle app source
 COPY . .
 
-FROM node:20.11.1-alpine AS runtime
+FROM node:20.12.2-alpine AS runtime
+
+# Install necessary utilities
+RUN apk add --no-cache wget curl
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -30,6 +33,11 @@ COPY --chown=nodejs:nodejs . .
 ENV NODE_ENV=production
 ENV PORT=5010
 
+# Create data and logs directories and set permissions
+RUN mkdir -p data logs && \
+    chown -R nodejs:nodejs data logs && \
+    chmod +x start.sh
+
 # Switch to non-root user
 USER nodejs
 
@@ -38,4 +46,4 @@ EXPOSE 5010
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --spider -q http://0.0.0.0:5010/health || exit 1
 
-CMD ["node", "app.js"] 
+CMD ["./start.sh"] 

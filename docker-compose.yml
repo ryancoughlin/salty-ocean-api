@@ -13,6 +13,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5010
+      - DEBUG=*
+      - NODE_OPTIONS="--trace-warnings"
     init: true
     restart: unless-stopped
     healthcheck:
@@ -28,6 +30,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+        mode: non-blocking
 
 networks:
   salty_network:

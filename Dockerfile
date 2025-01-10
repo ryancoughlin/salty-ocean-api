@@ -23,6 +23,6 @@ EXPOSE 5010
 RUN apk add --no-cache wget
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --spider -q http://localhost:5010/health || exit 1
+    CMD wget --spider -q http://0.0.0.0:5010/health || exit 1
 
 CMD ["node", "app.js"] 

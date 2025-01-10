@@ -1,7 +1,7 @@
 const { logger } = require('../utils/logger');
 const { getOrSet } = require('../utils/cache');
 const waveModelService = require('../services/waveModelService');
-const { getCacheTTL, getCacheKey } = require('../utils/cacheManager');
+const { getCacheConfig } = require('../utils/cacheManager');
 
 const EAST_COAST_BOUNDS = {
   north: 45.0,  // Maine
@@ -59,10 +59,11 @@ const processBatch = async (stations, ndbcService) => {
   const results = await Promise.all(
     stations.map(async (station) => {
       try {
+        const buoyConfig = getCacheConfig('buoyData', station.id);
         const buoyData = await getOrSet(
-          getCacheKey('buoyData', station.id),
+          buoyConfig.key,
           () => ndbcService.fetchBuoyData(station.id),
-          getCacheTTL('buoyData')
+          buoyConfig.ttl
         );
         
         // Also prefetch wave model forecast if we have coordinates
@@ -70,10 +71,11 @@ const processBatch = async (stations, ndbcService) => {
           const [longitude, latitude] = station.location.coordinates;
           
           try {
+            const forecastConfig = getCacheConfig('waveModel', `${latitude}_${longitude}`);
             await getOrSet(
-              getCacheKey('waveModel', `${latitude}_${longitude}`),
+              forecastConfig.key,
               () => waveModelService.getPointForecast(latitude, longitude),
-              getCacheTTL('waveModel')
+              forecastConfig.ttl
             );
             logger.debug(`✓ Wave forecast prefetched for station ${station.id}`);
           } catch (forecastError) {

@@ -1,6 +1,18 @@
 const { logger } = require('./logger');
 const CONFIG = require('../config/waveModelConfig');
 
+// Cache types and their TTL calculators
+const CACHE_TYPES = {
+    waveModel: {
+        keyPrefix: 'wave_model',
+        getTTL: getModelRunCacheDuration
+    },
+    buoyData: {
+        keyPrefix: 'ndbc_buoy',
+        getTTL: getNDBCCacheDuration
+    }
+};
+
 /**
  * Calculates cache duration based on NOAA wave model run times
  * Memoized to recalculate only once per minute for performance
@@ -8,7 +20,7 @@ const CONFIG = require('../config/waveModelConfig');
 const getModelRunCacheDuration = (() => {
     let cachedDuration = null;
     let lastCalculated = 0;
-    const RECALCULATE_INTERVAL = 60000; // 1 minute in milliseconds
+    const RECALCULATE_INTERVAL = 60000; // 1 minute
     
     const calculate = () => {
         const now = new Date();
@@ -19,24 +31,21 @@ const getModelRunCacheDuration = (() => {
         const modelRuns = CONFIG.modelRuns.hours.map(h => parseInt(h));
         const nextRun = modelRuns.find(hour => hour > currentHour) || modelRuns[0];
         
-        // Calculate hours until next run
+        // Calculate hours until next run + availability delay
         let hoursUntilNextRun = nextRun > currentHour ? 
             nextRun - currentHour : 
             (24 - currentHour) + nextRun;
-        
-        // Add model availability delay (typically 5 hours)
         hoursUntilNextRun += CONFIG.modelRuns.availableAfter[nextRun.toString().padStart(2, '0')];
         
         // Convert to seconds and subtract elapsed minutes
-        const cacheDuration = (hoursUntilNextRun * 60 - currentMinute) * 60;
-        
-        // Cap at maximum cache duration from config (6 hours)
-        return Math.min(cacheDuration, CONFIG.cache.hours * 3600);
+        return Math.min(
+            (hoursUntilNextRun * 60 - currentMinute) * 60,
+            CONFIG.cache.hours * 3600
+        );
     };
     
     return () => {
         const now = Date.now();
-        // Recalculate if no cached value or cache is older than 1 minute
         if (!cachedDuration || now - lastCalculated > RECALCULATE_INTERVAL) {
             cachedDuration = calculate();
             lastCalculated = now;
@@ -58,49 +67,33 @@ const NDBC_UPDATE_MINUTES = [26, 56];
 const getNDBCCacheDuration = () => {
     const now = new Date();
     const currentMinute = now.getMinutes();
-    
-    // Find next update minute
     const nextUpdate = NDBC_UPDATE_MINUTES.find(min => min > currentMinute) || NDBC_UPDATE_MINUTES[0];
     
-    // Calculate minutes until next update
-    let minutesUntilUpdate = nextUpdate > currentMinute ? 
+    const minutesUntilUpdate = nextUpdate > currentMinute ? 
         nextUpdate - currentMinute : 
         (60 - currentMinute) + nextUpdate;
     
-    // Convert to seconds and add 60s buffer
-    return (minutesUntilUpdate * 60) + 60;
+    return (minutesUntilUpdate * 60) + 60; // Add 60s buffer
 };
 
 /**
- * Get cache TTL based on data type
+ * Get cache TTL and key for a data type
  */
-const getCacheTTL = (type) => {
-    switch (type) {
-        case 'waveModel':
-            return getModelRunCacheDuration();
-        case 'buoyData':
-            return getNDBCCacheDuration();
-        default:
-            return CONFIG.cache.hours * 3600;
+const getCacheConfig = (type, identifier) => {
+    const cacheType = CACHE_TYPES[type];
+    if (!cacheType) {
+        return {
+            key: identifier,
+            ttl: CONFIG.cache.hours * 3600
+        };
     }
-};
-
-/**
- * Generate consistent cache keys
- */
-const getCacheKey = (type, identifier) => {
-    switch (type) {
-        case 'waveModel':
-            return `wave_model_${identifier}`;
-        case 'buoyData':
-            return `ndbc_buoy_${identifier}`;
-        default:
-            return identifier;
-    }
+    
+    return {
+        key: `${cacheType.keyPrefix}_${identifier}`,
+        ttl: cacheType.getTTL()
+    };
 };
 
 module.exports = {
-    getModelRunCacheDuration,
-    getCacheTTL,
-    getCacheKey
+    getCacheConfig
 }; 

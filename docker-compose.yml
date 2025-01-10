@@ -13,8 +13,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5010
-      - DEBUG=*
-      - NODE_OPTIONS="--trace-warnings"
+      - DEBUG=app:*,salty:*
     init: true
     restart: unless-stopped
     healthcheck:

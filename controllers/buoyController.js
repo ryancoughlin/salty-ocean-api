@@ -69,21 +69,11 @@ const getBuoyData = async (req, res, next) => {
                         setTimeout(() => reject(new AppError(504, 'Forecast fetch timeout')), 20000)
                     )
                 ]);
-                
-                logger.debug(`Raw forecast data received:`, { 
-                    hasForecast: !!forecast,
-                    modelRun: forecast?.modelRun,
-                    periodsCount: forecast?.periods?.length,
-                    firstPeriodDate: forecast?.periods?.[0]?.date
-                });
 
                 if (forecast?.periods?.length) {
                     forecast.summaries = waveConditionsService.generateSummaries(forecast, {
                         latitude: lat,
                         longitude: lon
-                    });
-                    logger.debug(`Generated forecast summaries for buoy ${buoyId}`, {
-                        summariesCount: Object.keys(forecast.summaries || {}).length
                     });
                 } else if (forecast) {
                     logger.warn(`Forecast received but no periods available for buoy ${buoyId}`, {
@@ -101,7 +91,6 @@ const getBuoyData = async (req, res, next) => {
             }
         }
 
-        // Build response
         const response = {
             id: buoyInfo.id,
             name: buoyInfo.name,
@@ -179,16 +168,6 @@ const getBuoyData = async (req, res, next) => {
             hasObservations: !!cleanResponse.observations,
             hasForecast: !!cleanResponse.forecast,
             responseKeys: Object.keys(cleanResponse)
-        });
-
-        // Log performance metrics
-        const duration = Date.now() - startTime;
-        logger.info(`Buoy data request completed`, {
-            buoyId,
-            duration,
-            hasForecast: !!forecast,
-            cacheDuration,
-            statusCode: 200
         });
 
         res.status(200).json(cleanResponse);

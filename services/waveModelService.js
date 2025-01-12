@@ -2,6 +2,15 @@ const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { getOrSet } = require('../utils/cache');
 const CONFIG = require('../config/waveModelConfig');
+const https = require('https');
+
+// Create a reusable HTTPS agent with keep-alive
+const agent = new https.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    timeout: 60000,
+    maxSockets: 10
+});
 
 // Model selection
 const findModelForLocation = (lat, lon, models) => {
@@ -116,97 +125,62 @@ const processModelData = (modelRun, lines) => {
         currentTimeIndex++;
     });
 
-    // Process data into periods
-    const periods = data.reduce((acc, point) => {
-        // Only add periods with required data
-        if (point.waveHeight && point.wavePeriod) {
-            const period = {
-                date: point.time.split('T')[0],
-                time: point.time,
-                waves: {
-                    height: point.waveHeight,
-                    period: point.wavePeriod,
-                    direction: point.waveDirection,
-                    components: {
-                        wind: point.windWaveHeight ? {
-                            height: point.windWaveHeight,
-                            period: point.windWavePeriod,
-                            direction: point.windWaveDirection
-                        } : null,
-                        swell: []
-                    }
-                },
-                wind: {
-                    speed: point.windSpeed,
-                    direction: point.windDirection,
-                    components: point.uWind && point.vWind ? {
-                        u: point.uWind,
-                        v: point.vWind
-                    } : null
-                }
+    // Process and group data by day
+    const groupedByDay = data.reduce((acc, point) => {
+        if (!point.waveHeight || !point.wavePeriod) return acc;
+
+        const date = point.time.split('T')[0];
+        if (!acc[date]) {
+            acc[date] = {
+                date,
+                periods: []
             };
-
-            // Add swell components in order of height
-            const swells = [];
-            for (let i = 1; i <= 3; i++) {
-                if (point[`swell${i}Height`]) {
-                    swells.push({
-                        height: point[`swell${i}Height`],
-                        period: point[`swell${i}Period`],
-                        direction: point[`swell${i}Direction`]
-                    });
-                }
-            }
-            period.waves.components.swell = swells;
-
-            acc.push(period);
         }
-        return acc;
-    }, []);
 
-    return periods;
-};
-
-function calculateDailySummary(periods) {
-    if (!periods?.length) return null;
-    
-    try {
-        const calcStats = values => ({
-            min: Math.min(...values),
-            max: Math.max(...values),
-            avg: parseFloat((values.reduce((a, b) => a + b, 0) / values.length).toFixed(1))
+        acc[date].periods.push({
+            time: point.time,
+            waves: {
+                height: point.waveHeight,
+                period: point.wavePeriod,
+                direction: point.waveDirection
+            },
+            wind: {
+                speed: point.windSpeed,
+                direction: point.windDirection
+            },
+            components: {
+                windWave: point.windWaveHeight ? {
+                    height: point.windWaveHeight,
+                    period: point.windWavePeriod,
+                    direction: point.windWaveDirection
+                } : null,
+                swells: [
+                    point.swell1Height ? {
+                        height: point.swell1Height,
+                        period: point.swell1Period,
+                        direction: point.swell1Direction
+                    } : null,
+                    point.swell2Height ? {
+                        height: point.swell2Height,
+                        period: point.swell2Period,
+                        direction: point.swell2Direction
+                    } : null,
+                    point.swell3Height ? {
+                        height: point.swell3Height,
+                        period: point.swell3Period,
+                        direction: point.swell3Direction
+                    } : null
+                ].filter(Boolean)
+            }
         });
 
-        const summary = {
-            waveHeight: calcStats(periods.map(p => p.waveHeight)),
-            wavePeriod: calcStats(periods.map(p => p.wavePeriod)),
-            windSpeed: calcStats(periods.map(p => p.windSpeed))
-        };
+        return acc;
+    }, {});
 
-        // Add wind wave stats if available
-        const windWaves = periods.filter(p => p.windWaveHeight);
-        if (windWaves.length > 0) {
-            summary.windWaves = {
-                height: calcStats(windWaves.map(p => p.windWaveHeight)),
-                period: calcStats(windWaves.map(p => p.windWavePeriod))
-            };
-        }
-
-        // Add primary swell stats if available
-        const swells = periods.filter(p => p.swell1Height);
-        if (swells.length > 0) {
-            summary.primarySwell = {
-                height: calcStats(swells.map(p => p.swell1Height)),
-                period: calcStats(swells.map(p => p.swell1Period))
-            };
-        }
-
-        return summary;
-    } catch (error) {
-        logger.error('Error calculating daily summary:', error);
-        return null;
-    }
-}
+    // Convert to array and sort by date
+    return Object.values(groupedByDay)
+        .sort((a, b) => a.date.localeCompare(b.date));
+};
 
 // API request handling
 const checkModelAvailability = async (modelRun) => {
@@ -230,21 +204,48 @@ const checkModelAvailability = async (modelRun) => {
 };
 
 const retryRequest = async (url, attempt = 1) => {
+    logger.info(`GDS Request (${attempt}/${CONFIG.request.maxRetries}): ${url}`);
+    
     try {
-        return await axios.get(url, { 
-            timeout: 15000,
-            headers: { 'Accept-Encoding': 'gzip, deflate' }
+        const response = await axios({
+            method: 'get',
+            url,
+            httpAgent: agent,
+            httpsAgent: agent,
+            headers: {
+                'Accept': 'text/plain',
+                'Accept-Encoding': 'identity'
+            },
+            responseType: 'text',
+            maxRedirects: 2,
+            timeout: 30000,
+            validateStatus: status => status === 200
         });
+        
+        if (response.data.includes('Error') || response.data.includes('error')) {
+            throw new Error(`GDS returned error in response: ${response.data.split('\n')[0]}`);
+        }
+        
+        return response;
     } catch (error) {
+        const isConnectionError = error.code === 'ECONNRESET' || 
+                                error.code === 'ECONNABORTED' ||
+                                error.message.includes('socket hang up');
+
+        logger.error(`GDS request failed`, {
+            url,
+            attempt,
+            error: error.message,
+            code: error.code,
+            isConnectionError
+        });
+
         if (attempt >= CONFIG.request.maxRetries) throw error;
         
-        logger.warn(`Attempt ${attempt} failed for ${url}`, {
-            error: error.message,
-            attempt,
-            maxRetries: CONFIG.request.maxRetries,
-            retryDelay: CONFIG.request.retryDelay
-        });
-        await new Promise(resolve => setTimeout(resolve, CONFIG.request.retryDelay));
+        // Shorter delay for connection errors
+        const delay = isConnectionError ? 500 : Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        logger.info(`Retrying in ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return retryRequest(url, attempt + 1);
     }
 };

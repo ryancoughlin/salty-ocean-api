@@ -32,3 +32,4 @@ Code Conventions
 - Use functional programming patterns and avoid side effects
 - Use sepration of concerns and avoid monolithic files
 - Follow GeoJSON spec, format and ordering for processing.
+- Never never add keys to api response that are not in the data OR without asking.

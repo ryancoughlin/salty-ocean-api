@@ -144,14 +144,15 @@ const getBuoyData = async (req, res, next) => {
 
         // Add forecast if available
         if (forecast?.periods?.length > 0) {
-            // Group periods by date
-            const forecastDays = forecast.periods.reduce((acc, period) => {
-                const date = period.date;
-                if (!acc[date]) {
-                    acc[date] = [];
+            const forecastDays = {};
+            
+            // Group by date - simple and clear
+            forecast.periods.forEach(period => {
+                if (!forecastDays[period.date]) {
+                    forecastDays[period.date] = [];
                 }
                 
-                acc[date].push({
+                forecastDays[period.date].push({
                     time: period.time,
                     wind: {
                         speed: period.wind.speed,
@@ -161,15 +162,10 @@ const getBuoyData = async (req, res, next) => {
                         height: period.waves.height,
                         period: period.waves.period,
                         direction: period.waves.direction,
-                        windHeight: period.waves.components.wind?.height || null,
-                        windPeriod: period.waves.components.wind?.period || null,
-                        windDirection: period.waves.components.wind?.direction || null,
                         swell: period.waves.components.swell || []
                     }
                 });
-                
-                return acc;
-            }, {});
+            });
 
             response.forecast = {
                 modelRun: forecast.modelRun,

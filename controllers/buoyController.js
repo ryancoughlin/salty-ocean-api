@@ -143,37 +143,27 @@ const getBuoyData = async (req, res, next) => {
         };
 
         // Add forecast if available
-        if (forecast?.periods?.length > 0) {
-            const forecastDays = {};
-            
-            // Group by date - simple and clear
-            forecast.periods.forEach(period => {
-                if (!forecastDays[period.date]) {
-                    forecastDays[period.date] = [];
-                }
-                
-                forecastDays[period.date].push({
-                    time: period.time,
-                    wind: {
-                        speed: period.wind.speed,
-                        direction: period.wind.direction
-                    },
-                    waves: {
-                        height: period.waves.height,
-                        period: period.waves.period,
-                        direction: period.waves.direction,
-                        swell: period.waves.components.swell || []
-                    }
-                });
-            });
-
+        if (forecast?.days?.length > 0) {
             response.forecast = {
-                modelRun: forecast.modelRun,
-                model: forecast.model,
-                generated: forecast.generated,
-                days: Object.keys(forecastDays).map(date => ({
-                    date,
-                    forecast: forecastDays[date]
+                metadata: forecast.metadata,
+                days: forecast.days.map(day => ({
+                    date: day.date,
+                    periods: day.periods.map(period => ({
+                        time: period.time,
+                        wind: period.wind?.speed ? {
+                            speed: period.wind.speed,
+                            direction: period.wind.direction
+                        } : null,
+                        waves: period.waves?.height ? {
+                            height: period.waves.height,
+                            period: period.waves.period,
+                            direction: period.waves.direction,
+                            components: period.components ? {
+                                windWave: period.components.windWave,
+                                swells: period.components.swells
+                            } : null
+                        } : null
+                    }))
                 }))
             };
         }

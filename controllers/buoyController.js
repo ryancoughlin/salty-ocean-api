@@ -66,20 +66,36 @@ const getBuoyData = async (req, res, next) => {
                 forecast = await Promise.race([
                     waveModelService.getPointForecast(lat, lon),
                     new Promise((_, reject) => 
-                        setTimeout(() => reject(new AppError(504, 'Forecast fetch timeout')), 10000)
+                        setTimeout(() => reject(new AppError(504, 'Forecast fetch timeout')), 20000)
                     )
                 ]);
                 
-                if (forecast) {
+                logger.debug(`Raw forecast data received:`, { 
+                    hasForecast: !!forecast,
+                    modelRun: forecast?.modelRun,
+                    periodsCount: forecast?.periods?.length,
+                    firstPeriodDate: forecast?.periods?.[0]?.date
+                });
+
+                if (forecast?.periods?.length) {
                     forecast.summaries = waveConditionsService.generateSummaries(forecast, {
                         latitude: lat,
                         longitude: lon
                     });
-                    logger.debug(`Generated forecast summaries for buoy ${buoyId}`);
+                    logger.debug(`Generated forecast summaries for buoy ${buoyId}`, {
+                        summariesCount: Object.keys(forecast.summaries || {}).length
+                    });
+                } else if (forecast) {
+                    logger.warn(`Forecast received but no periods available for buoy ${buoyId}`, {
+                        forecast: JSON.stringify(forecast)
+                    });
+                } else {
+                    logger.warn(`No forecast data received for buoy ${buoyId}`);
                 }
             } catch (forecastError) {
                 logger.warn(`Failed to fetch forecast for buoy ${buoyId}:`, {
                     error: forecastError.message,
+                    stack: forecastError.stack,
                     coordinates: stationInfo.location.coordinates
                 });
             }
@@ -104,11 +120,9 @@ const getBuoyData = async (req, res, next) => {
                     averagePeriod: buoyData.waves.averagePeriod,
                     direction: buoyData.waves.direction,
                     trend: buoyData.trends?.waveHeight || null,
-                    spectral: buoyData.waves.spectral && {
-                        steepness: buoyData.waves.spectral.steepness,
-                        swell: buoyData.waves.spectral.swell,
-                        windWave: buoyData.waves.spectral.windWave
-                    }
+                    steepness: buoyData.waves.spectral?.steepness || null,
+                    swell: buoyData.waves.spectral?.swell || null,
+                    windWave: buoyData.waves.spectral?.windWave || null
                 },
                 weather: {
                     pressure: buoyData.conditions.pressure,
@@ -117,50 +131,70 @@ const getBuoyData = async (req, res, next) => {
                     dewPoint: buoyData.conditions.dewPoint
                 }
             },
-            summary: buoyData.trends?.summary || null
-        };
-
-        // Add forecast if available
-        if (forecast) {
-            response.modelRun = forecast.modelRun;
-            response.forecast = forecast.days.map(day => ({
-                date: day.date,
-                waves: day.summary.waveHeight ? {
-                    min: day.summary.waveHeight.min,
-                    max: day.summary.waveHeight.max,
-                    avg: day.summary.waveHeight.avg
-                } : null,
-                wind: day.summary.windSpeed ? {
-                    min: day.summary.windSpeed.min,
-                    max: day.summary.windSpeed.max,
-                    avg: day.summary.windSpeed.avg
-                } : null,
-                periods: day.periods.map(period => ({
-                    time: period.time,
-                    waves: period.waveHeight ? {
-                        height: period.waveHeight,
-                        period: period.wavePeriod,
-                        direction: period.waveDirection
-                    } : null,
-                    wind: period.windSpeed ? {
-                        speed: period.windSpeed,
-                        direction: period.windDirection
-                    } : null
-                }))
-            }));
-            response.summary = forecast.summaries;
-            response.units = {
+            summary: buoyData.trends?.summary || null,
+            units: {
                 waveHeight: 'ft',
                 wavePeriod: 'seconds',
                 waveDirection: 'degrees',
                 windSpeed: 'mph',
-                windDirection: 'degrees'
+                windDirection: 'degrees',
+                windComponents: 'mph'
+            }
+        };
+
+        // Add forecast if available
+        if (forecast?.periods?.length > 0) {
+            // Group periods by date
+            const forecastDays = forecast.periods.reduce((acc, period) => {
+                const date = period.date;
+                if (!acc[date]) {
+                    acc[date] = [];
+                }
+                
+                acc[date].push({
+                    time: period.time,
+                    wind: {
+                        speed: period.wind.speed,
+                        direction: period.wind.direction
+                    },
+                    waves: {
+                        height: period.waves.height,
+                        period: period.waves.period,
+                        direction: period.waves.direction,
+                        windHeight: period.waves.components.wind?.height || null,
+                        windPeriod: period.waves.components.wind?.period || null,
+                        windDirection: period.waves.components.wind?.direction || null,
+                        swell: period.waves.components.swell || []
+                    }
+                });
+                
+                return acc;
+            }, {});
+
+            response.forecast = {
+                modelRun: forecast.modelRun,
+                model: forecast.model,
+                generated: forecast.generated,
+                days: Object.keys(forecastDays).map(date => ({
+                    date,
+                    forecast: forecastDays[date]
+                }))
             };
         }
 
         // Remove null values and send response
         const cleanResponse = JSON.parse(JSON.stringify(response));
         
+        // Log final response structure
+        logger.debug(`Final response keys:`, {
+            hasId: !!cleanResponse.id,
+            hasName: !!cleanResponse.name,
+            hasLocation: !!cleanResponse.location,
+            hasObservations: !!cleanResponse.observations,
+            hasForecast: !!cleanResponse.forecast,
+            responseKeys: Object.keys(cleanResponse)
+        });
+
         // Log performance metrics
         const duration = Date.now() - startTime;
         logger.info(`Buoy data request completed`, {

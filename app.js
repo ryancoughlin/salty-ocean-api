@@ -57,19 +57,18 @@ scheduleCacheMonitoring()
 
 const startApp = async () => {
     try {
-        // Start server first
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`🌊 Server running on port ${PORT}`);
         });
 
-        // Initialize data after server is running
-        try {
-            await initializeData();
-            console.log('Data initialization complete');
-        } catch (error) {
-            console.error('Data initialization failed:', error);
-            // Continue running even if initialization fails
-        }
+        // // Initialize data after server is running
+        // try {
+        //     await initializeData();
+        //     console.log('Data initialization complete');
+        // } catch (error) {
+        //     console.error('Data initialization failed:', error);
+        //     // Continue running even if initialization fails
+        // }
     } catch (error) {
         console.error('Failed to start server:', error);
         process.exit(1);

@@ -2,7 +2,7 @@ services:
   salty-server:
     build: .
     ports:
-      - "5010:5010"
+      - "8080:5010"
     volumes:
       - ./data:/usr/src/app/data
       - ./logs:/usr/src/app/logs

@@ -1,5 +1,6 @@
 services:
   salty-server:
+    container_name: salty-server
     build: .
     ports:
       - "8080:5010"

@@ -1,153 +1,91 @@
 # 🌊 Salty API
 
-> Real-time tide predictions and marine data from NOAA stations.
+Marine conditions and forecasts from NDBC buoys and NOAA wave models.
 
-## 📖 Overview
-
-Salty API provides real-time access to tide predictions and marine data from NOAA stations. Built with Node.js and Express, it offers a simple and reliable way to access marine data.
-
-## ⚡️ Quick Start
+## 🚀 Deploy
 
 ```bash
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-
-# Start development server
-npm run dev
+docker-compose up -d --build
 ```
 
-## 🛠 API Reference
+## 📡 API
 
-### Stations
-
-All station-related endpoints for accessing tide data and predictions.
-
-#### Get All Stations
+### Get Buoy Data
 
 ```http
-GET /api/stations
+GET /api/buoys/{buoyId}
 ```
 
-Returns a list of all available tide stations.
+Returns current conditions and 7-day forecast for a buoy.
 
 **Response**
 
 ```json
 {
-  "status": "success",
-  "data": {
-    "stations": [
+  "id": "46407",
+  "name": "SE PAPA",
+  "location": {
+    "type": "Point",
+    "coordinates": [-145.2, 50.5]
+  },
+  "observations": {
+    "time": "2024-01-09T14:50:00.000Z",
+    "wind": {
+      "direction": 270,
+      "speed": 15,
+      "gust": 19
+    },
+    "waves": {
+      "height": 8.2,
+      "dominantPeriod": 12,
+      "direction": 280
+    },
+    "weather": {
+      "pressure": 1014.2,
+      "airTemp": 48.2,
+      "waterTemp": 50.1
+    }
+  },
+  "forecast": {
+    "days": [
       {
-        "id": "8443970",
-        "name": "Boston",
-        "location": {
-          "type": "Point",
-          "coordinates": [-71.0503, 42.3584]
-        }
+        "date": "2024-01-09",
+        "periods": [
+          {
+            "time": "2024-01-09T12:00:00.000Z",
+            "wind": {
+              "speed": 18,
+              "direction": 270
+            },
+            "waves": {
+              "height": 9.2,
+              "period": 11,
+              "direction": 285
+            }
+          }
+        ]
       }
     ]
+  },
+  "units": {
+    "waveHeight": "ft",
+    "wavePeriod": "seconds",
+    "waveDirection": "degrees",
+    "windSpeed": "mph",
+    "windDirection": "degrees"
   }
 }
 ```
 
-#### Find Nearest Station
-
-```http
-GET /api/stations/nearest?lat={latitude}&lon={longitude}
-```
-
-Finds the closest tide station to provided coordinates.
-
-**Parameters**
-| Name | Type | Description |
-|------|------|-------------|
-| lat | float | Latitude |
-| lon | float | Longitude |
-
-#### Get Station Predictions
-
-```http
-GET /api/stations/{stationId}?startDate={date}&endDate={date}
-```
-
-Returns tide predictions for a specific station.
-
-**Parameters**
-| Name | Type | Description |
-|-----------|--------|--------------------------------|
-| stationId | string | Station identifier |
-| startDate | string | Start date (ISO 8601, optional)|
-| endDate | string | End date (ISO 8601, optional) |
-
-## 🔧 Configuration
-
-### Environment Variables
+## 🔧 Environment Variables
 
 ```env
-PORT=3000              # Server port
-NODE_ENV=development   # Environment (development/production)
-CACHE_TTL=1800        # Cache duration in seconds
+NODE_ENV=production   # Environment (development/production)
+PORT=5010            # Server port (default: 5010)
+LOG_LEVEL=info       # Logging level
 ```
-
-## 🚀 Development
-
-```bash
-# Start development server with hot reload
-npm run dev
-
-# Run linter
-npm run lint
-
-# Run tests
-npm test
-```
-
-## 📦 Response Format
-
-### Success Response
-
-```json
-{
-  "status": "success",
-  "data": {
-    // Response data
-  }
-}
-```
-
-### Error Response
-
-```json
-{
-  "status": "fail",
-  "message": "Error description"
-}
-```
-
-## 🔒 Error Handling
-
-The API uses a centralized error handling system:
-
-- Validation errors (400)
-- Not found errors (404)
-- Server errors (500)
-
-Each error returns a consistent format with appropriate HTTP status codes.
 
 ## 📝 Data Sources
 
-- **NOAA CO-OPS**: Tide predictions and water level data
-- **NOAA Stations**: Station metadata and reference data
-
-## 📄 License
-
-ISC © [Your Name]
-
----
-
-<div align="center">
-Made with ❤️ for the marine community
-</div>
+- NDBC (National Data Buoy Center): Current conditions
+- NOAA NOMADS: Wave model forecasts

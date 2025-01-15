@@ -19,8 +19,8 @@ const getBuoyData = async (req, res, next) => {
     const { buoyId } = req.params;
 
     try {
-        // Validate buoy ID format
-        if (!buoyId?.match(/^\d+$/)) {
+        // Validate buoy ID format (alphanumeric, 4-6 characters)
+        if (!buoyId?.match(/^[A-Z0-9]{4,6}$/i)) {
             throw new AppError(400, 'Invalid buoy ID format');
         }
 
@@ -147,10 +147,8 @@ const getBuoyData = async (req, res, next) => {
                             height: period.waves.height,
                             period: period.waves.period,
                             direction: period.waves.direction,
-                            components: period.components ? {
-                                windWave: period.components.windWave,
-                                swells: period.components.swells
-                            } : null
+                            windWave: period.components?.windWave || null,
+                            swells: period.components?.swells || null
                         } : null
                     }))
                 }))

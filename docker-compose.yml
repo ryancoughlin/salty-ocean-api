@@ -2,8 +2,6 @@
 # points to api.saltyoffshore.com - points to conditions.saltyoffshore.com (incorrect)
 # a record from IP to api.saltyoffshore.com is created in Cloudflare
 
-version: '3.8'
-
 services:
   salty-server:
     container_name: salty-server

@@ -10,15 +10,47 @@ docker-compose up -d --build
 
 ## 📡 API
 
-### Get Buoy Data
+### Offshore Stations (NDBC)
 
 ```http
-GET /api/buoys/{buoyId}
+GET /offshore-stations
 ```
 
-Returns current conditions and 7-day forecast for a buoy.
+Returns list of all offshore stations
 
-**Response**
+```http
+GET /offshore-stations/nearest?lat={latitude}&lon={longitude}
+```
+
+Returns closest offshore station to coordinates
+
+```http
+GET /offshore-stations/{stationId}
+```
+
+Returns current conditions and forecast for an offshore station
+
+### Tide Stations (NOAA Co-Ops)
+
+```http
+GET /tide-stations
+```
+
+Returns list of all tide stations
+
+```http
+GET /tide-stations/nearest?lat={latitude}&lon={longitude}
+```
+
+Returns closest tide station to coordinates
+
+```http
+GET /tide-stations/{stationId}?startDate={date}&endDate={date}
+```
+
+Returns tide predictions for a station. Dates should be in ISO 8601 format.
+
+**Example Response (Offshore Station)**
 
 ```json
 {
@@ -77,6 +109,28 @@ Returns current conditions and 7-day forecast for a buoy.
 }
 ```
 
+**Example Response (Tide Station)**
+
+```json
+{
+  "id": "9447130",
+  "predictions": [
+    {
+      "time": "2024-01-09T00:00:00.000Z",
+      "height": 8.2
+    }
+  ],
+  "metadata": {
+    "station": "Seattle",
+    "state": "WA"
+  },
+  "units": {
+    "height": "ft",
+    "time": "UTC"
+  }
+}
+```
+
 ## 🔧 Environment Variables
 
 ```env
@@ -87,5 +141,5 @@ LOG_LEVEL=info       # Logging level
 
 ## 📝 Data Sources
 
-- NDBC (National Data Buoy Center): Current conditions
-- NOAA NOMADS: Wave model forecasts
+- NDBC (National Data Buoy Center): Offshore station conditions
+- NOAA Co-Ops: Tide predictions

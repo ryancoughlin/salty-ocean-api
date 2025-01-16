@@ -7,7 +7,7 @@ const tideService = require("../services/tideService");
  */
 const getAllStations = async (req, res, next) => {
   try {
-    const stations = await tideService.getAllStations();
+    const stations = tideService.getAllStations();
     res.status(200).json(stations);
   } catch (error) {
     next(error);
@@ -19,14 +19,21 @@ const getAllStations = async (req, res, next) => {
  */
 const getClosestStation = async (req, res, next) => {
   const { lat, lon } = req.query;
+
+  if (!lat || !lon) {
+    throw new AppError(400, "Latitude and longitude are required");
+  }
+
   try {
-    const station = await tideService.findClosestStation(
+    const station = tideService.findClosestStation(
       parseFloat(lat),
       parseFloat(lon)
     );
+
     if (!station) {
       throw new AppError(404, "No tide station found near coordinates");
     }
+
     res.status(200).json(station);
   } catch (error) {
     next(error);
@@ -34,11 +41,15 @@ const getClosestStation = async (req, res, next) => {
 };
 
 /**
- * Get tide station data by ID
+ * Get tide station predictions
  */
-const getStationData = async (req, res, next) => {
+const getStationPredictions = async (req, res, next) => {
   const { stationId } = req.params;
   const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    throw new AppError(400, "Start date and end date are required");
+  }
 
   try {
     const tideData = await tideService.getTidePredictions(
@@ -46,9 +57,6 @@ const getStationData = async (req, res, next) => {
       startDate,
       endDate
     );
-    if (!tideData) {
-      throw new AppError(404, "Tide data not found");
-    }
 
     const response = {
       id: stationId,
@@ -74,5 +82,5 @@ const getStationData = async (req, res, next) => {
 module.exports = {
   getAllStations,
   getClosestStation,
-  getStationData,
+  getStationPredictions,
 };

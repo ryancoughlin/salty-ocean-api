@@ -51,7 +51,7 @@ router.get(
       .isISO8601()
       .withMessage("End date must be a valid ISO date"),
   ],
-  tideStationController.getStationData
+  tideStationController.getStationPredictions
 );
 
 // Catch all 404 errors

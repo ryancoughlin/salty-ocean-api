@@ -1,0 +1,142 @@
+[
+    {
+        "id": "9447130",
+        "name": "Seattle, Puget Sound",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.339,
+                47.602
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "9414290",
+        "name": "San Francisco",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.465,
+                37.806
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8454000",
+        "name": "Providence, RI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -71.401,
+                41.807
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8518750",
+        "name": "The Battery, New York",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.013,
+                40.7
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8443970",
+        "name": "Boston, MA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -71.053,
+                42.354
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "9410170",
+        "name": "San Diego, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.174,
+                32.714
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8638610",
+        "name": "Galveston Pier 21, TX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -94.793,
+                29.31
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8658120",
+        "name": "Rockport, TX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -97.047,
+                28.022
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "8723214",
+        "name": "Virginia Key, FL",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.162,
+                25.732
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    },
+    {
+        "id": "9435380",
+        "name": "Westport, WA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.105,
+                46.904
+            ]
+        },
+        "type": "tide",
+        "hasRealTimeData": true,
+        "owner": "NOAA"
+    }
+]

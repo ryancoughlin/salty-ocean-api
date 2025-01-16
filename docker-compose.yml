@@ -1,3 +1,9 @@
+# Configure for salty-server
+# points to api.saltyoffshore.com - points to conditions.saltyoffshore.com (incorrect)
+# a record from IP to api.saltyoffshore.com is created in Cloudflare
+
+version: '3.8'
+
 services:
   salty-server:
     container_name: salty-server
@@ -10,4 +16,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5010
-    restart: unless-stopped 
+    networks:
+      - salty_network
+    restart: unless-stopped
+
+networks:
+  salty_network:
+    external: true

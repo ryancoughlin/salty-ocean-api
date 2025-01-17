@@ -4,8 +4,6 @@ services:
   salty-ocean-api:
     container_name: salty-ocean-api
     build: .
-    ports:
-      - "8080:5010"
     volumes:
       - ./data:/usr/src/app/data
       - ./logs:/usr/src/app/logs

@@ -8,6 +8,16 @@ Marine conditions and forecasts from NDBC buoys and NOAA wave models.
 docker-compose up -d --build
 ```
 
+## 📊 Logs
+
+```bash
+# View logs
+docker-compose logs -f salty-ocean-api
+
+# View last 100 lines
+docker-compose logs -f --tail=100 salty-ocean-api
+```
+
 ## 📡 API
 
 ### Offshore Stations (NDBC)

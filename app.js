@@ -8,6 +8,7 @@ const { errorHandler } = require("./middlewares/errorHandler");
 const { scheduleCacheMonitoring } = require("./services/scheduler");
 const restrictOrigin = require("./middlewares/restrictOrigin");
 const { initializeData } = require("./services/startupService");
+const { logger } = require("./utils/logger");
 
 dotenv.config();
 
@@ -22,7 +23,6 @@ app.use(restrictOrigin);
 app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(routes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -33,6 +33,9 @@ app.get("/health", (req, res) => {
 app.get("/", (req, res) => {
   res.send("Salty API - Marine Weather and Tide Data");
 });
+
+// Mount API routes
+app.use(routes);
 
 app.use(errorHandler);
 

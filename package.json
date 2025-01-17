@@ -1,5 +1,5 @@
 {
-  "name": "salty-server",
+  "name": "salty-ocean-api",
   "version": "1.0.0",
   "description": "API for fetching offshore weather data from NOAA",
   "main": "app.js",

@@ -1,10 +1,10 @@
-# Configure for salty-server
-# points to api.saltyoffshore.com - points to conditions.saltyoffshore.com (incorrect)
-# a record from IP to api.saltyoffshore.com is created in Cloudflare
-
+# Configure for salty-ocean-api
+version: '3'
 services:
-  salty-server:
-    container_name: salty-server
+  redis:
+    image: redis:alpine
+  salty-ocean-api:
+    container_name: salty-ocean-api
     build: .
     ports:
       - "8080:5010"

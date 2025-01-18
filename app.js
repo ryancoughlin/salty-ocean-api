@@ -24,9 +24,14 @@ app.use(morgan("combined"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
+// Health check endpoint with initialization status
+let initStatus = { status: "initializing" };
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: initStatus.status === "ready" ? "ok" : "degraded",
+    init: initStatus,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Root endpoint
@@ -34,8 +39,17 @@ app.get("/", (req, res) => {
   res.send("Salty API - Marine Weather and Tide Data");
 });
 
-// Mount API routes
-app.use(routes);
+// Mount API routes with initialization check
+app.use((req, res, next) => {
+  if (initStatus.status === "initializing") {
+    return res.status(503).json({
+      status: "error",
+      message: "Service is initializing, please try again in a few moments",
+      init: initStatus,
+    });
+  }
+  next();
+}, routes);
 
 app.use(errorHandler);
 
@@ -51,11 +65,19 @@ const startApp = async () => {
 
     // Initialize data after server is running
     try {
-      const initResult = await initializeData();
-      logger.info("✅ Data initialization started:", initResult);
+      initStatus = await initializeData();
+      logger.info("✅ Data initialization complete:", initStatus);
     } catch (error) {
       logger.error("❌ Data initialization failed:", error);
-      // Continue running even if initialization fails
+      initStatus = {
+        status: "failed",
+        error: error.message,
+        prefetchStats: {
+          totalStations: 0,
+          successful: 0,
+          failed: 0,
+        },
+      };
     }
   } catch (error) {
     logger.error("Failed to start server:", error);

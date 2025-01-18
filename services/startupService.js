@@ -9,36 +9,46 @@ const CONFIG = require("../config/waveModelConfig");
  */
 async function initializeData() {
   try {
-    logger.info("🚀 Starting initial data prefetch...");
+    logger.info("🚀 Starting data initialization...");
 
-    // Only wait for stations to load, don't block on prefetch
+    // 1. Load station data first (fast)
     await ndbcService.loadStations();
-    logger.info("✅ Station data loaded, starting background prefetch");
+    logger.info("✅ Station data loaded");
 
-    // Start prefetch process in background
-    prefetchAllBuoyData(ndbcService)
-      .then((result) => {
-        logger.info("✅ Initial prefetch completed:", {
-          totalStations: result.totalStations,
-          successful: result.successCount,
-          failed: result.failureCount,
-          duration:
-            ((result.endTime - result.startTime) / 1000).toFixed(1) + "s",
-        });
-        // Schedule next prefetch based on wave model run times
-        scheduleNextPrefetch();
-      })
-      .catch((error) => {
-        logger.error("❌ Error during initial prefetch:", error);
-        // Retry prefetch on next model run
-        scheduleNextPrefetch();
-      });
+    // 2. Start prefetch process and wait for it to complete
+    logger.info("🌊 Starting data prefetch for all buoys...");
+    const result = await prefetchAllBuoyData(ndbcService);
 
-    return { status: "initialized" };
+    logger.info("✅ Initial prefetch completed:", {
+      totalStations: result.totalStations,
+      successful: result.successCount,
+      failed: result.failureCount,
+      duration: ((result.endTime - result.startTime) / 1000).toFixed(1) + "s",
+    });
+
+    // 3. Schedule next prefetch based on wave model run times
+    scheduleNextPrefetch();
+
+    return {
+      status: "ready",
+      prefetchStats: {
+        totalStations: result.totalStations,
+        successful: result.successCount,
+        failed: result.failureCount,
+      },
+    };
   } catch (error) {
     logger.error("❌ Error during initialization:", error);
     // Don't throw - we want the app to start even if initialization fails
-    return { status: "failed", error: error.message };
+    return {
+      status: "degraded",
+      error: error.message,
+      prefetchStats: {
+        totalStations: 0,
+        successful: 0,
+        failed: 0,
+      },
+    };
   }
 }
 

@@ -30,7 +30,6 @@ const isStationInModelBounds = (station) => {
       normalizedLon <= model.grid.lon.end;
 
     if (inLatRange && inLonRange) {
-      logger.debug(`Station ${station.id} is in ${modelId} model bounds`);
       return true;
     }
     return false;
@@ -92,10 +91,6 @@ const processBatch = async (stations, ndbcService) => {
                 forecastError
               );
             }
-          } else {
-            logger.debug(
-              `Station ${station.id} is outside all model bounds, skipping forecast`
-            );
           }
         }
 
@@ -141,10 +136,6 @@ const prefetchAllBuoyData = async (ndbcService) => {
     // Filter stations that are within any model's bounds
     const stationsInBounds = ndbcService.stations.filter(
       isStationInModelBounds
-    );
-
-    logger.info(
-      `📍 Found ${stationsInBounds.length} stations within model bounds`
     );
 
     currentStatus = {

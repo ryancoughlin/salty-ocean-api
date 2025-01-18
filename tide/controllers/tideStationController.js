@@ -15,6 +15,32 @@ const getAllStations = async (req, res, next) => {
 };
 
 /**
+ * Get tide stations in GeoJSON format for Mapbox
+ */
+const getStationsGeoJSON = async (req, res, next) => {
+  try {
+    const stations = await tideService.getAllStations();
+    const geojson = {
+      type: "FeatureCollection",
+      features: stations.map((station) => ({
+        type: "Feature",
+        geometry: station.location,
+        properties: {
+          id: station.id,
+          name: station.name,
+          type: station.type,
+          hasRealTimeData: station.hasRealTimeData,
+          owner: station.owner,
+        },
+      })),
+    };
+    res.status(200).json(geojson);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get closest tide station to coordinates
  */
 const getClosestStation = async (req, res, next) => {
@@ -54,6 +80,7 @@ const getStationPredictions = async (req, res, next) => {
 
 module.exports = {
   getAllStations,
+  getStationsGeoJSON,
   getClosestStation,
   getStationPredictions,
 };

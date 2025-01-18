@@ -6,6 +6,7 @@ const router = express.Router();
 
 // NOAA Co-Ops Tide Stations
 router.get("/", tideStationController.getAllStations);
+router.get("/geojson", tideStationController.getStationsGeoJSON);
 router.get(
   "/nearest",
   [

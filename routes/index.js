@@ -4,6 +4,7 @@ const { query } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 const offshoreStationController = require("../controllers/offshoreStationController");
 const tideRoutes = require("../tide/routes");
+const { clearCache } = require("../utils/cache");
 
 const router = express.Router();
 
@@ -28,6 +29,12 @@ router.get(
   limiter,
   offshoreStationController.getStationData
 );
+
+// Cache management
+router.post("/cache/clear", (req, res) => {
+  clearCache();
+  res.status(200).json({ message: "Cache cleared successfully" });
+});
 
 // Mount tide routes
 router.use("/tide-stations", tideRoutes);

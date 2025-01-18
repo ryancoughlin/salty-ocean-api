@@ -51,9 +51,8 @@ const startApp = async () => {
 
     // Initialize data after server is running
     try {
-      // await initializeData();
-      logger.info("✅ Data initialization complete");
-      initializeData();
+      const initResult = await initializeData();
+      logger.info("✅ Data initialization started:", initResult);
     } catch (error) {
       logger.error("❌ Data initialization failed:", error);
       // Continue running even if initialization fails

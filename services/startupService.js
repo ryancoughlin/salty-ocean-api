@@ -11,27 +11,34 @@ async function initializeData() {
   try {
     logger.info("🚀 Starting initial data prefetch...");
 
-    // Wait for NDBC service to load stations
+    // Only wait for stations to load, don't block on prefetch
     await ndbcService.loadStations();
+    logger.info("✅ Station data loaded, starting background prefetch");
 
-    // Start prefetch process
-    const result = await prefetchAllBuoyData(ndbcService);
+    // Start prefetch process in background
+    prefetchAllBuoyData(ndbcService)
+      .then((result) => {
+        logger.info("✅ Initial prefetch completed:", {
+          totalStations: result.totalStations,
+          successful: result.successCount,
+          failed: result.failureCount,
+          duration:
+            ((result.endTime - result.startTime) / 1000).toFixed(1) + "s",
+        });
+        // Schedule next prefetch based on wave model run times
+        scheduleNextPrefetch();
+      })
+      .catch((error) => {
+        logger.error("❌ Error during initial prefetch:", error);
+        // Retry prefetch on next model run
+        scheduleNextPrefetch();
+      });
 
-    logger.info("✅ Initial prefetch completed:", {
-      totalStations: result.totalStations,
-      successful: result.successCount,
-      failed: result.failureCount,
-      duration: ((result.endTime - result.startTime) / 1000).toFixed(1) + "s",
-    });
-
-    // Schedule next prefetch based on wave model run times
-    scheduleNextPrefetch();
-
-    return result;
+    return { status: "initialized" };
   } catch (error) {
-    logger.error("❌ Error during initial data prefetch:", error);
-    // Don't throw - we want the app to start even if prefetch fails
-    return null;
+    logger.error("❌ Error during initialization:", error);
+    // Don't throw - we want the app to start even if initialization fails
+    return { status: "failed", error: error.message };
   }
 }
 

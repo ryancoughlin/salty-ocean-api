@@ -44,11 +44,6 @@ const getStationData = async (req, res, next) => {
   const { stationId } = req.params;
 
   try {
-    // Validate station ID format (alphanumeric, 4-6 characters)
-    if (!stationId?.match(/^[A-Z0-9]{4,6}$/i)) {
-      throw new AppError(400, "Invalid station ID format");
-    }
-
     // Get cache duration from cache manager
     const cacheDuration = getModelRunCacheDuration();
     res.set("Cache-Control", `public, max-age=${cacheDuration}`);
@@ -85,16 +80,23 @@ const getStationData = async (req, res, next) => {
 
     // Fetch forecast if we have location
     let forecast = null;
+    let forecastError = null;
 
     if (stationInfo?.location?.coordinates) {
       try {
         const [lon, lat] = stationInfo.location.coordinates;
+        // Normalize longitude to 0-360 for wave model
+        const normalizedLon = lon < 0 ? lon + 360 : lon;
+
         logger.debug(
-          `Fetching forecast for station ${stationId} at lat=${lat}, lon=${lon}`
+          `Station ${stationId} coordinates: [${lon}, ${lat}] (lon, lat)`
+        );
+        logger.debug(
+          `Fetching forecast for station ${stationId} at lat=${lat}, lon=${normalizedLon}`
         );
 
         forecast = await Promise.race([
-          waveModelService.getPointForecast(lat, lon),
+          waveModelService.getPointForecast(lat, normalizedLon),
           new Promise((_, reject) =>
             setTimeout(
               () => reject(new AppError(504, "Forecast fetch timeout")),
@@ -103,7 +105,7 @@ const getStationData = async (req, res, next) => {
           ),
         ]);
 
-        if (forecast?.periods?.length) {
+        if (forecast?.days?.length) {
           forecast.summaries = waveConditionsService.generateSummaries(
             forecast,
             {
@@ -112,10 +114,15 @@ const getStationData = async (req, res, next) => {
             }
           );
         }
-      } catch (forecastError) {
+      } catch (error) {
+        forecastError = {
+          message: error.message,
+          type: error.name,
+          statusCode: error.statusCode || 500,
+        };
         logger.warn(`Failed to fetch forecast for station ${stationId}:`, {
-          error: forecastError.message,
-          stack: forecastError.stack,
+          error: error.message,
+          stack: error.stack,
           coordinates: stationInfo.location.coordinates,
         });
       }
@@ -188,6 +195,10 @@ const getStationData = async (req, res, next) => {
               : null,
           })),
         })),
+      };
+    } else if (forecastError) {
+      response.forecast = {
+        error: forecastError,
       };
     }
 

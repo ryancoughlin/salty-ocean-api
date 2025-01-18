@@ -53,6 +53,7 @@ const startApp = async () => {
     try {
       // await initializeData();
       logger.info("✅ Data initialization complete");
+      initializeData();
     } catch (error) {
       logger.error("❌ Data initialization failed:", error);
       // Continue running even if initialization fails

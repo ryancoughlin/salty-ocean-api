@@ -1,6 +1,5 @@
 const axios = require("axios");
 const { logger } = require("../utils/logger");
-const { getOrSet } = require("../utils/cache");
 const CONFIG = require("../config/waveModelConfig");
 const https = require("https");
 
@@ -104,30 +103,29 @@ async function getPointForecast(lat, lon) {
     const { latIdx, lonIdx } = getGridLocation(lat, lon, model);
     const modelRun = getAvailableModelRun();
 
-    // All available variables
+    // Build URL with all variables
     const variables = [
-      "htsgwsfc", // Combined wave height
-      "perpwsfc", // Primary wave period
-      "dirpwsfc", // Primary wave direction
-      "swdir_1", // Primary swell direction
-      "swdir_2", // Secondary swell direction
-      "swdir_3", // Tertiary swell direction
-      "swell_1", // Primary swell height
-      "swell_2", // Secondary swell height
-      "swell_3", // Tertiary swell height
-      "swper_1", // Primary swell period
-      "swper_2", // Secondary swell period
-      "swper_3", // Tertiary swell period
-      "wvdirsfc", // Wind wave direction
-      "wvhgtsfc", // Wind wave height
-      "wvpersfc", // Wind wave period
-      "windsfc", // Wind speed
-      "wdirsfc", // Wind direction
-      "ugrdsfc", // Wind U component
-      "vgrdsfc", // Wind V component
+      "htsgwsfc",
+      "perpwsfc",
+      "dirpwsfc",
+      "swdir_1",
+      "swdir_2",
+      "swdir_3",
+      "swell_1",
+      "swell_2",
+      "swell_3",
+      "swper_1",
+      "swper_2",
+      "swper_3",
+      "wvdirsfc",
+      "wvhgtsfc",
+      "wvpersfc",
+      "windsfc",
+      "wdirsfc",
+      "ugrdsfc",
+      "vgrdsfc",
     ];
 
-    // Build URL
     const params = variables
       .map(
         (v) =>
@@ -148,9 +146,9 @@ async function getPointForecast(lat, lon) {
     });
 
     const parsedData = parseModelData(response.data);
-    const periods = [];
+    const forecasts = [];
 
-    // Group data by forecast period
+    // Process each time period
     for (
       let i = 0;
       i < CONFIG.forecast.days * CONFIG.forecast.periodsPerDay;
@@ -158,7 +156,13 @@ async function getPointForecast(lat, lon) {
     ) {
       if (parsedData.htsgwsfc?.[i] === undefined) continue;
 
-      const periodData = {
+      const time = new Date(
+        modelRun.date.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")
+      );
+      time.setHours(time.getHours() + (i * 24) / CONFIG.forecast.periodsPerDay);
+
+      forecasts.push({
+        time: time.toISOString(),
         waves: {
           height: parsedData.htsgwsfc[i],
           period: parsedData.perpwsfc[i],
@@ -170,34 +174,29 @@ async function getPointForecast(lat, lon) {
                 direction: parsedData.wvdirsfc[i],
               }
             : null,
-          swells:
-            parsedData.swell_1[i] ||
-            parsedData.swell_2[i] ||
-            parsedData.swell_3[i]
-              ? [
-                  parsedData.swell_1[i]
-                    ? {
-                        height: parsedData.swell_1[i],
-                        period: parsedData.swper_1[i],
-                        direction: parsedData.swdir_1[i],
-                      }
-                    : null,
-                  parsedData.swell_2[i]
-                    ? {
-                        height: parsedData.swell_2[i],
-                        period: parsedData.swper_2[i],
-                        direction: parsedData.swdir_2[i],
-                      }
-                    : null,
-                  parsedData.swell_3[i]
-                    ? {
-                        height: parsedData.swell_3[i],
-                        period: parsedData.swper_3[i],
-                        direction: parsedData.swdir_3[i],
-                      }
-                    : null,
-                ].filter(Boolean)
+          swells: [
+            parsedData.swell_1[i]
+              ? {
+                  height: parsedData.swell_1[i],
+                  period: parsedData.swper_1[i],
+                  direction: parsedData.swdir_1[i],
+                }
               : null,
+            parsedData.swell_2[i]
+              ? {
+                  height: parsedData.swell_2[i],
+                  period: parsedData.swper_2[i],
+                  direction: parsedData.swdir_2[i],
+                }
+              : null,
+            parsedData.swell_3[i]
+              ? {
+                  height: parsedData.swell_3[i],
+                  period: parsedData.swper_3[i],
+                  direction: parsedData.swdir_3[i],
+                }
+              : null,
+          ].filter(Boolean),
         },
         wind: {
           speed: parsedData.windsfc[i],
@@ -205,24 +204,11 @@ async function getPointForecast(lat, lon) {
           u: parsedData.ugrdsfc[i],
           v: parsedData.vgrdsfc[i],
         },
-      };
-
-      const periodIndex = Math.floor(i / CONFIG.forecast.periodsPerDay);
-      if (!periods[periodIndex]) {
-        periods[periodIndex] = {
-          date: new Date(
-            modelRun.date.replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")
-          )
-            .toISOString()
-            .split("T")[0],
-          periods: [],
-        };
-      }
-      periods[periodIndex].periods.push(periodData);
+      });
     }
 
     return {
-      days: periods,
+      forecasts,
       metadata: {
         model: model.id,
         generated: new Date().toISOString(),

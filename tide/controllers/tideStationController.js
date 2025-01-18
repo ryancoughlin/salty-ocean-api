@@ -1,13 +1,13 @@
 const { AppError } = require("../../middlewares/errorHandler");
 const { logger } = require("../../utils/logger");
-const tideService = require("../services/tideService");
+const { getStations, getPredictions } = require("../services/tideService");
 
 /**
  * Get all tide stations
  */
 const getAllStations = async (req, res, next) => {
   try {
-    const stations = await tideService.getAllStations();
+    const stations = await getStations();
     res.status(200).json(stations);
   } catch (error) {
     next(error);
@@ -15,22 +15,23 @@ const getAllStations = async (req, res, next) => {
 };
 
 /**
- * Get tide stations in GeoJSON format for Mapbox
+ * Get stations in GeoJSON format for Mapbox
  */
 const getStationsGeoJSON = async (req, res, next) => {
   try {
-    const stations = await tideService.getAllStations();
+    const stations = await getStations();
+
     const geojson = {
       type: "FeatureCollection",
       features: stations.map((station) => ({
         type: "Feature",
-        geometry: station.location,
+        geometry: {
+          type: "Point",
+          coordinates: [station.lng, station.lat],
+        },
         properties: {
           id: station.id,
           name: station.name,
-          type: station.type,
-          hasRealTimeData: station.hasRealTimeData,
-          owner: station.owner,
         },
       })),
     };
@@ -41,38 +42,30 @@ const getStationsGeoJSON = async (req, res, next) => {
 };
 
 /**
- * Get closest tide station to coordinates
- */
-const getClosestStation = async (req, res, next) => {
-  const { lat, lon } = req.query;
-  try {
-    const station = await tideService.findClosestStation(
-      parseFloat(lat),
-      parseFloat(lon)
-    );
-    if (!station) {
-      throw new AppError(404, "No station found near coordinates");
-    }
-    res.status(200).json(station);
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get tide predictions for a station
+ * Get predictions for a station
  */
 const getStationPredictions = async (req, res, next) => {
   const { stationId } = req.params;
-  const { startDate, endDate } = req.query;
+  const date = req.query.date ? new Date(req.query.date) : new Date();
 
   try {
-    const predictions = await tideService.getTidePredictions(
-      stationId,
-      startDate,
-      endDate
-    );
-    res.status(200).json(predictions);
+    const stations = await getStations();
+    const station = stations.find((s) => s.id === stationId);
+
+    if (!station) {
+      throw new AppError(404, "Station not found");
+    }
+
+    const predictions = await getPredictions(stationId, date);
+
+    res.status(200).json({
+      id: stationId,
+      name: station.name,
+      predictions: predictions.map((p) => ({
+        time: p.t,
+        height: parseFloat(p.v),
+      })),
+    });
   } catch (error) {
     next(error);
   }
@@ -81,6 +74,5 @@ const getStationPredictions = async (req, res, next) => {
 module.exports = {
   getAllStations,
   getStationsGeoJSON,
-  getClosestStation,
   getStationPredictions,
 };

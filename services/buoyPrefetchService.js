@@ -1,45 +1,40 @@
-const { logger } = require('../utils/logger');
-const { getOrSet } = require('../utils/cache');
-const waveModelService = require('../services/waveModelService');
-const { getCacheConfig } = require('../utils/cacheManager');
+const { logger } = require("../utils/logger");
+const { getOrSet } = require("../utils/cache");
+const waveModelService = require("../services/waveModelService");
+const { getCacheConfig } = require("../utils/cacheManager");
+const CONFIG = require("../config/waveModelConfig");
 
-const EAST_COAST_BOUNDS = {
-  north: 45.0,  // Maine
-  south: 25.0,  // Southern Florida
-  west: -82.0,  // Inland boundary
-  east: -65.0   // Atlantic boundary
-};
-
-const BATCH_SIZE = 5; // Number of concurrent requests
-const BATCH_DELAY = 1000; // 1 second delay between batches
+// Constants for batch processing
+const BATCH_SIZE = 5;
+const BATCH_DELAY = 1000;
 
 let currentStatus = null;
 
-const isEastCoastStation = (station) => {
-  // GeoJSON format is [longitude, latitude]
+const isStationInModelBounds = (station) => {
   const coordinates = station.location?.coordinates;
   if (!coordinates) {
     logger.debug(`No coordinates found for station: ${station.id}`);
     return false;
   }
   const [longitude, latitude] = coordinates;
-  
-  logger.debug(`Checking station ${station.id} at [${longitude}, ${latitude}]:`);
-  logger.debug(`Latitude check: ${EAST_COAST_BOUNDS.south} <= ${latitude} <= ${EAST_COAST_BOUNDS.north}`);
-  logger.debug(`Longitude check: ${EAST_COAST_BOUNDS.west} <= ${longitude} <= ${EAST_COAST_BOUNDS.east}`);
-  
-  const latitudeInRange = latitude >= EAST_COAST_BOUNDS.south && latitude <= EAST_COAST_BOUNDS.north;
-  const longitudeInRange = longitude >= EAST_COAST_BOUNDS.west && longitude <= EAST_COAST_BOUNDS.east;
-  
-  const isEastCoast = latitudeInRange && longitudeInRange;
-  
-  if (isEastCoast) {
-    logger.debug(`Found East Coast station: ${station.id}`);
-  } else {
-    logger.debug(`Station ${station.id} excluded: lat in range: ${latitudeInRange}, lon in range: ${longitudeInRange}`);
-  }
-  
-  return isEastCoast;
+
+  // Normalize longitude to 0-360 range for comparison
+  const normalizedLon = longitude < 0 ? longitude + 360 : longitude;
+
+  // Check if station is within any model's grid
+  return Object.entries(CONFIG.models).some(([modelId, model]) => {
+    const inLatRange =
+      latitude >= model.grid.lat.start && latitude <= model.grid.lat.end;
+    const inLonRange =
+      normalizedLon >= model.grid.lon.start &&
+      normalizedLon <= model.grid.lon.end;
+
+    if (inLatRange && inLonRange) {
+      logger.debug(`Station ${station.id} is in ${modelId} model bounds`);
+      return true;
+    }
+    return false;
+  });
 };
 
 const updateStatus = (updates) => {
@@ -47,101 +42,133 @@ const updateStatus = (updates) => {
   currentStatus = {
     ...currentStatus,
     ...updates,
-    lastUpdated: Date.now()
+    lastUpdated: Date.now(),
   };
-  
-  const progress = ((currentStatus.processedCount / currentStatus.totalStations) * 100).toFixed(1);
-  logger.info(`Prefetch progress: ${progress}% (${currentStatus.processedCount}/${currentStatus.totalStations})`);
-  logger.info(`Success: ${currentStatus.successCount}, Failed: ${currentStatus.failureCount}`);
+
+  const progress = (
+    (currentStatus.processedCount / currentStatus.totalStations) *
+    100
+  ).toFixed(1);
+  logger.info(
+    `Prefetch progress: ${progress}% (${currentStatus.processedCount}/${currentStatus.totalStations})`
+  );
+  logger.info(
+    `Success: ${currentStatus.successCount}, Failed: ${currentStatus.failureCount}`
+  );
 };
 
 const processBatch = async (stations, ndbcService) => {
   const results = await Promise.all(
     stations.map(async (station) => {
       try {
-        const buoyConfig = getCacheConfig('buoyData', station.id);
+        const buoyConfig = getCacheConfig("buoyData", station.id);
         const buoyData = await getOrSet(
           buoyConfig.key,
           () => ndbcService.fetchBuoyData(station.id),
           buoyConfig.ttl
         );
-        
-        // Also prefetch wave model forecast if we have coordinates
+
+        // Prefetch wave model forecast if station has coordinates and is within model bounds
         if (buoyData && station.location?.coordinates) {
           const [longitude, latitude] = station.location.coordinates;
-          
-          try {
-            const forecastConfig = getCacheConfig('waveModel', `${latitude}_${longitude}`);
-            await getOrSet(
-              forecastConfig.key,
-              () => waveModelService.getPointForecast(latitude, longitude),
-              forecastConfig.ttl
+
+          if (isStationInModelBounds(station)) {
+            try {
+              const forecastConfig = getCacheConfig(
+                "waveModel",
+                `${latitude}_${longitude}`
+              );
+              await getOrSet(
+                forecastConfig.key,
+                () => waveModelService.getPointForecast(latitude, longitude),
+                forecastConfig.ttl
+              );
+              logger.debug(
+                `✓ Wave forecast prefetched for station ${station.id}`
+              );
+            } catch (forecastError) {
+              logger.warn(
+                `Failed to prefetch wave forecast for station ${station.id}:`,
+                forecastError
+              );
+            }
+          } else {
+            logger.debug(
+              `Station ${station.id} is outside all model bounds, skipping forecast`
             );
-            logger.debug(`✓ Wave forecast prefetched for station ${station.id}`);
-          } catch (forecastError) {
-            logger.warn(`Failed to prefetch wave forecast for station ${station.id}:`, forecastError);
           }
         }
-        
+
         if (currentStatus) {
           currentStatus.successCount++;
           currentStatus.processedCount++;
           updateStatus({});
         }
-        
+
         logger.debug(`✓ Station ${station.id} prefetched successfully`);
         return { station: station.id, success: true };
       } catch (error) {
         if (currentStatus) {
           currentStatus.failureCount++;
           currentStatus.processedCount++;
-          currentStatus.errors.push({ 
-            station: station.id, 
-            error: error.message || 'Unknown error'
+          currentStatus.errors.push({
+            station: station.id,
+            error: error.message || "Unknown error",
           });
           updateStatus({});
         }
-        
+
         logger.error(`✗ Station ${station.id} prefetch failed:`, error);
-        return { 
-          station: station.id, 
-          success: false, 
-          error: error.message || 'Unknown error'
+        return {
+          station: station.id,
+          success: false,
+          error: error.message || "Unknown error",
         };
       }
     })
   );
+
   return results;
 };
 
 const getPrefetchStatus = () => currentStatus;
 
-const prefetchEastCoastBuoyData = async (ndbcService) => {
+const prefetchAllBuoyData = async (ndbcService) => {
   try {
-    logger.info('🚀 Starting East Coast buoy data prefetch');
+    logger.info("🚀 Starting buoy data prefetch");
     const startTime = Date.now();
 
-    const eastCoastStations = ndbcService.stations.filter(isEastCoastStation);
-    logger.info(`📍 Found ${eastCoastStations.length} East Coast stations to prefetch`);
+    // Filter stations that are within any model's bounds
+    const stationsInBounds = ndbcService.stations.filter(
+      isStationInModelBounds
+    );
+
+    logger.info(
+      `📍 Found ${stationsInBounds.length} stations within model bounds`
+    );
 
     currentStatus = {
-      status: 'running',
+      status: "running",
       startTime,
-      totalStations: eastCoastStations.length,
+      totalStations: stationsInBounds.length,
       processedCount: 0,
       successCount: 0,
       failureCount: 0,
       lastUpdated: startTime,
-      errors: []
+      errors: [],
     };
 
-    for (let i = 0; i < eastCoastStations.length; i += BATCH_SIZE) {
-      const batch = eastCoastStations.slice(i, i + BATCH_SIZE);
-      logger.info(`⏳ Processing batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(eastCoastStations.length/BATCH_SIZE)}`);
+    for (let i = 0; i < stationsInBounds.length; i += BATCH_SIZE) {
+      const batch = stationsInBounds.slice(i, i + BATCH_SIZE);
+      logger.info(
+        `⏳ Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(
+          stationsInBounds.length / BATCH_SIZE
+        )}`
+      );
       await processBatch(batch, ndbcService);
 
-      if (i + BATCH_SIZE < eastCoastStations.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+      if (i + BATCH_SIZE < stationsInBounds.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
       }
     }
 
@@ -150,26 +177,29 @@ const prefetchEastCoastBuoyData = async (ndbcService) => {
 
     currentStatus = {
       ...currentStatus,
-      status: 'completed',
-      endTime
+      status: "completed",
+      endTime,
     };
 
-    logger.info('✅ Prefetch completed:');
+    logger.info("✅ Prefetch completed:");
     logger.info(`📊 Summary:
-    - Duration: ${duration.toFixed(1)}s
-    - Total Stations: ${currentStatus.totalStations}
-    - Successful: ${currentStatus.successCount}
-    - Failed: ${currentStatus.failureCount}
-    - Success Rate: ${((currentStatus.successCount / currentStatus.totalStations) * 100).toFixed(1)}%`);
+        - Duration: ${duration.toFixed(1)}s
+        - Total Stations: ${currentStatus.totalStations}
+        - Successful: ${currentStatus.successCount}
+        - Failed: ${currentStatus.failureCount}
+        - Success Rate: ${(
+          (currentStatus.successCount / currentStatus.totalStations) *
+          100
+        ).toFixed(1)}%`);
 
     if (currentStatus.errors.length > 0) {
-      logger.warn('⚠️ Failed stations:', currentStatus.errors);
+      logger.warn("⚠️ Failed stations:", currentStatus.errors);
     }
 
     return currentStatus;
   } catch (error) {
     const errorStatus = {
-      status: 'failed',
+      status: "failed",
       startTime: Date.now(),
       endTime: Date.now(),
       totalStations: 0,
@@ -177,15 +207,15 @@ const prefetchEastCoastBuoyData = async (ndbcService) => {
       successCount: 0,
       failureCount: 0,
       lastUpdated: Date.now(),
-      errors: [{ station: 'system', error: error.message || 'Unknown error' }]
+      errors: [{ station: "system", error: error.message || "Unknown error" }],
     };
     currentStatus = errorStatus;
-    logger.error('❌ Error during East Coast prefetch:', error);
+    logger.error("❌ Error during prefetch:", error);
     throw error;
   }
 };
 
 module.exports = {
-  prefetchEastCoastBuoyData,
-  getPrefetchStatus
-}; 
+  prefetchAllBuoyData,
+  getPrefetchStatus,
+};

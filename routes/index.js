@@ -3,7 +3,7 @@ const express = require("express");
 const { query } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 const offshoreStationController = require("../controllers/offshoreStationController");
-const tideStationController = require("../controllers/tideStationController");
+const tideRoutes = require("../tide/routes");
 
 const router = express.Router();
 
@@ -29,30 +29,8 @@ router.get(
   offshoreStationController.getStationData
 );
 
-// NOAA Co-Ops Tide Stations
-router.get("/tide-stations", tideStationController.getAllStations);
-router.get(
-  "/tide-stations/nearest",
-  [
-    query("lat").isFloat().withMessage("Latitude must be a valid number"),
-    query("lon").isFloat().withMessage("Longitude must be a valid number"),
-  ],
-  tideStationController.getClosestStation
-);
-router.get(
-  "/tide-stations/:stationId",
-  [
-    query("startDate")
-      .optional()
-      .isISO8601()
-      .withMessage("Start date must be a valid ISO date"),
-    query("endDate")
-      .optional()
-      .isISO8601()
-      .withMessage("End date must be a valid ISO date"),
-  ],
-  tideStationController.getStationPredictions
-);
+// Mount tide routes
+router.use("/tide-stations", tideRoutes);
 
 // Catch all 404 errors
 router.use("*", (req, res) => {

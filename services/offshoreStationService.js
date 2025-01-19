@@ -118,6 +118,13 @@ async function getStationData(stationId) {
                 periods,
               })),
             };
+
+            // Cache the forecast data
+            await getOrSet(
+              forecastConfig.key,
+              () => forecast,
+              forecastConfig.ttl
+            );
           }
         } else {
           logger.debug(`Using cached forecast for station ${stationId}`);
@@ -186,6 +193,9 @@ async function getStationData(stationId) {
     } else if (forecastError) {
       response.forecast = { error: forecastError };
     }
+
+    // Cache the complete response
+    await getOrSet(buoyConfig.key, () => response, buoyConfig.ttl);
 
     return response;
   } catch (error) {

@@ -486,7 +486,7 @@ class NDBCService {
       const cachedData = await getOrSet(cacheKey);
       if (cachedData) {
         logger.info(`Returning cached data for buoy ${buoyId}`);
-        return { data: cachedData, fromCache: true };
+        return cachedData;
       }
 
       // If not in cache, fetch fresh data
@@ -498,7 +498,7 @@ class NDBCService {
 
       if (!metData) {
         logger.warn(`No meteorological data available for buoy ${buoyId}`);
-        return { data: null, fromCache: false };
+        return null;
       }
 
       // Use spectral wave height when available, fallback to met data
@@ -526,11 +526,11 @@ class NDBCService {
         marinerSummary: this.createMarinerSummary(metData, spectralData),
       };
 
-      // Cache the data
+      // Cache the data with TTL
       const ttl = getTimeToNextUpdate();
-      await getOrSet(cacheKey, combinedData, ttl);
+      await getOrSet(cacheKey, () => combinedData, ttl);
 
-      return { data: combinedData, fromCache: false };
+      return combinedData;
     } catch (error) {
       logger.error(`Error fetching buoy data for ${buoyId}:`, error);
       throw error;

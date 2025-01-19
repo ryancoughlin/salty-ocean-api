@@ -1,5 +1,3 @@
-# Configure for salty-ocean-api
-version: '3'
 services:
   salty-ocean-api:
     container_name: salty-ocean-api

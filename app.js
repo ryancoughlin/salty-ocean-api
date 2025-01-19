@@ -5,7 +5,7 @@ const helmet = require("helmet");
 const compression = require("compression");
 const morgan = require("morgan");
 const { errorHandler } = require("./middlewares/errorHandler");
-const { scheduleCacheMonitoring } = require("./services/scheduler");
+const { startScheduler } = require("./services/scheduler");
 const restrictOrigin = require("./middlewares/restrictOrigin");
 const { initializeData } = require("./services/startupService");
 const { logger } = require("./utils/logger");
@@ -53,9 +53,6 @@ app.use((req, res, next) => {
 
 app.use(errorHandler);
 
-// Start cache cleanup scheduler
-scheduleCacheMonitoring();
-
 const startApp = async () => {
   try {
     // Start server first so health checks can pass
@@ -67,6 +64,10 @@ const startApp = async () => {
     try {
       initStatus = await initializeData();
       logger.info("✅ Data initialization complete:", initStatus);
+
+      // Start the prefetch scheduler after successful initialization
+      startScheduler();
+      logger.info("✅ Prefetch scheduler started");
     } catch (error) {
       logger.error("❌ Data initialization failed:", error);
       initStatus = {

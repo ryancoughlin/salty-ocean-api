@@ -7,6 +7,7 @@ const CONFIG = require("../config/waveModelConfig");
 // Constants for batch processing
 const BATCH_SIZE = 5;
 const BATCH_DELAY = 1000;
+const CONCURRENT_BATCHES = 3;
 
 let currentStatus = null;
 
@@ -60,7 +61,33 @@ const processBatch = async (stations, ndbcService) => {
   const results = await Promise.all(
     stations.map(async (station) => {
       try {
+        // Get cache configs to check timing
         const buoyConfig = getCacheConfig("buoyData", station.id);
+        const forecastConfig = station.location?.coordinates
+          ? getCacheConfig(
+              "waveModel",
+              `${station.location.coordinates[1]}_${station.location.coordinates[0]}`
+            )
+          : null;
+
+        // Skip if we're too close to next update
+        if (
+          buoyConfig.ttl < 300 ||
+          (forecastConfig && forecastConfig.ttl < 300)
+        ) {
+          logger.info(
+            `Skipping station ${station.id} - too close to next update`
+          );
+          return {
+            station: station.id,
+            skipped: true,
+            nextUpdate: Math.min(
+              buoyConfig.ttl,
+              forecastConfig?.ttl || Infinity
+            ),
+          };
+        }
+
         const buoyData = await getOrSet(
           buoyConfig.key,
           () => ndbcService.fetchBuoyData(station.id),
@@ -68,29 +95,27 @@ const processBatch = async (stations, ndbcService) => {
         );
 
         // Prefetch wave model forecast if station has coordinates and is within model bounds
-        if (buoyData && station.location?.coordinates) {
+        if (
+          buoyData &&
+          station.location?.coordinates &&
+          isStationInModelBounds(station)
+        ) {
           const [longitude, latitude] = station.location.coordinates;
 
-          if (isStationInModelBounds(station)) {
-            try {
-              const forecastConfig = getCacheConfig(
-                "waveModel",
-                `${latitude}_${longitude}`
-              );
-              await getOrSet(
-                forecastConfig.key,
-                () => waveModelService.getPointForecast(latitude, longitude),
-                forecastConfig.ttl
-              );
-              logger.debug(
-                `✓ Wave forecast prefetched for station ${station.id}`
-              );
-            } catch (forecastError) {
-              logger.warn(
-                `Failed to prefetch wave forecast for station ${station.id}:`,
-                forecastError
-              );
-            }
+          try {
+            await getOrSet(
+              forecastConfig.key,
+              () => waveModelService.getPointForecast(latitude, longitude),
+              forecastConfig.ttl
+            );
+            logger.debug(
+              `✓ Wave forecast prefetched for station ${station.id}`
+            );
+          } catch (forecastError) {
+            logger.warn(
+              `Failed to prefetch wave forecast for station ${station.id}:`,
+              forecastError
+            );
           }
         }
 
@@ -101,7 +126,11 @@ const processBatch = async (stations, ndbcService) => {
         }
 
         logger.debug(`✓ Station ${station.id} prefetched successfully`);
-        return { station: station.id, success: true };
+        return {
+          station: station.id,
+          success: true,
+          nextUpdate: Math.min(buoyConfig.ttl, forecastConfig?.ttl || Infinity),
+        };
       } catch (error) {
         if (currentStatus) {
           currentStatus.failureCount++;
@@ -123,6 +152,25 @@ const processBatch = async (stations, ndbcService) => {
     })
   );
 
+  return results;
+};
+
+// Process batches concurrently
+const processBatches = async (stations, ndbcService) => {
+  const results = [];
+  for (let i = 0; i < stations.length; i += BATCH_SIZE * CONCURRENT_BATCHES) {
+    const batchPromises = [];
+    for (let j = 0; j < CONCURRENT_BATCHES; j++) {
+      const start = i + j * BATCH_SIZE;
+      const batch = stations.slice(start, start + BATCH_SIZE);
+      if (batch.length > 0) {
+        batchPromises.push(processBatch(batch, ndbcService));
+      }
+    }
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults.flat());
+    await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
+  }
   return results;
 };
 
@@ -149,19 +197,7 @@ const prefetchAllBuoyData = async (ndbcService) => {
       errors: [],
     };
 
-    for (let i = 0; i < stationsInBounds.length; i += BATCH_SIZE) {
-      const batch = stationsInBounds.slice(i, i + BATCH_SIZE);
-      logger.info(
-        `⏳ Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(
-          stationsInBounds.length / BATCH_SIZE
-        )}`
-      );
-      await processBatch(batch, ndbcService);
-
-      if (i + BATCH_SIZE < stationsInBounds.length) {
-        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
-      }
-    }
+    const results = await processBatches(stationsInBounds, ndbcService);
 
     const endTime = Date.now();
     const duration = (endTime - startTime) / 1000;

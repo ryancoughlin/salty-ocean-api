@@ -1,5 +1,5 @@
-const NodeCache = require('node-cache');
-const { logger } = require('./logger');
+const NodeCache = require("node-cache");
+const { logger } = require("./logger");
 
 // Cache configuration
 const DEFAULT_TTL = 30 * 60; // 30 minutes
@@ -11,7 +11,7 @@ const cache = new NodeCache({
   checkperiod: CHECK_PERIOD,
   useClones: false,
   deleteOnExpire: true,
-  maxKeys: 1000 // Limit maximum number of keys
+  maxKeys: 1000, // Limit maximum number of keys
 });
 
 // Cache statistics
@@ -19,16 +19,16 @@ let cacheHits = 0;
 let cacheMisses = 0;
 
 // Monitor cache events
-cache.on('expired', (key, value) => {
+cache.on("expired", (key, value) => {
   logger.debug(`Cache key expired: ${key}`);
 });
 
-cache.on('del', (key, value) => {
+cache.on("del", (key, value) => {
   logger.debug(`Cache key deleted: ${key}`);
 });
 
-cache.on('flush', () => {
-  logger.info('Cache flushed');
+cache.on("flush", () => {
+  logger.info("Cache flushed");
 });
 
 /**
@@ -41,24 +41,39 @@ cache.on('flush', () => {
 async function getOrSet(key, fetchFn, ttl = DEFAULT_TTL) {
   try {
     const value = cache.get(key);
-    
+
     if (value !== undefined) {
       cacheHits++;
-      return { data: value, fromCache: true };
+      return value;
     }
 
     cacheMisses++;
     const freshData = await fetchFn();
-    
+
     if (freshData !== undefined && freshData !== null) {
       cache.set(key, freshData, ttl);
     }
-    
-    return { data: freshData, fromCache: false };
+
+    return freshData;
   } catch (error) {
     logger.error(`Cache error for key ${key}:`, error);
     throw error;
   }
+}
+
+/**
+ * Get a value directly from cache without fetching
+ * @param {string} key - Cache key
+ * @returns {any} Cached value or undefined if not found
+ */
+function getCache(key) {
+  const value = cache.get(key);
+  if (value !== undefined) {
+    cacheHits++;
+    return value;
+  }
+  cacheMisses++;
+  return undefined;
 }
 
 /**
@@ -73,7 +88,7 @@ function getStats() {
     misses: cacheMisses,
     hitRate: cacheHits / (cacheHits + cacheMisses) || 0,
     keys: cache.keys(),
-    memoryUsage: process.memoryUsage().heapUsed
+    memoryUsage: process.memoryUsage().heapUsed,
   };
 }
 
@@ -96,8 +111,9 @@ function deleteCache(key) {
 
 module.exports = {
   getOrSet,
+  getCache,
   getStats,
   clearCache,
   deleteCache,
-  DEFAULT_TTL
-}; 
+  DEFAULT_TTL,
+};

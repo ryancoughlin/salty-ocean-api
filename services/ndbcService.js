@@ -482,61 +482,55 @@ class NDBCService {
       const cacheKey = `ndbc_buoy_${buoyId}`;
       logger.info(`Fetching buoy data for ${buoyId}`);
 
-      const { data: buoyData, fromCache } = await getOrSet(
-        cacheKey,
-        async () => {
-          // Fetch both meteorological and spectral data
-          logger.info(`Fetching fresh data for buoy ${buoyId}`);
-          const [metData, spectralData] = await Promise.all([
-            this.fetchMetData(buoyId),
-            this.fetchSpectralData(buoyId),
-          ]);
-
-          if (!metData) {
-            logger.warn(`No meteorological data available for buoy ${buoyId}`);
-            return null;
-          }
-
-          // Use spectral wave height when available, fallback to met data
-          const waveHeight =
-            spectralData?.waves?.height || metData.waves.height;
-
-          // Combine the data
-          const combinedData = {
-            time: metData.time,
-            wind: metData.wind,
-            waves: {
-              height: waveHeight,
-              dominantPeriod: metData.waves.dominantPeriod,
-              averagePeriod: metData.waves.averagePeriod,
-              direction: metData.waves.direction,
-              spectral: spectralData?.waves
-                ? {
-                    steepness: spectralData.waves.steepness,
-                    swell: spectralData.waves.swell,
-                    windWave: spectralData.waves.windWave,
-                  }
-                : null,
-            },
-            conditions: metData.conditions,
-            trends: metData.trends,
-            marinerSummary: this.createMarinerSummary(metData, spectralData),
-          };
-
-          return combinedData;
-        },
-        getTimeToNextUpdate() // Dynamic TTL based on NDBC update schedule
-      );
-
-      if (!buoyData) {
-        logger.warn(`No data available for buoy ${buoyId}`);
-        return null;
+      // Try to get from cache first
+      const cachedData = await getOrSet(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached data for buoy ${buoyId}`);
+        return { data: cachedData, fromCache: true };
       }
 
-      logger.info(
-        `Returning ${fromCache ? "cached" : "fresh"} data for buoy ${buoyId}`
-      );
-      return buoyData;
+      // If not in cache, fetch fresh data
+      logger.info(`Fetching fresh data for buoy ${buoyId}`);
+      const [metData, spectralData] = await Promise.all([
+        this.fetchMetData(buoyId),
+        this.fetchSpectralData(buoyId),
+      ]);
+
+      if (!metData) {
+        logger.warn(`No meteorological data available for buoy ${buoyId}`);
+        return { data: null, fromCache: false };
+      }
+
+      // Use spectral wave height when available, fallback to met data
+      const waveHeight = spectralData?.waves?.height || metData.waves.height;
+
+      // Combine the data
+      const combinedData = {
+        time: metData.time,
+        wind: metData.wind,
+        waves: {
+          height: waveHeight,
+          dominantPeriod: metData.waves.dominantPeriod,
+          averagePeriod: metData.waves.averagePeriod,
+          direction: metData.waves.direction,
+          spectral: spectralData?.waves
+            ? {
+                steepness: spectralData.waves.steepness,
+                swell: spectralData.waves.swell,
+                windWave: spectralData.waves.windWave,
+              }
+            : null,
+        },
+        conditions: metData.conditions,
+        trends: metData.trends,
+        marinerSummary: this.createMarinerSummary(metData, spectralData),
+      };
+
+      // Cache the data
+      const ttl = getTimeToNextUpdate();
+      await getOrSet(cacheKey, combinedData, ttl);
+
+      return { data: combinedData, fromCache: false };
     } catch (error) {
       logger.error(`Error fetching buoy data for ${buoyId}:`, error);
       throw error;

@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import APIRouter, HTTPException, Path
 from models.buoy import NDBCStation, NDBCObservation, NDBCForecastResponse
 from services.buoy_service import BuoyService
 from services.wave_data_processor import WaveDataProcessor
+from services.weather_summary_service import WeatherSummaryService
 import json
 from pathlib import Path
 import time
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 wave_processor = WaveDataProcessor()
 buoy_service = BuoyService()
+summary_service = WeatherSummaryService()
 
 def load_stations():
     """Load NDBC stations from JSON file."""
@@ -128,4 +130,29 @@ async def get_station_forecast(
         raise
     except Exception as e:
         logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{station_id}/summary")
+async def get_station_summary(station_id: str) -> Dict:
+    """Get a summary for a specific station."""
+    try:
+        # Get forecast data from wave processor
+        forecast_data = wave_processor.process_station_forecast(station_id)
+        if not forecast_data or not forecast_data.get("forecasts"):
+            raise HTTPException(status_code=404, detail="No forecast data available for station")
+
+        # Generate summary from forecast data
+        summary = summary_service.generate_summary(
+            forecasts=forecast_data["forecasts"],
+            station_metadata=forecast_data["metadata"]
+        )
+
+        return {
+            "station_id": station_id,
+            "metadata": forecast_data["metadata"],
+            "summary": summary
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) 

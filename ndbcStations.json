@@ -1,0 +1,2970 @@
+[
+    {
+        "id": "41002",
+        "name": "225 NM South of Cape Hatteras",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.936,
+                31.759
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41004",
+        "name": "41 NM Southeast of Charleston, SC",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.099,
+                32.502
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41008",
+        "name": "40 NM Southeast of Savannah, GA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.866,
+                31.4
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41009",
+        "name": "CANAVERAL 20 NM East of Cape Canaveral, FL",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.185,
+                28.508
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41010",
+        "name": "120NM East of Cape Canaveral",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -78.467,
+                28.878
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41013",
+        "name": "Frying Pan Shoals, NC",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -77.764,
+                33.441
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41024",
+        "name": "Sunset Nearshore, NC (SUN2)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -78.477,
+                33.837
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41025",
+        "name": "Diamond Shoals, NC",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.454,
+                35.01
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41029",
+        "name": "Capers Nearshore, SC (CAP2)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.624,
+                32.803
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41033",
+        "name": "Fripp Nearshore, SC (FRP2)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.406,
+                32.279
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41038",
+        "name": "Wrightsville Beach Nearshore, NC (ILM2)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -77.715,
+                34.141
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41040",
+        "name": "470 NM East of Martinique",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -53.136,
+                14.536
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41043",
+        "name": "170 NM NNE of San Juan, PR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -64.793,
+                21.026
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41044",
+        "name": "330 NM NE St Martin Is",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -58.63,
+                21.582
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41049",
+        "name": "300 NM SSE of Bermuda",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -62.271,
+                27.505
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41052",
+        "name": "South of St. John, VI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -64.763,
+                18.249
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41053",
+        "name": "San Juan, PR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -66.099,
+                18.474
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41056",
+        "name": "Vieques Island, PR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -65.464,
+                18.261
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41064",
+        "name": "Onslow Bay Outer, NC (LEJ3)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.949,
+                34.207
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41065",
+        "name": "Capers Nearshore Waves (CAP2WAVE)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.619,
+                32.802
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41066",
+        "name": "CHR60",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.656,
+                32.536
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41067",
+        "name": "FRP2WAVE",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.406,
+                32.276
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41070",
+        "name": "Ponce de Leon Inlet Waves (PNCWAVE)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.803,
+                29.289
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41076",
+        "name": "CHR60WAVE",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.659,
+                32.536
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41082",
+        "name": "Mid-Atlantic Bight Central Surface Mooring",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.125,
+                35.95
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41083",
+        "name": "Mid-Atlantic Bight Southern Surface Mooring",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.853,
+                35.725
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41108",
+        "name": "(200)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -78.016,
+                33.721
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41110",
+        "name": "Masonboro Inlet, ILM2, NC (150)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -77.715,
+                34.142
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41112",
+        "name": "Offshore Fernandina Beach, FL (132)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.292,
+                30.709
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41113",
+        "name": "Cape Canaveral Nearshore, FL (143)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.533,
+                28.4
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41114",
+        "name": "Fort Pierce, FL (134)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.216,
+                27.552
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41115",
+        "name": "Rincon, Puerto Rico (181)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -67.28,
+                18.376
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41117",
+        "name": "St. Augustine, FL (194)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.079,
+                29.999
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41120",
+        "name": "Cape Hatteras East, NC (250)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.285,
+                35.258
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "41159",
+        "name": "Onslow Bay Outer, NC (217)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.949,
+                34.213
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42001",
+        "name": "180 nm South of Southwest Pass, LA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -89.662,
+                25.926
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42012",
+        "name": "44 NM SE of Mobile, AL",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -87.548,
+                30.06
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42013",
+        "name": "WFS Central Buoy, 25m Isobath",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.924,
+                27.173
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42019",
+        "name": "60 NM South of Freeport, TX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -95.343,
+                27.908
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42020",
+        "name": "60NM SSE of Corpus Christi, TX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -96.679,
+                26.97
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42022",
+        "name": "WFS Central Buoy, 50m Isobath",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -83.741,
+                27.505
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42035",
+        "name": "22 NM East of Galveston, TX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -94.41,
+                29.235
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42036",
+        "name": "112 NM WNW of Tampa, FL",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -84.508,
+                28.501
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42040",
+        "name": "63 NM South of Dauphin Island, AL",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -88.237,
+                29.207
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42055",
+        "name": "214 NM NE of Veracruz, MX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -94.112,
+                22.14
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42056",
+        "name": "120 NM ESE of Cozumel, MX",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -84.98,
+                19.82
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42057",
+        "name": "195 NM WSW of Negril, Jamaica",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.575,
+                16.973
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42058",
+        "name": "210 NM SSE of Kingston, Jamaica",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.153,
+                14.512
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42060",
+        "name": "63 NM WSW of Montserrat",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -63.329,
+                16.434
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42084",
+        "name": "Southwest Pass Entrance W, LA (256)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -89.649,
+                28.988
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42085",
+        "name": "Southeast of Ponce, PR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -66.537,
+                17.87
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42092",
+        "name": "Aransas Pass Channel Entrance S, TX (252)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -97.012,
+                27.64
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42095",
+        "name": "Satan Shoal, FL (244)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.968,
+                24.409
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42098",
+        "name": "Egmont Channel Entrance, FL (214)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.931,
+                27.59
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "42099",
+        "name": "Offshore St. Petersburg, FL (144)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -84.275,
+                27.352
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44007",
+        "name": "12 NM Southeast of Portland,ME",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.14,
+                43.525
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44009",
+        "name": "DELAWARE BAY 26 NM Southeast of Cape May, NJ",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.692,
+                38.46
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44011",
+        "name": "GEORGES BANK 170 NM East of Hyannis, MA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -66.562,
+                41.093
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44013",
+        "name": "BOSTON 16 NM East of Boston, MA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.651,
+                42.346
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44014",
+        "name": "VIRGINIA BEACH 64 NM East of Virginia Beach, VA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.837,
+                36.603
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44020",
+        "name": "NANTUCKET SOUND",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.283,
+                41.497
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44025",
+        "name": "30 NM South of Islip, NY",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -73.175,
+                40.258
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44027",
+        "name": "20 NM SE of Jonesport, ME",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -67.301,
+                44.284
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44029",
+        "name": "Massachusetts Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.566,
+                42.523
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44030",
+        "name": "Western Maine Shelf",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.426,
+                43.179
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44032",
+        "name": "Central Maine Shelf",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -69.355,
+                43.715
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44033",
+        "name": "Penobscot Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -68.996,
+                44.055
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44034",
+        "name": "Eastern Maine Shelf",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -68.112,
+                44.103
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44041",
+        "name": "Jamestown, VA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.787,
+                37.211
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44043",
+        "name": "Patapsco, MD",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.391,
+                39.152
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44056",
+        "name": "Duck FRF, NC",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.714,
+                36.2
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44058",
+        "name": "Stingray Point, VA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.257,
+                37.567
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44062",
+        "name": "Gooses Reef, MD",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.415,
+                38.556
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44063",
+        "name": "Annapolis, MD",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.448,
+                38.963
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44064",
+        "name": "First Landing, VA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.087,
+                36.998
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44065",
+        "name": "15 NM SE of Breezy Point , NY",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -73.701,
+                40.368
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44072",
+        "name": "York Spit, VA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.266,
+                37.201
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44073",
+        "name": "Gulf of Maine Buoy",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.54,
+                43.02
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44078",
+        "name": "OOI Irminger Sea Surface Mooring",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -39.52,
+                59.94
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44079",
+        "name": "Mid-Atlantic Bight Northern Surface Mooring",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.827,
+                36.175
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44084",
+        "name": "Bethany Beach, DE (263)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.044,
+                38.537
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44085",
+        "name": "Buzzards Bay, MA (260)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -71.032,
+                41.387
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44086",
+        "name": "Nags Head, NC (243)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.421,
+                36.001
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44087",
+        "name": "Thimble Shoal, VA (240)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.149,
+                37.026
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44088",
+        "name": "Virginia Beach Offshore, VA (171)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -74.839,
+                36.612
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44089",
+        "name": "Wallops Island, VA (224)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.325,
+                37.754
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44090",
+        "name": "Cape Cod Bay, MA (221)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.329,
+                41.84
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44091",
+        "name": "Barnegat, NJ (209)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -73.77,
+                39.768
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44095",
+        "name": "Oregon Inlet, NC (192)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.33,
+                35.75
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44097",
+        "name": "Block Island, RI  (154)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -71.124,
+                40.969
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44098",
+        "name": "Jeffrey's Ledge, NH (160)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -70.171,
+                42.8
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44099",
+        "name": "Cape Henry, VA (147)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.722,
+                36.915
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44100",
+        "name": "Duck FRF 26m, NC (430)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -75.593,
+                36.258
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44137",
+        "name": "East Scotia Slope",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -62.03,
+                42.26
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44139",
+        "name": "Banqureau Banks",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -57.1,
+                44.24
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44150",
+        "name": "La Have Bank",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -64.02,
+                42.5
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44258",
+        "name": "Halifax Harbour",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -63.4,
+                44.5
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44488",
+        "name": "East of Chedabucto Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -60.95,
+                45.44
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "44489",
+        "name": "West Chedabucto Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -61.14,
+                45.49
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45001",
+        "name": "60 NM North Northeast Hancock, MI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -87.793,
+                48.061
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45002",
+        "name": "Halfway between North Manitou and Washington Islands.",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -86.411,
+                45.344
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45003",
+        "name": "32NM Northeast of Alpena, MI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.84,
+                45.351
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45004",
+        "name": "70 NM NE Marquette, MI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -86.585,
+                47.585
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45005",
+        "name": "16 NM NW of Lorain, OH",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.398,
+                41.677
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45006",
+        "name": "30NM NE of Outer Island, WI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -89.793,
+                47.335
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45007",
+        "name": "43NM East Southeast of Milwaukee, WI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -87.026,
+                42.674
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45008",
+        "name": "43NM East of Oscoda, MI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.416,
+                44.283
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45012",
+        "name": "20NM North Northeast of Rochester, NY",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -77.401,
+                43.621
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45132",
+        "name": "Port Stanley",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.22,
+                42.46
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45136",
+        "name": "Slate Island",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -86.95,
+                48.54
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45137",
+        "name": "Georgian Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -81.02,
+                45.54
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45142",
+        "name": "Port Colborne",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.29,
+                42.74
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45143",
+        "name": "South Georgian Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -80.627,
+                44.94
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45147",
+        "name": "Lake St Clair",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.68,
+                42.43
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45149",
+        "name": "Southern Lake Huron",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.08,
+                43.54
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45151",
+        "name": "Lake Simcoe",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -79.37,
+                44.5
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45154",
+        "name": "North Channel East",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -82.64,
+                46.05
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45161",
+        "name": "Muskegon Buoy, MI",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -86.352,
+                43.185
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "45215",
+        "name": "Oswego, NY (274)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -76.539,
+                43.501
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46001",
+        "name": "175NM SE of Kodiak, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -148.027,
+                56.296
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46006",
+        "name": "600NM West of Eureka, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -137.377,
+                40.764
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46011",
+        "name": "21NM NW of Point Arguello, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -120.999,
+                34.937
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46013",
+        "name": "48NM NW of San Francisco, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.317,
+                38.235
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46014",
+        "name": "19NM North of Point Arena, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.98,
+                39.225
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46015",
+        "name": "15 NM West of Port Orford, OR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.839,
+                42.754
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46022",
+        "name": "17NM WSW of Eureka, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.54,
+                40.716
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46025",
+        "name": "33NM WSW of Santa Monica, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -119.045,
+                33.755
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46026",
+        "name": "18NM West of San Francisco, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.839,
+                37.754
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46027",
+        "name": "8 NM NW of Crescent City, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.382,
+                41.84
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46028",
+        "name": "55NM West NW of Morro Bay, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -121.903,
+                35.77
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46029",
+        "name": "20NM West of Columbia River Mouth",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.487,
+                46.163
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46035",
+        "name": "310 NM North of Adak, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -177.468,
+                57.034
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46036",
+        "name": "South Nomad",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -133.94,
+                48.36
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46041",
+        "name": "45NM NW of Aberdeen, WA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.739,
+                47.352
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46047",
+        "name": "121 NM West of San Diego, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -119.525,
+                32.388
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46050",
+        "name": "20NM West of Newport, OR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.546,
+                44.669
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46053",
+        "name": "12NM Southwest of Santa Barbara, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -119.839,
+                34.241
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46054",
+        "name": "WEST SANTA BARBARA  38 NM West of Santa Barbara, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -120.468,
+                34.274
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46060",
+        "name": "8NM NW of Hinchinbrook Is., AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -146.795,
+                60.571
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46061",
+        "name": "Between Montague and Hinchinbrook Islands, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -146.837,
+                60.23
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46069",
+        "name": "14 NM SW of Santa Rosa Island, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -120.213,
+                33.677
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46071",
+        "name": "14NM SOUTH OF AMCHITKA IS, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                179.764,
+                51.04
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46072",
+        "name": "CENTRAL ALEUTIANS 230 NM SW Dutch Harbor",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -172.145,
+                51.645
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46073",
+        "name": "205 NM WNW of Dutch Harbor, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -172.012,
+                55.008
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46076",
+        "name": "17 NM South of Montague Is,  AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -148.005,
+                59.508
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46077",
+        "name": "SHELIKOF STRAIT, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -154.211,
+                57.869
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46078",
+        "name": "104NM South of Kodiak Is., AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -152.599,
+                55.561
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46080",
+        "name": "76 NM ENE of Kodiak, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -150.129,
+                57.91
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46081",
+        "name": "Western Prince William Sound",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -148.283,
+                60.802
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46084",
+        "name": "25NM SSW of Cape Edgecumbe, AK",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -136.04,
+                56.614
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46086",
+        "name": "27NM SE Of San Clemente Is, CA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.052,
+                32.499
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46087",
+        "name": "6 NM North of Cape Flattery, WA (Traffic Separation Lighted Buoy)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.727,
+                48.493
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46088",
+        "name": "17 NM NE of Port Angeles, WA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.179,
+                48.332
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46089",
+        "name": "85 NM WNW of Tillamook, OR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -125.815,
+                45.928
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46092",
+        "name": "MBM1",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.029,
+                36.751
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46097",
+        "name": "OOI Newport Shelf",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.304,
+                44.639
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46098",
+        "name": "OOI Waldport Offshore",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.947,
+                44.378
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46100",
+        "name": "OOI Westport Offshore",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.964,
+                46.851
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46108",
+        "name": "Lower Cook Inlet (204)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -151.828,
+                59.598
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46121",
+        "name": "Carr Inlet, WA (U of Wash)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.73,
+                47.28
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46125",
+        "name": "Hood Canal, WA",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.627,
+                47.907
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46128",
+        "name": "06 - West of Coos Bay, OR",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.538,
+                43.292
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46131",
+        "name": "Sentry Shoal",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.98,
+                49.91
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46132",
+        "name": "South Brooks",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -127.89,
+                49.78
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46145",
+        "name": "Central Dixon Entrance Buoy",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -132.42,
+                54.37
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46146",
+        "name": "Halibut Bank",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.73,
+                49.34
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46147",
+        "name": "South Moresby",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -131.22,
+                51.83
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46181",
+        "name": "Nanakwa Shoal",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -128.83,
+                53.83
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46183",
+        "name": "North Hecate Strait",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -131.1,
+                53.62
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46184",
+        "name": "North Nomad",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -138.85,
+                53.92
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46185",
+        "name": "South Hecate Strait",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -129.79,
+                52.42
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46204",
+        "name": "West Sea Otter",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -128.77,
+                51.38
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46205",
+        "name": "West Dixon Entrance",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -134.32,
+                54.18
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46206",
+        "name": "La Perouse Bank",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -126,
+                48.84
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46207",
+        "name": "East Dellwood",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -129.92,
+                50.87
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46208",
+        "name": "West Moresby",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -132.69,
+                52.52
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46211",
+        "name": "Grays Harbor, WA (036)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.243,
+                46.857
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46213",
+        "name": "Cape Mendocino, CA (094)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.748,
+                40.292
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46214",
+        "name": "Point Reyes, CA (029)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.463,
+                37.937
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46215",
+        "name": "Diablo Canyon, CA (076)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -120.859,
+                35.204
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46218",
+        "name": "Harvest, CA (071)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -120.78,
+                34.452
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46219",
+        "name": "San Nicolas Island, CA (067)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -119.891,
+                33.226
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46221",
+        "name": "Santa Monica Bay, CA (028)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.641,
+                33.86
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46222",
+        "name": "San Pedro, CA (092)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.317,
+                33.618
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46224",
+        "name": "Oceanside Offshore, CA (045)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.472,
+                33.178
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46225",
+        "name": "Torrey Pines Outer, CA (100)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.391,
+                32.933
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46232",
+        "name": "Point Loma South, CA  (191)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.425,
+                32.517
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46235",
+        "name": "Imperial Beach Nearshore, CA (155)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.169,
+                32.57
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46239",
+        "name": "Point Sur, CA (157)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -122.104,
+                36.335
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46240",
+        "name": "Cabrillo Point, Monterey Bay, CA  (158)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -121.907,
+                36.626
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46243",
+        "name": "Clatsop Spit, OR (162)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.126,
+                46.214
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46244",
+        "name": "Humboldt Bay, North Spit, CA (168)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.358,
+                40.896
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46246",
+        "name": "Ocean Station PAPA  (166)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -145.17,
+                50.042
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46251",
+        "name": "Santa Cruz Basin, CA (203)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -119.565,
+                33.769
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46253",
+        "name": "San Pedro South, CA (213)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.181,
+                33.576
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46254",
+        "name": "SCRIPPS Nearshore, CA (201)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.267,
+                32.868
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46256",
+        "name": "Long Beach Channel, CA (215)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.201,
+                33.7
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46258",
+        "name": "Mission Bay West, CA (220)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.502,
+                32.749
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46266",
+        "name": "Del Mar Nearshore, CA (153)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.279,
+                32.957
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46267",
+        "name": "Angeles Point, WA (248)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.607,
+                48.173
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46268",
+        "name": "Topanga Nearshore, CA (103)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -118.578,
+                34.022
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46273",
+        "name": "Torrey Pines Inner, CA (101)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.274,
+                32.93
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46274",
+        "name": "Leucadia Nearshore, CA (262)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.314,
+                33.062
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46275",
+        "name": "Red Beach Nearshore, CA (264)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.501,
+                33.291
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46276",
+        "name": "Pajaro Beach, CA (266)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -121.825,
+                36.845
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46277",
+        "name": "Green Beach Offshore, CA (271)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -117.659,
+                33.336
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46278",
+        "name": "Tillamook Bay South Jetty, OR (270)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.991,
+                45.561
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46279",
+        "name": "Pajaro Beach South, CA (267)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -121.82,
+                36.838
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46280",
+        "name": "Newport PWS North (277)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.234,
+                44.575
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46281",
+        "name": "Newport PWS South, OR (278)",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -124.233,
+                44.559
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46282",
+        "name": "Aptos Creek Nearshore, CA 275",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -121.921,
+                36.951
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    },
+    {
+        "id": "46304",
+        "name": "Entrance To English Bay",
+        "location": {
+            "type": "Point",
+            "coordinates": [
+                -123.36,
+                49.3
+            ]
+        },
+        "type": "buoy",
+        "hasRealTimeData": true,
+        "owner": "NDBC"
+    }
+]

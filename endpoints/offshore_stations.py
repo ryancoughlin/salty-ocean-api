@@ -5,7 +5,10 @@ from services.buoy_service import BuoyService
 from services.wave_data_processor import WaveDataProcessor
 import json
 from pathlib import Path
+import time
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 wave_processor = WaveDataProcessor()
 buoy_service = BuoyService()
@@ -77,9 +80,14 @@ async def get_station_forecast(
     station_id: str
 ) -> NDBCForecastResponse:
     """Get wave model forecast for a specific station"""
+    start_time = time.time()
+    logger.info(f"Starting forecast request for station {station_id}")
+    
     try:
         # Load stations data
+        t0 = time.time()
         stations = load_stations()
+        logger.debug(f"Loaded stations data in {time.time() - t0:.2f}s")
         
         # Find requested station
         station = next(
@@ -94,12 +102,17 @@ async def get_station_forecast(
             )
         
         # Get current model run info
+        t0 = time.time()
         model_run, date = wave_processor.get_current_model_run()
+        logger.debug(f"Got model run info in {time.time() - t0:.2f}s: {date} {model_run}z")
         
         # Get forecast data
+        t0 = time.time()
         forecast_data = wave_processor.process_station_forecast(station_id, model_run, date)
+        logger.debug(f"Processed forecast data in {time.time() - t0:.2f}s")
+        logger.debug(f"Forecast data contains {len(forecast_data['forecasts'])} entries")
         
-        return NDBCForecastResponse(
+        response = NDBCForecastResponse(
             station_id=station_id,
             name=station["name"],
             location=station["location"],
@@ -107,7 +120,12 @@ async def get_station_forecast(
             forecasts=forecast_data["forecasts"]
         )
         
+        total_time = time.time() - start_time
+        logger.info(f"Completed forecast request for station {station_id} in {total_time:.2f}s")
+        return response
+        
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 

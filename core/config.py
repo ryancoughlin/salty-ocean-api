@@ -25,35 +25,35 @@ class Settings(BaseSettings):
             "grid": {
                 "lat": {
                     "start": 0,
-                    "end": 50,
+                    "end": 55,
                     "resolution": 0.16,
-                    "size": 301
+                    "size": 331
                 },
                 "lon": {
-                    "start": -98,
-                    "end": -30,
+                    "start": -100,
+                    "end": -50,
                     "resolution": 0.16,
-                    "size": 425
+                    "size": 301
                 }
             }
         },
-        "pacific": {
-            "name": "paclocn.0p16",
-            "grid": {
-                "lat": {
-                    "start": 0,
-                    "end": 60,
-                    "resolution": 0.16,
-                    "size": 376
-                },
-                "lon": {
-                    "start": -180,
-                    "end": -115,
-                    "resolution": 0.16,
-                    "size": 407
-                }
-            }
-        }
+        # "pacific": {
+        #     "name": "paclocn.0p16",
+        #     "grid": {
+        #         "lat": {
+        #             "start": 0,
+        #             "end": 60,
+        #             "resolution": 0.16,
+        #             "size": 376
+        #         },
+        #         "lon": {
+        #             "start": -180,
+        #             "end": -115,
+        #             "resolution": 0.16,
+        #             "size": 407
+        #         }
+        #     }
+        # }
     }
     
     # Development settings

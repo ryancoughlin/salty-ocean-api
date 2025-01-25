@@ -1,6 +1,6 @@
 import aiohttp
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from pathlib import Path
 from typing import List, Optional
@@ -26,19 +26,22 @@ class WaveDataDownloader:
         }
         
     def get_current_model_run(self) -> tuple[str, str]:
-        """Determine the current model run based on UTC time."""
-        now = datetime.utcnow()
+        """Get the latest available model run based on current UTC time."""
+        now = datetime.now(timezone.utc)
         current_hour = now.hour
         
-        # Find the latest available model run (add 5 hours for processing time)
-        model_runs = sorted(map(int, settings.model_runs))
-        model_run = max((run for run in model_runs if current_hour >= run + 5), default=model_runs[-1])
+        # Model runs are at 00, 06, 12, 18 UTC
+        # Data is available ~5 hours after run time
+        model_runs = [0, 6, 12, 18]
         
-        # If no valid run found, use last run from previous day
-        if model_run == model_runs[-1] and current_hour < model_runs[0] + 5:
-            now -= timedelta(days=1)
-            
-        return str(model_run).zfill(2), now.strftime("%Y%m%d")
+        # Find the latest run that should have data available
+        latest_run = max((run for run in model_runs if current_hour >= run + 5), default=18)
+        
+        # If we're before the first run + delay of the day, use previous day's last run
+        if latest_run == 18 and current_hour < model_runs[0] + 5:
+            now = now - timedelta(days=1)
+        
+        return str(latest_run).zfill(2), now.strftime("%Y%m%d")
 
     def should_attempt_download(self) -> bool:
         """Check if we should attempt a download based on previous attempts."""
@@ -66,7 +69,7 @@ class WaveDataDownloader:
         for region in settings.models:
             model_name = settings.models[region]["name"]
             # Check first and last forecast hour files
-            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f000.grib2"
+            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f120.grib2"  # Start at f120
             last_file = f"gfswave.t{self.current_model_run}z.{model_name}.f384.grib2"
             
             if not (self.data_dir / first_file).exists() or not (self.data_dir / last_file).exists():
@@ -145,6 +148,8 @@ class WaveDataDownloader:
                     filename = f"gfswave.t{model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
                     local_path = Path(settings.data_dir) / filename
                     
+                    total_files += 1  # Count total expected files
+                    
                     # Skip if file already exists for current model run
                     if local_path.exists():
                         logger.debug(f"Skipping {filename} - already exists")
@@ -156,7 +161,6 @@ class WaveDataDownloader:
                         local_path
                     ))
                 
-                total_files += len(files_to_download)
                 if not files_to_download:
                     logger.info(f"No new files to download for {region}")
                     continue

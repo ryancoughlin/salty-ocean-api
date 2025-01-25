@@ -18,19 +18,6 @@ logger = logging.getLogger(__name__)
 class WaveDataProcessor:
     def __init__(self):
         """Initialize wave data processor."""
-        self.var_mapping = {
-            'ws': 'wind_speed',
-            'wdir': 'wind_direction',
-            'swh': 'wave_height',
-            'perpw': 'wave_period',
-            'dirpw': 'wave_direction',
-            'shww': 'wind_wave_height',
-            'mpww': 'wind_wave_period',
-            'wvdir': 'wind_wave_direction',
-            'shts': 'swell_height',
-            'mpts': 'swell_period',
-            'swdir': 'swell_direction'
-        }
         self.station_repo = StationRepository(Path('ndbcStations.json'))
         self.downloader = WaveDataDownloader()
 
@@ -49,87 +36,75 @@ class WaveDataProcessor:
             grib_file = Grib2File(file_path)
             
             region = 'atlantic' if lon > -100 else 'pacific'
-            logger.debug(f"Using {region} region for lon={lon}")
-            
             grid_config = settings.models[region]["grid"]
-            logger.debug(f"Grid config: {grid_config}")
-            
             lat_idx, lon_idx = grib_file.get_grid_indices(lat, lon, grid_config)
-            logger.debug(f"Found grid indices: lat_idx={lat_idx}, lon_idx={lon_idx}")
             
             # Extract all variables
-            forecast = {}
-            
+            forecast = {
+                'timestamp': self.get_forecast_timestamp(grib_file.forecast_hour),
+                'grid_point': {
+                    'latitude': float(grib_file.dataset.latitude[lat_idx].item()),
+                    'longitude': float(grib_file.dataset.longitude[lon_idx].item())
+                }
+            }
+
             # Wind data
             wind_speed = grib_file.get_value_at_indices('ws', lat_idx, lon_idx)
             wind_dir = grib_file.get_value_at_indices('wdir', lat_idx, lon_idx)
-            logger.debug(f"Wind data - speed: {wind_speed}, direction: {wind_dir}")
-            if wind_speed is not None and not numpy.isnan(wind_speed):
-                forecast['wind'] = {
-                    'speed': round(float(wind_speed), 2),
-                    'direction': round(float(wind_dir), 2) if wind_dir is not None and not numpy.isnan(wind_dir) else None,
-                    'units': {
-                        'speed': 'm/s',
-                        'direction': 'degrees'
-                    }
+            forecast['wind'] = {
+                'speed': round(float(wind_speed), 2) if wind_speed is not None and not numpy.isnan(wind_speed) else None,
+                'direction': round(float(wind_dir), 2) if wind_dir is not None and not numpy.isnan(wind_dir) else None,
+                'units': {
+                    'speed': 'm/s',
+                    'direction': 'degrees'
                 }
-            
+            }
+
             # Wave data
             wave_height = grib_file.get_value_at_indices('swh', lat_idx, lon_idx)
             wave_period = grib_file.get_value_at_indices('perpw', lat_idx, lon_idx)
             wave_dir = grib_file.get_value_at_indices('dirpw', lat_idx, lon_idx)
-            if wave_height is not None and not numpy.isnan(wave_height):
-                forecast['waves'] = {
-                    'height': round(float(wave_height), 2),
-                    'period': round(float(wave_period), 2) if wave_period is not None and not numpy.isnan(wave_period) else None,
-                    'direction': round(float(wave_dir), 2) if wave_dir is not None and not numpy.isnan(wave_dir) else None,
-                    'units': {
-                        'height': 'm',
-                        'period': 's',
-                        'direction': 'degrees'
-                    }
+            forecast['waves'] = {
+                'height': round(float(wave_height), 2) if wave_height is not None and not numpy.isnan(wave_height) else None,
+                'period': round(float(wave_period), 2) if wave_period is not None and not numpy.isnan(wave_period) else None,
+                'direction': round(float(wave_dir), 2) if wave_dir is not None and not numpy.isnan(wave_dir) else None,
+                'units': {
+                    'height': 'm',
+                    'period': 's',
+                    'direction': 'degrees'
                 }
-            
+            }
+
             # Wind wave data
             wind_wave_height = grib_file.get_value_at_indices('shww', lat_idx, lon_idx)
             wind_wave_period = grib_file.get_value_at_indices('mpww', lat_idx, lon_idx)
             wind_wave_dir = grib_file.get_value_at_indices('wvdir', lat_idx, lon_idx)
-            if wind_wave_height is not None and not numpy.isnan(wind_wave_height):
-                forecast['wind_waves'] = {
-                    'height': round(float(wind_wave_height), 2),
-                    'period': round(float(wind_wave_period), 2) if wind_wave_period is not None and not numpy.isnan(wind_wave_period) else None,
-                    'direction': round(float(wind_wave_dir), 2) if wind_wave_dir is not None and not numpy.isnan(wind_wave_dir) else None,
-                    'units': {
-                        'height': 'm',
-                        'period': 's',
-                        'direction': 'degrees'
-                    }
+            forecast['wind_waves'] = {
+                'height': round(float(wind_wave_height), 2) if wind_wave_height is not None and not numpy.isnan(wind_wave_height) else None,
+                'period': round(float(wind_wave_period), 2) if wind_wave_period is not None and not numpy.isnan(wind_wave_period) else None,
+                'direction': round(float(wind_wave_dir), 2) if wind_wave_dir is not None and not numpy.isnan(wind_wave_dir) else None,
+                'units': {
+                    'height': 'm',
+                    'period': 's',
+                    'direction': 'degrees'
                 }
-            
+            }
+
             # Swell data
             swell_height = grib_file.get_value_at_indices('shts', lat_idx, lon_idx)
             swell_period = grib_file.get_value_at_indices('mpts', lat_idx, lon_idx)
             swell_dir = grib_file.get_value_at_indices('swdir', lat_idx, lon_idx)
-            if swell_height is not None and not numpy.isnan(swell_height):
-                forecast['swell'] = {
-                    'height': round(float(swell_height), 2),
-                    'period': round(float(swell_period), 2) if swell_period is not None and not numpy.isnan(swell_period) else None,
-                    'direction': round(float(swell_dir), 2) if swell_dir is not None and not numpy.isnan(swell_dir) else None,
-                    'units': {
-                        'height': 'm',
-                        'period': 's',
-                        'direction': 'degrees'
-                    }
+            forecast['swell'] = {
+                'height': round(float(swell_height), 2) if swell_height is not None and not numpy.isnan(swell_height) else None,
+                'period': round(float(swell_period), 2) if swell_period is not None and not numpy.isnan(swell_period) else None,
+                'direction': round(float(swell_dir), 2) if swell_dir is not None and not numpy.isnan(swell_dir) else None,
+                'units': {
+                    'height': 'm',
+                    'period': 's',
+                    'direction': 'degrees'
                 }
-            
-            # Add timestamp and grid point info
-            forecast['timestamp'] = self.get_forecast_timestamp(grib_file.forecast_hour)
-            forecast['grid_point'] = {
-                'latitude': float(grib_file.dataset.latitude[lat_idx].item()),
-                'longitude': float(grib_file.dataset.longitude[lon_idx].item())
             }
-            logger.debug(f"Final forecast data: {forecast}")
-            
+
             grib_file.close()
             return forecast
             
@@ -204,54 +179,39 @@ class WaveDataProcessor:
         model_name = settings.models[region]["name"]
         grid_config = settings.models[region]["grid"]
         logger.info(f"Using {region} region model: {model_name}")
-        logger.debug(f"Grid config: {grid_config}")
         
         # Normalize longitude to 0-360 format for grid calculations
         normalized_lon = self.normalize_longitude(lon)
-        logger.debug(f"Normalized longitude from {lon} to {normalized_lon}")
-            
-        logger.debug(f"Grid longitude range: {grid_config['lon']['start']} to {grid_config['lon']['end']}")
-        logger.debug(f"Grid latitude range: {grid_config['lat']['start']} to {grid_config['lat']['end']}")
         
-        # Process each forecast hour following NOAA's pattern (3-hourly from 0 to 384)
-        hours = list(range(0, 385, 3))
-        logger.info(f"Processing forecast hours 0 to 384 every 3 hours")
+        # Process each forecast hour following NOAA's pattern (3-hourly from 120 to 384)
+        hours = settings.forecast_hours
+        logger.info(f"Processing forecast hours {min(hours)} to {max(hours)} every 3 hours")
         
         # Build list of files to process
         files = []
-        for hour in hours:
+        for hour in hours:  # This ensures we only process files for our forecast hours
             file_name = f"gfswave.t{model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
             file_path = Path(settings.data_dir) / file_name
             if file_path.exists():
                 files.append(str(file_path))
+            else:
+                logger.warning(f"Missing forecast file for hour {hour}: {file_name}")
         
         if not files:
             logger.error("No GRIB2 files found")
-            return {"forecasts": []}
+            raise ValueError("No forecast data available")
             
-        logger.info(f"Found {len(files)} GRIB2 files")
+        logger.info(f"Found {len(files)} forecast files to process")
         
-        # Find grid indices using first file
         try:
             # Open first file to get grid information
             first_ds = xr.open_dataset(files[0], engine='cfgrib', backend_kwargs={'indexpath': ''})
             
-            # Log the dataset structure
-            logger.debug(f"Dataset variables: {list(first_ds.variables.keys())}")
-            logger.debug(f"Dataset dimensions: {first_ds.dims}")
-            logger.debug(f"Dataset coordinates: {list(first_ds.coords)}")
-            
-            # Find nearest grid point - ensure we get integer indices
+            # Find nearest grid point
             lat_diffs = abs(first_ds.latitude - lat)
-            
-            # Convert dataset longitudes to 0-360 format for comparison
             ds_lons = first_ds.longitude.values
             ds_lons = numpy.where(ds_lons < 0, ds_lons + 360, ds_lons)
             lon_diffs = abs(ds_lons - normalized_lon)
-            
-            logger.debug(f"Finding nearest grid point for lat={lat}, lon={normalized_lon}")
-            logger.debug(f"Latitude differences range: {float(lat_diffs.min().values)} to {float(lat_diffs.max().values)}")
-            logger.debug(f"Longitude differences range: {float(lon_diffs.min())} to {float(lon_diffs.max())}")
             
             lat_idx = int(lat_diffs.argmin().values)
             lon_idx = int(lon_diffs.argmin())
@@ -262,20 +222,20 @@ class WaveDataProcessor:
             if grid_lon < 0:
                 grid_lon += 360
             
-            # Calculate distance to chosen grid point
+            # Check if grid point is too far from station
             lat_diff = abs(grid_lat - lat)
             lon_diff = abs(grid_lon - normalized_lon)
-            logger.info(f"Distance to grid point: lat_diff={lat_diff:.4f}°, lon_diff={lon_diff:.4f}°")
+            if lat_diff > 1.0 or lon_diff > 1.0:  # More than 1 degree difference
+                logger.error(f"Nearest grid point too far from station: lat_diff={lat_diff:.4f}°, lon_diff={lon_diff:.4f}°")
+                raise ValueError("No forecast data available - station location outside model grid")
             
-            logger.info(f"Found grid point: lat={grid_lat}, lon={grid_lon} (indices: lat_idx={lat_idx}, lon_idx={lon_idx})")
-            logger.debug(f"Grid latitude range: {float(first_ds.latitude.min().values)} to {float(first_ds.latitude.max().values)}")
-            logger.debug(f"Grid longitude range: {float(first_ds.longitude.min().values)} to {float(first_ds.longitude.max().values)}")
-            
+            logger.info(f"Using grid point: lat={grid_lat}, lon={grid_lon}")
             first_ds.close()
             
             # Process each file using the same grid indices
             forecasts = []
             for hour, file_path in zip(hours, files):
+                process_start = time.time()
                 try:
                     ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'indexpath': ''})
                     
@@ -337,12 +297,15 @@ class WaveDataProcessor:
                         forecasts.append(forecast)
                         
                     ds.close()
+                    process_time = time.time() - process_start
+                    logger.debug(f"Processed hour {hour} in {process_time:.2f}s")
                     
                 except Exception as e:
                     logger.error(f"Error processing hour {hour}: {str(e)}")
                     continue
             
-            logger.info(f"Processed {len(forecasts)} forecasts in {time.time() - start_time:.2f}s")
+            total_time = time.time() - start_time
+            logger.info(f"Processed {len(forecasts)} forecasts in {total_time:.2f}s")
             
             return {
                 "metadata": {

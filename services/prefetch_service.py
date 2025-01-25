@@ -17,7 +17,7 @@ class PrefetchService:
     def __init__(self):
         self.wave_processor = WaveDataProcessor()
         self.station_repo = StationRepository(Path('ndbcStations.json'))
-        self.semaphore = asyncio.Semaphore(10)  # Limit concurrent requests
+        self.semaphore = asyncio.Semaphore(3)  # Limit concurrent requests
         
     async def _process_station_forecast(self, station: dict, model_run: str, date: str) -> None:
         """Helper to process forecast for a single station with semaphore."""
@@ -25,7 +25,14 @@ class PrefetchService:
             try:
                 station_id = station["id"]
                 logger.debug(f"Processing forecast for station {station_id}")
-                await self.wave_processor.process_station_forecast(station_id, model_run, date)
+                # Since process_station_forecast is not async, run it in executor
+                forecast = await asyncio.get_event_loop().run_in_executor(
+                    None, 
+                    self.wave_processor.process_station_forecast,
+                    station_id,
+                    model_run,
+                    date
+                )
                 logger.debug(f"Successfully processed forecast for {station_id}")
             except Exception as e:
                 logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
@@ -40,17 +47,34 @@ class PrefetchService:
             # Skip download if it was already done by model update
             if not self.wave_processor.has_current_data():
                 logger.info("Downloading new model data")
-                await self.wave_processor.update_model_data()
+                success = await self.wave_processor.update_model_data()
+                if not success:
+                    logger.error("Failed to download model data")
+                    return
             else:
                 logger.info("Using existing model data")
             
             # Load stations and process forecasts
             stations = self.station_repo.load_stations()
             
-            tasks = [self._process_station_forecast(station, model_run, date) for station in stations]
+            tasks = []
+            for station in stations:
+                task = asyncio.create_task(
+                    self._process_station_forecast(station, model_run, date)
+                )
+                tasks.append(task)
+            
             if tasks:
-                await asyncio.gather(*tasks)
+                # Wait for all tasks with timeout
+                try:
+                    await asyncio.wait_for(asyncio.gather(*tasks), timeout=600)  # 10 minute timeout
+                except asyncio.TimeoutError:
+                    logger.error("Prefetch timed out after 10 minutes")
+                except Exception as e:
+                    logger.error(f"Error during prefetch: {str(e)}")
+                    
             logger.info("Completed wave forecast prefetch")
+            
         except Exception as e:
             logger.error(f"Error during wave forecast prefetch: {str(e)}")
             

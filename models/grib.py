@@ -101,38 +101,14 @@ class Grib2File:
         
         return lat_idx, lon_idx
         
-    def get_value_at_indices(self, var_name: str, lat_idx: int, lon_idx: int) -> Optional[float]:
-        """Get variable value at specific grid indices.
-        
-        Args:
-            var_name: Name of the variable to extract
-            lat_idx: Latitude index
-            lon_idx: Longitude index
-            
-        Returns:
-            Value at the specified indices or None if not found
-        """
+    def get_value_at_indices(self, variable: str, lat_idx: int, lon_idx: int) -> Optional[float]:
+        """Get value at specified indices for a variable, handling missing values."""
         try:
-            if var_name not in self.dataset.data_vars:
+            value = self.dataset[variable].values[0, lat_idx, lon_idx]
+            if value == 3.4028234663852886e+38:  # GRIB missing value
                 return None
-                
-            var = self.dataset[var_name]
-            if 'orderedSequenceData' in var.dims:
-                value = var.isel(
-                    orderedSequenceData=0,
-                    latitude=lat_idx,
-                    longitude=lon_idx
-                ).values
-            else:
-                value = var.isel(
-                    latitude=lat_idx,
-                    longitude=lon_idx
-                ).values
-                
-            return float(value)
-            
-        except Exception as e:
-            logger.error(f"Error getting {var_name} at ({lat_idx}, {lon_idx}): {str(e)}")
+            return value
+        except (KeyError, IndexError):
             return None
             
     @classmethod

@@ -12,7 +12,16 @@ class Settings(BaseSettings):
     spectral_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"
     
     # NOAA CO-OPS settings
+    coops_metadata_url: str = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi"
     coops_base_url: str = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+    coops_params: Dict = {
+        "product": "predictions",
+        "datum": "MLLW",
+        "units": "english",
+        "time_zone": "lst_ldt",
+        "format": "json"
+    }
+    coops_timeout: int = 10
     
     # Wave model settings
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"

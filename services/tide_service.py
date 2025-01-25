@@ -1,26 +1,41 @@
 import logging
 import requests
+import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from core.config import settings
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class TideService:
     """Service for interacting with NOAA CO-OPS tide data API."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize TideService."""
-        self.base_url = settings.coops_base_url
+        self.data_url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+        self.stations_file = Path(__file__).parent.parent / "tide_stations.json"
         
     def get_stations(self) -> List[Dict[str, Any]]:
-        """Get list of tide stations from NOAA CO-OPS API."""
+        """Get list of tide stations from local JSON file."""
         try:
-            response = requests.get(self.base_url, timeout=10)
-            response.raise_for_status()
-            return response.json()
+            with open(self.stations_file, 'r') as f:
+                stations = json.load(f)
+            
+            return [
+                {
+                    "station_id": station["station_id"],
+                    "name": station["name"],
+                    "lat": station["latitude"],
+                    "lng": station["longitude"],
+                    "type": station["prediction_type"],
+                    "state": None,
+                    "timezone": None,
+                    "affiliations": []
+                }
+                for station in stations
+            ]
         except Exception as e:
-            logger.error(f"Error fetching tide stations: {str(e)}")
+            logger.error(f"Error reading tide stations from file: {str(e)}")
             raise
 
     def get_predictions(
@@ -31,30 +46,34 @@ class TideService:
     ) -> Dict[str, Any]:
         """Get tide predictions for a station from NOAA CO-OPS API."""
         try:
-            # Default to 24 hours of predictions if no dates provided
-            if not start_date:
-                start_date = datetime.now()
-            if not end_date:
-                end_date = start_date + timedelta(days=1)
+            start_date = start_date or datetime.now()
+            end_date = end_date or start_date + timedelta(days=7)
 
             params = {
-                "station": station_id,
                 "begin_date": start_date.strftime("%Y%m%d"),
                 "end_date": end_date.strftime("%Y%m%d"),
+                "station": station_id,
                 "product": "predictions",
                 "datum": "MLLW",
-                "units": "english",
                 "time_zone": "lst_ldt",
+                "interval": "hilo",
+                "units": "english",
+                "application": "DataAPI_Sample",
                 "format": "json"
             }
 
             response = requests.get(
-                f"{self.base_url}/datagetter",
+                self.data_url,
                 params=params,
-                timeout=10
+                timeout=30
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            
+            if "error" in data:
+                raise Exception(data["error"].get("message", "Unknown error from NOAA API"))
+                
+            return data.get("predictions", [])
         except Exception as e:
             logger.error(f"Error fetching tide predictions for station {station_id}: {str(e)}")
             raise 

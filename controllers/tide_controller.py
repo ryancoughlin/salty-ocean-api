@@ -1,77 +1,84 @@
 from typing import Dict, List
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 from services.tide_service import TideService
+from models.tide import TideStation, TideStationPredictions, GeoJSONResponse
+import logging
 
-router = APIRouter(prefix="/tide-stations", tags=["tide-stations"])
-tide_service = TideService()
+logger = logging.getLogger(__name__)
 
-@router.get("")
-async def get_all_stations() -> List[Dict]:
-    """Get all tide stations"""
-    try:
-        stations = tide_service.get_stations()
-        return stations
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class TideController:
+    def __init__(self):
+        self.tide_service = TideService()
 
-@router.get("/geojson")
-async def get_stations_geojson() -> Dict:
-    """Get stations in GeoJSON format for mapping"""
-    try:
-        stations = tide_service.get_stations()
-        
-        geojson = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [station["lng"], station["lat"]]
-                    },
-                    "properties": {
-                        "id": station["id"],
-                        "name": station["name"]
-                    }
-                }
+    def get_all_stations(self) -> List[TideStation]:
+        """Get all tide stations"""
+        try:
+            stations = self.tide_service.get_stations()
+            return [
+                TideStation(
+                    id=station["station_id"],
+                    name=station["name"],
+                    location={"lat": station["lat"], "lng": station["lng"]}
+                )
                 for station in stations
             ]
-        }
-        return geojson
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error getting stations: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/{station_id}")
-async def get_station_predictions(station_id: str, date: datetime = None) -> Dict:
-    """
-    Get predictions for a specific station
-    Args:
-        station_id: Station identifier
-        date: Optional date for predictions (defaults to today)
-    """
-    try:
-        # First verify station exists
-        stations = tide_service.get_stations()
-        station = next((s for s in stations if s["id"] == station_id), None)
-        
-        if not station:
-            raise HTTPException(status_code=404, detail="Station not found")
+    def get_stations_geojson(self) -> GeoJSONResponse:
+        """Get stations in GeoJSON format for mapping"""
+        try:
+            stations = self.tide_service.get_stations()
             
-        predictions = tide_service.get_predictions(station_id, date)
-        
-        return {
-            "id": station_id,
-            "name": station["name"],
-            "predictions": [
-                {
-                    "time": p["t"],
-                    "height": float(p["v"])
-                }
-                for p in predictions
-            ]
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+            return GeoJSONResponse(
+                type="FeatureCollection",
+                features=[
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [station["lng"], station["lat"]]
+                        },
+                        "properties": {
+                            "id": station["station_id"],
+                            "name": station["name"],
+                            "type": station["type"]
+                        }
+                    }
+                    for station in stations
+                ]
+            )
+        except Exception as e:
+            logger.error(f"Error creating GeoJSON response: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def get_station_predictions(self, station_id: str, date: datetime = None) -> TideStationPredictions:
+        """Get predictions for a specific station"""
+        try:
+            # First verify station exists
+            stations = self.tide_service.get_stations()
+            station = next((s for s in stations if s["station_id"] == station_id), None)
+            
+            if not station:
+                raise HTTPException(status_code=404, detail="Station not found")
+                
+            predictions = self.tide_service.get_predictions(station_id, date)
+            
+            return TideStationPredictions(
+                id=station_id,
+                name=station["name"],
+                predictions=[
+                    {
+                        "time": p["t"],
+                        "height": float(p["v"])
+                    }
+                    for p in predictions
+                ]
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting predictions for station {station_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e)) 

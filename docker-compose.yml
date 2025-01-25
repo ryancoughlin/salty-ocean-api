@@ -3,7 +3,7 @@ services:
     container_name: salty-ocean-api
     build: .
     ports:
-      - "5010:5010"
+      - "8080:5010"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

@@ -4,6 +4,7 @@ services:
     build: .
     ports:
       - "8080:5010"
+      - "5010:5010"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

@@ -65,7 +65,7 @@ class OffshoreController:
                 detail=f"Error fetching observations: {str(e)}"
             )
 
-    @cached(namespace="wave_forecast")
+    @cached(namespace="wave_forecast", key_builder=lambda self, station_id, **_: f"{station_id}:{_.get('model_run', '')}")
     async def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
         """Get wave model forecast for a specific station"""
         start_time = time.time()

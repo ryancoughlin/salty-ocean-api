@@ -411,3 +411,27 @@ class WaveDataProcessor:
             f"(normalized lon={normalized_lon})"
         )
         return None 
+
+    async def update_model_data(self):
+        """Update wave model data for the current run."""
+        try:
+            model_run, date = self.get_current_model_run()
+            logger.info(f"Updating wave model data for {date} {model_run}z")
+            
+            success = await self.downloader.download_model_data()
+            if not success:
+                raise Exception("Failed to download wave model data")
+                
+            logger.info("Wave model data updated successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating wave model data: {str(e)}")
+            return False
+
+    def has_current_data(self) -> bool:
+        """Check if we have data for the current model run."""
+        try:
+            model_run, date = self.get_current_model_run()
+            return self.downloader.has_current_data()
+        except Exception:
+            return False 

@@ -1,5 +1,5 @@
 import logging
-import requests
+import aiohttp
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
@@ -38,7 +38,7 @@ class TideService:
             logger.error(f"Error reading tide stations from file: {str(e)}")
             raise
 
-    def get_predictions(
+    async def get_predictions(
         self,
         station_id: str,
         start_date: Optional[datetime] = None,
@@ -58,22 +58,38 @@ class TideService:
                 "time_zone": "lst_ldt",
                 "interval": "hilo",
                 "units": "english",
-                "application": "DataAPI_Sample",
                 "format": "json"
             }
 
-            response = requests.get(
-                self.data_url,
-                params=params,
-                timeout=30
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if "error" in data:
-                raise Exception(data["error"].get("message", "Unknown error from NOAA API"))
-                
-            return data.get("predictions", [])
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept": "application/json",
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    self.data_url,
+                    params=params,
+                    headers=headers,
+                    timeout=30,
+                    verify_ssl=False  # Disable SSL verification
+                ) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                    
+                    if "error" in data:
+                        if "No Predictions data was found" in data["error"].get("message", ""):
+                            # Return empty list for stations without prediction data
+                            return []
+                        else:
+                            # Raise other API errors
+                            raise Exception(data["error"].get("message", "Unknown error from NOAA API"))
+                        
+                    return data.get("predictions", [])
+                    
+        except aiohttp.ClientError as e:
+            logger.error(f"Error fetching tide predictions for station {station_id}: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Error fetching tide predictions for station {station_id}: {str(e)}")
             raise 

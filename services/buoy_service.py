@@ -1,4 +1,4 @@
-import requests
+import aiohttp
 from datetime import datetime
 import logging
 from typing import Dict, Any, Optional, List
@@ -13,14 +13,18 @@ class BuoyService:
         """Initialize BuoyService."""
         self.base_url = settings.ndbc_base_url
         
-    def get_realtime_observations(self, station_id: str) -> Dict[str, Any]:
+    async def get_realtime_observations(self, station_id: str) -> Dict[str, Any]:
         """Fetch real-time observations from NDBC for a specific station."""
         try:
             url = f"{self.base_url}/{station_id}.txt"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
+            ssl_context = None  # Let aiohttp handle SSL verification
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10, ssl=ssl_context) as response:
+                    response.raise_for_status()
+                    text = await response.text()
 
-            lines = response.text.strip().split('\n')
+            lines = text.strip().split('\n')
             data = None
 
             # Skip header lines and get first data line
@@ -87,7 +91,7 @@ class BuoyService:
             
             return observation
             
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             logger.error(f"Error fetching data for station {station_id}: {str(e)}")
             raise
         except Exception as e:

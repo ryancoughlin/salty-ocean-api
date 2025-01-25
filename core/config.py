@@ -13,10 +13,7 @@ class Settings(BaseSettings):
         "backend": "memory",  # Using memory backend
         "prefix": "salty_ocean",
         "ttl": {
-            "ndbc_observations": 1800,  # 30 minutes
             "wave_forecast": 21600,     # 6 hours
-            "tide_predictions": 86400,  # 24 hours
-            "tide_stations": None,      # No expiration
             "station_summary": 21600    # 6 hours
         }
     }
@@ -35,12 +32,13 @@ class Settings(BaseSettings):
         "time_zone": "lst_ldt",
         "format": "json"
     }
-    coops_timeout: int = 10
     
     # Wave model settings
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
     model_runs: List[str] = ["00", "06", "12", "18"]
-    forecast_hours: List[int] = list(range(0, 385, 3))  # 0 to 384 every 3 hours
+    # Only download files that contain 3-hourly forecasts (f120 through f384)
+    forecast_files: List[int] = list(range(120, 385, 3))  # Files to download: f120, f123, f126, ..., f384
+    forecast_hours: List[int] = list(range(120, 385, 3))  # Process 3-hourly data points from these files
     
     models: Dict = {
         "atlantic": {

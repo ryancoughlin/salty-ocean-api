@@ -5,6 +5,7 @@ from pathlib import Path
 import asyncio
 import signal
 import sys
+import os
 
 from core.config import settings
 from endpoints.tide_stations import router as tide_router
@@ -121,10 +122,13 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", 5010))
+    
     config = uvicorn.Config(
         "main:app",
-        host="0.0.0.0",
-        port=5010,
+        host=host,
+        port=port,
         reload=True,
         reload_includes=["*.py"],
         log_level="info"

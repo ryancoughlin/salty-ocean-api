@@ -1,11 +1,25 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, List
+from typing import Dict, List, Any
 
 class Settings(BaseSettings):
     """Application settings."""
     
     # Storage settings
     data_dir: str = "data"
+    
+    # Cache settings
+    cache: Dict[str, Any] = {
+        "enabled": True,
+        "backend": "memory",  # Using memory backend
+        "prefix": "salty_ocean",
+        "ttl": {
+            "ndbc_observations": 1800,  # 30 minutes
+            "wave_forecast": 21600,     # 6 hours
+            "tide_predictions": 86400,  # 24 hours
+            "tide_stations": None,      # No expiration
+            "station_summary": 21600    # 6 hours
+        }
+    }
     
     # NDBC settings
     ndbc_base_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"

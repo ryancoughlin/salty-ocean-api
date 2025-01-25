@@ -4,6 +4,7 @@ from services.buoy_service import BuoyService
 from services.wave_data_processor import WaveDataProcessor
 from services.weather_summary_service import WeatherSummaryService
 from models.buoy import NDBCStation, NDBCObservation, NDBCForecastResponse, Location
+from core.cache import cached
 import json
 import logging
 import time
@@ -43,7 +44,8 @@ class OffshoreController:
             )
         return station
 
-    def get_station_observations(self, station_id: str) -> NDBCStation:
+    @cached(namespace="ndbc_observations")
+    async def get_station_observations(self, station_id: str) -> NDBCStation:
         """Get real-time observations for a specific NDBC station."""
         try:
             station = self._get_station(station_id)
@@ -63,7 +65,8 @@ class OffshoreController:
                 detail=f"Error fetching observations: {str(e)}"
             )
 
-    def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
+    @cached(namespace="wave_forecast")
+    async def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
         """Get wave model forecast for a specific station"""
         start_time = time.time()
         logger.info(f"Starting forecast request for station {station_id}")
@@ -98,7 +101,8 @@ class OffshoreController:
             logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    def get_station_summary(self, station_id: str) -> Dict:
+    @cached(namespace="station_summary")
+    async def get_station_summary(self, station_id: str) -> Dict:
         """Get a summary for a specific station."""
         try:
             forecast_data = self.wave_processor.process_station_forecast(station_id)

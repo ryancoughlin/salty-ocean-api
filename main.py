@@ -12,6 +12,7 @@ from endpoints.tide_stations import router as tide_router
 from endpoints.offshore_stations import router as offshore_router
 from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
+from core.cache import init_cache
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -107,6 +108,9 @@ async def startup_event():
     task = asyncio.create_task(update_model_data())
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
+
+    # Initialize cache
+    await init_cache()
 
 @app.on_event("shutdown")
 async def shutdown_event():

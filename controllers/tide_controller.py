@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import HTTPException
 from services.tide_service import TideService
 from models.tide import TideStation, TideStationPredictions, GeoJSONResponse
+from core.cache import cached
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,8 @@ class TideController:
     def __init__(self):
         self.tide_service = TideService()
 
-    def get_all_stations(self) -> List[TideStation]:
+    @cached(namespace="tide_stations")
+    async def get_all_stations(self) -> List[TideStation]:
         """Get all tide stations"""
         try:
             stations = self.tide_service.get_stations()
@@ -27,7 +29,8 @@ class TideController:
             logger.error(f"Error getting stations: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    def get_stations_geojson(self) -> GeoJSONResponse:
+    @cached(namespace="tide_stations")
+    async def get_stations_geojson(self) -> GeoJSONResponse:
         """Get stations in GeoJSON format for mapping"""
         try:
             stations = self.tide_service.get_stations()
@@ -54,7 +57,8 @@ class TideController:
             logger.error(f"Error creating GeoJSON response: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    def get_station_predictions(self, station_id: str, date: datetime = None) -> TideStationPredictions:
+    @cached(namespace="tide_predictions")
+    async def get_station_predictions(self, station_id: str, date: datetime = None) -> TideStationPredictions:
         """Get predictions for a specific station"""
         try:
             # First verify station exists

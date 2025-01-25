@@ -18,7 +18,7 @@ async def get_station_observations(
     station_id: str
 ) -> NDBCStation:
     """Get real-time observations for a specific NDBC station."""
-    return controller.get_station_observations(station_id)
+    return await controller.get_station_observations(station_id)
 
 @router.get(
     "/{station_id}/forecast",
@@ -30,9 +30,9 @@ async def get_station_forecast(
     station_id: str
 ) -> NDBCForecastResponse:
     """Get wave model forecast for a specific station"""
-    return controller.get_station_forecast(station_id)
+    return await controller.get_station_forecast(station_id)
 
 @router.get("/{station_id}/summary")
 async def get_station_summary(station_id: str) -> Dict:
     """Get a summary for a specific station."""
-    return controller.get_station_summary(station_id) 
+    return await controller.get_station_summary(station_id) 

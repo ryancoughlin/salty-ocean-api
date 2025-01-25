@@ -57,7 +57,6 @@ class WaveDataDownloader:
             # Check first forecast hour file (f000)
             file_name = f"gfswave.t{self.current_model_run}z.{model_name}.f000.grib2"
             if not (self.data_dir / file_name).exists():
-                logger.info(f"Missing file: {file_name}")
                 return False
                         
         logger.info(f"Found existing data for model run {self.current_model_run}z")
@@ -77,10 +76,8 @@ class WaveDataDownloader:
                     if response.status == 200:
                         content = await response.read()
                         file_path.write_bytes(content)
-                        logger.info(f"Downloaded: {file_path.name}")
                         return True
                     elif response.status == 404:
-                        logger.warning(f"File not found: {url}")
                         return False
                     else:
                         logger.error(f"Failed to download {url}: Status {response.status}")
@@ -136,10 +133,7 @@ class WaveDataDownloader:
             if tasks:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 success_count = sum(1 for r in results if r is True)
-                logger.info(f"Downloaded {success_count} of {len(tasks)} files")
                 return success_count > 0
-            
-            logger.info("No new files to download")
             return True
             
     async def cleanup_old_files(self):

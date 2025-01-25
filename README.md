@@ -1,6 +1,42 @@
 # Salty Ocean API
 
-A FastAPI application that provides wave forecasts for NDBC buoy stations using NOAA NOMADS NCEP wave model data.
+FastAPI application for tide predictions and wave data.
+
+## Tide Station Endpoints
+
+### Get All Stations
+
+```
+GET /tide-stations
+```
+
+Returns a list of all tide stations.
+
+### Get Stations GeoJSON
+
+```
+GET /tide-stations/geojson
+```
+
+Returns tide stations in GeoJSON format for mapping applications.
+
+### Get Station Predictions
+
+```
+GET /tide-stations/{station_id}/predictions
+```
+
+Returns high and low tide predictions for a station for the next 7 days.
+
+Optional query parameter:
+
+- `date`: Start date for predictions (defaults to today)
+
+Example:
+
+```
+GET /tide-stations/8419807/predictions
+```
 
 ## Deployment
 
@@ -17,12 +53,6 @@ The API will be available at `http://localhost:5010`
 ### GET /health
 
 Health check endpoint returns status of the API.
-
-### Tide Stations
-
-- GET /tide-stations - Get all tide stations
-- GET /tide-stations/geojson - Get stations in GeoJSON format
-- GET /tide-stations/{station_id}/predictions - Get tide predictions for a specific station
 
 ### Offshore Stations
 

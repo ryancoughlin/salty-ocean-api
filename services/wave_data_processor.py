@@ -142,8 +142,7 @@ class WaveDataProcessor:
             if point_data.size != 1:
                 logger.warning(f"Expected scalar value for {var_name} but got array of size {point_data.size}")
                 return None
-                
-            # Convert to a numpy array and then to a Python scalar
+
             value = float(point_data.values.item())
             logger.debug(f"Extracted {var_name} value: {value}")
             return value
@@ -273,8 +272,6 @@ class WaveDataProcessor:
             var_names = {
                 'ws': 'speed',
                 'wdir': 'direction',
-                'u': 'u_component',
-                'v': 'v_component',
                 'swh': 'height',
                 'perpw': 'period',
                 'dirpw': 'direction',

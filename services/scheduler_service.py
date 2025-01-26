@@ -30,18 +30,19 @@ class SchedulerService:
     def start(self):
         """Start the scheduler."""
         if not self.scheduler.running:
-            # Schedule updates 30 minutes after each model run
+            # Schedule updates 5.5 hours after each model run
             for hour in [0, 6, 12, 18]:
+                run_hour = (hour + 5) % 24  # 5.5 hours after model run
                 job_id = f"wave_forecasts_{hour:02d}z"
                 self.scheduler.add_job(
                     self._update_model_data,
-                    CronTrigger(hour=str(hour), minute="30"),
+                    CronTrigger(hour=str(run_hour), minute="30"),
                     id=job_id,
                     name=f"Wave Model Update {hour:02d}Z",
                     misfire_grace_time=3600,  # Allow up to 1 hour delay
                     coalesce=True  # Only run once if multiple executions are missed
                 )
-                logger.info(f"Scheduled {job_id} to run at {hour:02d}:30 UTC")
+                logger.info(f"Scheduled {job_id} to run at {run_hour:02d}:30 UTC")
             
             self.scheduler.start()
             logger.info("Scheduler started successfully")

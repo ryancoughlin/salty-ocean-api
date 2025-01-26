@@ -5,12 +5,17 @@ from typing import Dict, Optional
 import json
 import xarray as xr
 import pandas as pd
+import asyncio
 
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class WaveDataProcessor:
+    # Static cache shared across all instances
+    _cached_dataset = None
+    _cached_model_run = None
+    
     def __init__(self, data_dir: str = settings.data_dir):
         self.data_dir = Path(data_dir)
         
@@ -26,6 +31,60 @@ class WaveDataProcessor:
             
         return str(latest_run).zfill(2), now.strftime("%Y%m%d")
 
+    async def preload_dataset(self) -> None:
+        """Preload the dataset for the current model run."""
+        try:
+            model_run, date = self.get_current_model_run()
+            logger.info(f"Preloading dataset for model run {date} {model_run}z")
+            start_time = datetime.now()
+            
+            # Load dataset in executor to not block event loop
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                self._load_forecast_dataset,
+                model_run
+            )
+            
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"Completed dataset preload in {duration:.2f}s")
+        except Exception as e:
+            logger.error(f"Error preloading dataset: {str(e)}")
+            raise
+
+    def _load_forecast_dataset(self, model_run: str) -> xr.Dataset:
+        """Load and combine all forecast files for a model run."""
+        if self._cached_dataset is not None and self._cached_model_run == model_run:
+            logger.info("Using cached dataset")
+            return self._cached_dataset
+            
+        logger.info("Loading forecast files...")
+        start_time = datetime.now()
+        
+        # Get list of all forecast files
+        forecast_files = []
+        for hour in settings.forecast_hours:
+            filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
+            file_path = self.data_dir / filename
+            if file_path.exists():
+                forecast_files.append(file_path)
+        
+        if not forecast_files:
+            raise ValueError("No forecast files found")
+        
+        # Load and combine all datasets
+        datasets = [xr.open_dataset(f, engine='cfgrib') for f in forecast_files]
+        if not datasets:
+            raise ValueError("No datasets could be loaded")
+        
+        # Combine all datasets along time dimension
+        WaveDataProcessor._cached_dataset = xr.concat(datasets, dim="time")
+        WaveDataProcessor._cached_model_run = model_run
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
+        
+        return WaveDataProcessor._cached_dataset
+
     def process_station_forecast(self, station_id: str) -> Dict:
         """Process wave model forecast for a station."""
         try:
@@ -36,26 +95,9 @@ class WaveDataProcessor:
             
             # Get current model run info
             model_run, date = self.get_current_model_run()
-            model_name = settings.models["atlantic"]["name"]
             
-            # Get list of all forecast files
-            forecast_files = []
-            for hour in settings.forecast_hours:
-                filename = f"gfswave.t{model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
-                file_path = self.data_dir / filename
-                if file_path.exists():
-                    forecast_files.append(file_path)
-            
-            if not forecast_files:
-                raise ValueError("No forecast files found")
-            
-            # Load and combine all datasets
-            datasets = [xr.open_dataset(f, engine='cfgrib') for f in forecast_files]
-            if not datasets:
-                raise ValueError("No datasets could be loaded")
-            
-            # Combine all datasets along time dimension
-            full_forecast = xr.concat(datasets, dim="time")
+            # Load or get cached dataset
+            full_forecast = self._load_forecast_dataset(model_run)
             logger.info(f"Processing {len(full_forecast.time)} forecasts")
             
             # Find nearest grid point (convert longitude to 0-360)
@@ -156,16 +198,13 @@ class WaveDataProcessor:
                 
                 forecasts.append(forecast)
             
-            # Close all datasets
-            for ds in datasets:
-                ds.close()
-            
             return {
                 "station_id": station_id,
                 "name": station["name"],
                 "location": station["location"],
                 "model_run": f"{date} {model_run}z",
-                "forecasts": forecasts
+                "forecasts": forecasts,
+                "metadata": station
             }
             
         except Exception as e:

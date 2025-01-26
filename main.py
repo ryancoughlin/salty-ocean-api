@@ -109,16 +109,21 @@ async def lifespan(app: FastAPI):
         # Initialize cache
         await init_cache()
         
-        # Start background task for data updates
-        task = asyncio.create_task(update_model_data())
-        background_tasks.add(task)
-        task.add_done_callback(lambda t: background_tasks.discard(t))
+        # Initialize services
+        wave_processor = WaveDataProcessor()
+        scheduler = SchedulerService()
         
-        # Start scheduler
+        # Initial data load
+        logger.info("Starting initial data load")
+        await wave_processor.preload_dataset()
+        logger.info("Initial data load complete")
+        
+        # Start scheduler for future updates
         scheduler.start()
-        logger.info("Application startup complete")
         
+        logger.info("Application startup complete")
         yield
+        
     except Exception as e:
         logger.error(f"Error during startup: {str(e)}")
         raise

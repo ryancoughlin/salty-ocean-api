@@ -12,7 +12,7 @@ class TideController:
     def __init__(self):
         self.tide_service = TideService()
 
-    @cached(namespace="tide_stations")
+    @cached(namespace="tide_stations", expire=None)
     async def get_all_stations(self) -> List[TideStation]:
         """Get all tide stations"""
         try:
@@ -29,7 +29,7 @@ class TideController:
             logger.error(f"Error getting stations: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @cached(namespace="tide_stations")
+    @cached(namespace="tide_stations", expire=None)
     async def get_stations_geojson(self) -> GeoJSONResponse:
         """Get stations in GeoJSON format for mapping"""
         try:

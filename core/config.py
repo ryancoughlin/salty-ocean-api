@@ -13,8 +13,12 @@ class Settings(BaseSettings):
         "backend": "memory",  # Using memory backend
         "prefix": "salty_ocean",
         "ttl": {
-            "wave_forecast": 21600,     # 6 hours
-            "station_summary": 21600    # 6 hours
+            "wave_forecast": 21600,     # 6 hours (until next model run)
+            "station_summary": 21600,   # 6 hours (until next model run)
+            "ndbc_observations": 1800,  # 30 minutes (NDBC updates at :26 and :56)
+            "tide_stations": None,      # No expiration for static station lists
+            "tide_predictions": 86400,  # 24 hours for tide predictions
+            "stations_geojson": None    # No expiration for static station lists
         }
     }
     

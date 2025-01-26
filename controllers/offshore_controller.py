@@ -8,6 +8,7 @@ from core.cache import cached
 import json
 import logging
 import time
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,17 @@ class OffshoreController:
         self.wave_processor = WaveDataProcessor()
         self.buoy_service = BuoyService()
         self.summary_service = WeatherSummaryService()
+
+    @staticmethod
+    def _build_forecast_cache_key(
+        func,
+        namespace: str = "",
+        *,
+        station_id: str,
+        **_
+    ) -> str:
+        """Build cache key for station forecasts."""
+        return f"{namespace}:{station_id}"
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -65,7 +77,10 @@ class OffshoreController:
                 detail=f"Error fetching observations: {str(e)}"
             )
 
-    @cached(namespace="wave_forecast", key_builder=lambda self, station_id, **_: f"{station_id}:{_.get('model_run', '')}")
+    @cached(
+        namespace="wave_forecast",
+        expire=settings.cache["ttl"]["wave_forecast"]
+    )
     async def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
         """Get wave model forecast for a specific station"""
         start_time = time.time()

@@ -17,10 +17,10 @@ class PrefetchService:
     def __init__(self):
         self.wave_processor = WaveDataProcessor()
         self.station_repo = StationRepository(Path('ndbcStations.json'))
-        self.semaphore = asyncio.Semaphore(4)  # Increased to 4 concurrent requests since processing is faster now
+        self.semaphore = asyncio.Semaphore(4)  # Limit concurrent requests
         self._prefetch_lock = asyncio.Lock()  # Lock to prevent concurrent prefetches
         
-    async def _process_station_forecast(self, station: dict, model_run: str, date: str) -> None:
+    async def _process_station_forecast(self, station: dict) -> None:
         """Helper to process forecast for a single station with semaphore."""
         async with self.semaphore:
             try:
@@ -32,9 +32,7 @@ class PrefetchService:
                 forecast = await asyncio.get_event_loop().run_in_executor(
                     None, 
                     self.wave_processor.process_station_forecast,
-                    station_id,
-                    model_run,
-                    date
+                    station_id
                 )
                 
                 duration = (datetime.now() - start_time).total_seconds()
@@ -51,18 +49,8 @@ class PrefetchService:
                 logger.info("Starting wave forecast prefetch")
                 start_time = datetime.now()
                 
-                model_run, date = self.wave_processor.get_current_model_run()
-                logger.info(f"Current model run: {date} {model_run}z")
-                
-                # Skip download if it was already done by model update
-                if not self.wave_processor.has_current_data():
-                    logger.info("Downloading new model data")
-                    success = await self.wave_processor.update_model_data()
-                    if not success:
-                        logger.error("Failed to download model data")
-                        return
-                else:
-                    logger.info("Using existing model data")
+                # Preload dataset first
+                await self.wave_processor.preload_dataset()
                 
                 # Load stations and process forecasts
                 stations = self.station_repo.load_stations()
@@ -72,7 +60,7 @@ class PrefetchService:
                 tasks = []
                 for station in stations:
                     task = asyncio.create_task(
-                        self._process_station_forecast(station, model_run, date)
+                        self._process_station_forecast(station)
                     )
                     tasks.append(task)
                 

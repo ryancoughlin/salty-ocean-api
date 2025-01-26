@@ -122,4 +122,34 @@ class OffshoreController:
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e)) 
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @cached(namespace="stations_geojson")
+    async def get_stations_geojson(self) -> Dict:
+        """Convert NDBC stations to GeoJSON format."""
+        try:
+            stations = self._load_stations()
+            
+            features = []
+            for station in stations:
+                feature = {
+                    "type": "Feature",
+                    "geometry": station["location"],
+                    "properties": {
+                        "id": station["id"],
+                        "name": station["name"],
+                    }
+                }
+                features.append(feature)
+            
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features
+            }
+            
+            return geojson
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error converting stations to GeoJSON: {str(e)}"
+            ) 

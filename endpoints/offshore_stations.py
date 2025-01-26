@@ -35,4 +35,13 @@ async def get_station_forecast(
 @router.get("/{station_id}/summary")
 async def get_station_summary(station_id: str) -> Dict:
     """Get a summary for a specific station."""
-    return await controller.get_station_summary(station_id) 
+    return await controller.get_station_summary(station_id)
+
+@router.get(
+    "/geojson",
+    summary="Get all stations in GeoJSON format",
+    description="Returns all NDBC stations in GeoJSON format for mapping"
+)
+async def get_stations_geojson() -> Dict:
+    """Get all NDBC stations in GeoJSON format."""
+    return await controller.get_stations_geojson() 

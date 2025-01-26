@@ -9,9 +9,7 @@
                 31.759
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41004",
@@ -23,9 +21,7 @@
                 32.502
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41008",
@@ -37,9 +33,7 @@
                 31.4
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41009",
@@ -51,9 +45,7 @@
                 28.508
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41010",
@@ -65,9 +57,7 @@
                 28.878
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41013",
@@ -79,9 +69,7 @@
                 33.441
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41024",
@@ -93,9 +81,7 @@
                 33.837
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41025",
@@ -107,9 +93,7 @@
                 35.01
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41029",
@@ -121,9 +105,7 @@
                 32.803
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41033",
@@ -135,9 +117,7 @@
                 32.279
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41038",
@@ -149,9 +129,7 @@
                 34.141
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41040",
@@ -163,9 +141,7 @@
                 14.536
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41043",
@@ -177,9 +153,7 @@
                 21.026
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41044",
@@ -191,9 +165,7 @@
                 21.582
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41049",
@@ -205,9 +177,7 @@
                 27.505
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41052",
@@ -219,9 +189,7 @@
                 18.249
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41053",
@@ -233,9 +201,7 @@
                 18.474
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41056",
@@ -247,9 +213,7 @@
                 18.261
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41064",
@@ -261,9 +225,7 @@
                 34.207
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41065",
@@ -275,9 +237,7 @@
                 32.802
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41066",
@@ -289,9 +249,7 @@
                 32.536
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41067",
@@ -303,9 +261,7 @@
                 32.276
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41070",
@@ -317,9 +273,7 @@
                 29.289
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41076",
@@ -331,9 +285,7 @@
                 32.536
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41082",
@@ -345,9 +297,7 @@
                 35.95
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41083",
@@ -359,9 +309,7 @@
                 35.725
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41108",
@@ -373,9 +321,7 @@
                 33.721
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41110",
@@ -387,9 +333,7 @@
                 34.142
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41112",
@@ -401,9 +345,7 @@
                 30.709
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41113",
@@ -415,9 +357,7 @@
                 28.4
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41114",
@@ -429,9 +369,7 @@
                 27.552
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41115",
@@ -443,9 +381,7 @@
                 18.376
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41117",
@@ -457,9 +393,7 @@
                 29.999
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41120",
@@ -471,9 +405,7 @@
                 35.258
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "41159",
@@ -485,9 +417,7 @@
                 34.213
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42001",
@@ -499,9 +429,7 @@
                 25.926
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42012",
@@ -513,9 +441,7 @@
                 30.06
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42013",
@@ -527,9 +453,7 @@
                 27.173
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42019",
@@ -541,9 +465,7 @@
                 27.908
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42020",
@@ -555,9 +477,7 @@
                 26.97
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42022",
@@ -569,9 +489,7 @@
                 27.505
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42035",
@@ -583,9 +501,7 @@
                 29.235
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42036",
@@ -597,9 +513,7 @@
                 28.501
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42040",
@@ -611,9 +525,7 @@
                 29.207
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42055",
@@ -625,9 +537,7 @@
                 22.14
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42056",
@@ -639,9 +549,7 @@
                 19.82
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42057",
@@ -653,9 +561,7 @@
                 16.973
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42058",
@@ -667,9 +573,7 @@
                 14.512
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42060",
@@ -681,9 +585,7 @@
                 16.434
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42084",
@@ -695,9 +597,7 @@
                 28.988
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42085",
@@ -709,9 +609,7 @@
                 17.87
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42092",
@@ -723,9 +621,7 @@
                 27.64
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42095",
@@ -737,9 +633,7 @@
                 24.409
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42098",
@@ -751,9 +645,7 @@
                 27.59
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "42099",
@@ -765,9 +657,7 @@
                 27.352
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44007",
@@ -779,9 +669,7 @@
                 43.525
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44009",
@@ -793,9 +681,7 @@
                 38.46
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44011",
@@ -807,9 +693,7 @@
                 41.093
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44013",
@@ -821,9 +705,7 @@
                 42.346
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44014",
@@ -835,9 +717,7 @@
                 36.603
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44020",
@@ -849,9 +729,7 @@
                 41.497
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44025",
@@ -863,9 +741,7 @@
                 40.258
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44027",
@@ -877,9 +753,7 @@
                 44.284
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44029",
@@ -891,9 +765,7 @@
                 42.523
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44030",
@@ -905,9 +777,7 @@
                 43.179
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44032",
@@ -919,9 +789,7 @@
                 43.715
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44033",
@@ -933,9 +801,7 @@
                 44.055
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44034",
@@ -947,9 +813,7 @@
                 44.103
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44041",
@@ -961,9 +825,7 @@
                 37.211
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44043",
@@ -975,9 +837,7 @@
                 39.152
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44056",
@@ -989,9 +849,7 @@
                 36.2
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44058",
@@ -1003,9 +861,7 @@
                 37.567
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44062",
@@ -1017,9 +873,7 @@
                 38.556
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44063",
@@ -1031,9 +885,7 @@
                 38.963
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44064",
@@ -1045,9 +897,7 @@
                 36.998
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44065",
@@ -1059,9 +909,7 @@
                 40.368
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44072",
@@ -1073,9 +921,7 @@
                 37.201
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44073",
@@ -1087,9 +933,7 @@
                 43.02
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44078",
@@ -1101,9 +945,7 @@
                 59.94
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44079",
@@ -1115,9 +957,7 @@
                 36.175
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44084",
@@ -1129,9 +969,7 @@
                 38.537
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44085",
@@ -1143,9 +981,7 @@
                 41.387
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44086",
@@ -1157,9 +993,7 @@
                 36.001
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44087",
@@ -1171,9 +1005,7 @@
                 37.026
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44088",
@@ -1185,9 +1017,7 @@
                 36.612
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44089",
@@ -1199,9 +1029,7 @@
                 37.754
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44090",
@@ -1213,9 +1041,7 @@
                 41.84
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44091",
@@ -1227,9 +1053,7 @@
                 39.768
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44095",
@@ -1241,9 +1065,7 @@
                 35.75
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44097",
@@ -1255,9 +1077,7 @@
                 40.969
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44098",
@@ -1269,9 +1089,7 @@
                 42.8
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44099",
@@ -1283,9 +1101,7 @@
                 36.915
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44100",
@@ -1297,9 +1113,7 @@
                 36.258
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44137",
@@ -1311,9 +1125,7 @@
                 42.26
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44139",
@@ -1325,9 +1137,7 @@
                 44.24
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44150",
@@ -1339,9 +1149,7 @@
                 42.5
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44258",
@@ -1353,9 +1161,7 @@
                 44.5
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44488",
@@ -1367,9 +1173,7 @@
                 45.44
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "44489",
@@ -1381,9 +1185,7 @@
                 45.49
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45001",
@@ -1395,9 +1197,7 @@
                 48.061
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45002",
@@ -1409,9 +1209,7 @@
                 45.344
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45003",
@@ -1423,9 +1221,7 @@
                 45.351
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45004",
@@ -1437,9 +1233,7 @@
                 47.585
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45005",
@@ -1451,9 +1245,7 @@
                 41.677
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45006",
@@ -1465,9 +1257,7 @@
                 47.335
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45007",
@@ -1479,9 +1269,7 @@
                 42.674
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45008",
@@ -1493,9 +1281,7 @@
                 44.283
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45012",
@@ -1507,9 +1293,7 @@
                 43.621
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45132",
@@ -1521,9 +1305,7 @@
                 42.46
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45136",
@@ -1535,9 +1317,7 @@
                 48.54
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45137",
@@ -1549,9 +1329,7 @@
                 45.54
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45142",
@@ -1563,9 +1341,7 @@
                 42.74
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45143",
@@ -1577,9 +1353,7 @@
                 44.94
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45147",
@@ -1591,9 +1365,7 @@
                 42.43
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45149",
@@ -1605,9 +1377,7 @@
                 43.54
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45151",
@@ -1619,9 +1389,7 @@
                 44.5
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45154",
@@ -1633,9 +1401,7 @@
                 46.05
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45161",
@@ -1647,9 +1413,7 @@
                 43.185
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "45215",
@@ -1661,9 +1425,7 @@
                 43.501
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46001",
@@ -1675,9 +1437,7 @@
                 56.296
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46006",
@@ -1689,9 +1449,7 @@
                 40.764
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46011",
@@ -1703,9 +1461,7 @@
                 34.937
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46013",
@@ -1717,9 +1473,7 @@
                 38.235
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46014",
@@ -1731,9 +1485,7 @@
                 39.225
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46015",
@@ -1745,9 +1497,7 @@
                 42.754
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46022",
@@ -1759,9 +1509,7 @@
                 40.716
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46025",
@@ -1773,9 +1521,7 @@
                 33.755
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46026",
@@ -1787,9 +1533,7 @@
                 37.754
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46027",
@@ -1801,9 +1545,7 @@
                 41.84
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46028",
@@ -1815,9 +1557,7 @@
                 35.77
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46029",
@@ -1829,9 +1569,7 @@
                 46.163
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46035",
@@ -1843,9 +1581,7 @@
                 57.034
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46036",
@@ -1857,9 +1593,7 @@
                 48.36
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46041",
@@ -1871,9 +1605,7 @@
                 47.352
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46047",
@@ -1885,9 +1617,7 @@
                 32.388
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46050",
@@ -1899,9 +1629,7 @@
                 44.669
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46053",
@@ -1913,9 +1641,7 @@
                 34.241
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46054",
@@ -1927,9 +1653,7 @@
                 34.274
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46060",
@@ -1941,9 +1665,7 @@
                 60.571
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46061",
@@ -1955,9 +1677,7 @@
                 60.23
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46069",
@@ -1969,9 +1689,7 @@
                 33.677
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46071",
@@ -1983,9 +1701,7 @@
                 51.04
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46072",
@@ -1997,9 +1713,7 @@
                 51.645
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46073",
@@ -2011,9 +1725,7 @@
                 55.008
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46076",
@@ -2025,9 +1737,7 @@
                 59.508
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46077",
@@ -2039,9 +1749,7 @@
                 57.869
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46078",
@@ -2053,9 +1761,7 @@
                 55.561
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46080",
@@ -2067,9 +1773,7 @@
                 57.91
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46081",
@@ -2081,9 +1785,7 @@
                 60.802
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46084",
@@ -2095,9 +1797,7 @@
                 56.614
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46086",
@@ -2109,9 +1809,7 @@
                 32.499
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46087",
@@ -2123,9 +1821,7 @@
                 48.493
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46088",
@@ -2137,9 +1833,7 @@
                 48.332
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46089",
@@ -2151,9 +1845,7 @@
                 45.928
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46092",
@@ -2165,9 +1857,7 @@
                 36.751
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46097",
@@ -2179,9 +1869,7 @@
                 44.639
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46098",
@@ -2193,9 +1881,7 @@
                 44.378
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46100",
@@ -2207,9 +1893,7 @@
                 46.851
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46108",
@@ -2221,9 +1905,7 @@
                 59.598
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46121",
@@ -2235,9 +1917,7 @@
                 47.28
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46125",
@@ -2249,9 +1929,7 @@
                 47.907
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46128",
@@ -2263,9 +1941,7 @@
                 43.292
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46131",
@@ -2277,9 +1953,7 @@
                 49.91
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46132",
@@ -2291,9 +1965,7 @@
                 49.78
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46145",
@@ -2305,9 +1977,7 @@
                 54.37
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46146",
@@ -2319,9 +1989,7 @@
                 49.34
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46147",
@@ -2333,9 +2001,7 @@
                 51.83
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46181",
@@ -2347,9 +2013,7 @@
                 53.83
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46183",
@@ -2361,9 +2025,7 @@
                 53.62
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46184",
@@ -2375,9 +2037,7 @@
                 53.92
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46185",
@@ -2389,9 +2049,7 @@
                 52.42
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46204",
@@ -2403,9 +2061,7 @@
                 51.38
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46205",
@@ -2417,9 +2073,7 @@
                 54.18
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46206",
@@ -2431,9 +2085,7 @@
                 48.84
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46207",
@@ -2445,9 +2097,7 @@
                 50.87
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46208",
@@ -2459,9 +2109,7 @@
                 52.52
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46211",
@@ -2473,9 +2121,7 @@
                 46.857
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46213",
@@ -2487,9 +2133,7 @@
                 40.292
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46214",
@@ -2501,9 +2145,7 @@
                 37.937
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46215",
@@ -2515,9 +2157,7 @@
                 35.204
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46218",
@@ -2529,9 +2169,7 @@
                 34.452
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46219",
@@ -2543,9 +2181,7 @@
                 33.226
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46221",
@@ -2557,9 +2193,7 @@
                 33.86
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46222",
@@ -2571,9 +2205,7 @@
                 33.618
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46224",
@@ -2585,9 +2217,7 @@
                 33.178
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46225",
@@ -2599,9 +2229,7 @@
                 32.933
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46232",
@@ -2613,9 +2241,7 @@
                 32.517
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46235",
@@ -2627,9 +2253,7 @@
                 32.57
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46239",
@@ -2641,9 +2265,7 @@
                 36.335
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46240",
@@ -2655,9 +2277,7 @@
                 36.626
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46243",
@@ -2669,9 +2289,7 @@
                 46.214
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46244",
@@ -2683,9 +2301,7 @@
                 40.896
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46246",
@@ -2697,9 +2313,7 @@
                 50.042
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46251",
@@ -2711,9 +2325,7 @@
                 33.769
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46253",
@@ -2725,9 +2337,7 @@
                 33.576
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46254",
@@ -2739,9 +2349,7 @@
                 32.868
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46256",
@@ -2753,9 +2361,7 @@
                 33.7
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46258",
@@ -2767,9 +2373,7 @@
                 32.749
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46266",
@@ -2781,9 +2385,7 @@
                 32.957
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46267",
@@ -2795,9 +2397,7 @@
                 48.173
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46268",
@@ -2809,9 +2409,7 @@
                 34.022
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46273",
@@ -2823,9 +2421,7 @@
                 32.93
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46274",
@@ -2837,9 +2433,7 @@
                 33.062
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46275",
@@ -2851,9 +2445,7 @@
                 33.291
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46276",
@@ -2865,9 +2457,7 @@
                 36.845
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46277",
@@ -2879,9 +2469,7 @@
                 33.336
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46278",
@@ -2893,9 +2481,7 @@
                 45.561
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46279",
@@ -2907,9 +2493,7 @@
                 36.838
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46280",
@@ -2921,9 +2505,7 @@
                 44.575
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46281",
@@ -2935,9 +2517,7 @@
                 44.559
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46282",
@@ -2949,9 +2529,7 @@
                 36.951
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     },
     {
         "id": "46304",
@@ -2963,8 +2541,6 @@
                 49.3
             ]
         },
-        "type": "buoy",
-        "hasRealTimeData": true,
-        "owner": "NDBC"
+        "type": "buoy"
     }
 ]

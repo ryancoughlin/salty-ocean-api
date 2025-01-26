@@ -157,8 +157,8 @@ class WaveDataProcessor:
         """Convert longitude to 0-360 format."""
         return lon + 360 if lon < 0 else lon
 
-    def process_station_forecast(self, station_id: str, model_run: str = None, date: str = None) -> Dict:
-        """Process all forecast files for a station."""
+    def process_station_forecast_optimized(self, station_id: str, model_run: str = None, date: str = None) -> Dict:
+        """Optimized version that processes all GRIB2 files in batch."""
         start_time = time.time()
         
         # Get station coordinates
@@ -183,13 +183,9 @@ class WaveDataProcessor:
         # Normalize longitude to 0-360 format for grid calculations
         normalized_lon = self.normalize_longitude(lon)
         
-        # Process each forecast hour following NOAA's pattern (3-hourly from 120 to 384)
-        hours = settings.forecast_hours
-        logger.info(f"Processing forecast hours {min(hours)} to {max(hours)} every 3 hours")
-        
         # Build list of files to process
         files = []
-        for hour in hours:  # This ensures we only process files for our forecast hours
+        for hour in settings.forecast_hours:
             file_name = f"gfswave.t{model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
             file_path = Path(settings.data_dir) / file_name
             if file_path.exists():
@@ -204,12 +200,20 @@ class WaveDataProcessor:
         logger.info(f"Found {len(files)} forecast files to process")
         
         try:
-            # Open first file to get grid information
-            first_ds = xr.open_dataset(files[0], engine='cfgrib', backend_kwargs={'indexpath': ''})
+            # Open all files as a single dataset
+            logger.info("Opening files as multi-file dataset")
+            combined_ds = xr.open_mfdataset(
+                files,
+                engine='cfgrib',
+                combine='nested',
+                concat_dim='time',
+                parallel=True,
+                backend_kwargs={'indexpath': ''}
+            )
             
             # Find nearest grid point
-            lat_diffs = abs(first_ds.latitude - lat)
-            ds_lons = first_ds.longitude.values
+            lat_diffs = abs(combined_ds.latitude - lat)
+            ds_lons = combined_ds.longitude.values
             ds_lons = numpy.where(ds_lons < 0, ds_lons + 360, ds_lons)
             lon_diffs = abs(ds_lons - normalized_lon)
             
@@ -217,92 +221,115 @@ class WaveDataProcessor:
             lon_idx = int(lon_diffs.argmin())
             
             # Get actual grid point coordinates
-            grid_lat = float(first_ds.latitude[lat_idx].values)
-            grid_lon = float(first_ds.longitude[lon_idx].values)
+            grid_lat = float(combined_ds.latitude[lat_idx].values)
+            grid_lon = float(combined_ds.longitude[lon_idx].values)
             if grid_lon < 0:
                 grid_lon += 360
             
             # Check if grid point is too far from station
             lat_diff = abs(grid_lat - lat)
             lon_diff = abs(grid_lon - normalized_lon)
-            if lat_diff > 1.0 or lon_diff > 1.0:  # More than 1 degree difference
+            if lat_diff > 1.0 or lon_diff > 1.0:
                 logger.error(f"Nearest grid point too far from station: lat_diff={lat_diff:.4f}°, lon_diff={lon_diff:.4f}°")
                 raise ValueError("No forecast data available - station location outside model grid")
             
             logger.info(f"Using grid point: lat={grid_lat}, lon={grid_lon}")
-            first_ds.close()
             
-            # Process each file using the same grid indices
-            forecasts = []
-            for hour, file_path in zip(hours, files):
-                process_start = time.time()
+            # Known variables and their mapping
+            variables = {
+                'wind': ['ws', 'wdir', 'u', 'v'],  # No orderedSequenceData
+                'waves': ['swh', 'perpw', 'dirpw'],  # No orderedSequenceData
+                'wind_waves': ['shww', 'mpww', 'wvdir'],  # Has orderedSequenceData
+                'swell': ['shts', 'mpts', 'swdir']  # Has orderedSequenceData
+            }
+            
+            # Extract data for all variables at once
+            data = {}
+            for var_name in sum(variables.values(), []):  # Flatten list of variables
                 try:
-                    ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'indexpath': ''})
-                    
-                    forecast = {
-                        'timestamp': self.get_forecast_timestamp(hour),
-                        'grid_point': {
-                            'latitude': grid_lat,
-                            'longitude': lon  # Use original longitude format
-                        }
-                    }
-                    
-                    # Extract wind data
-                    wind_speed = self.get_scalar_value(ds, 'ws', lat_idx, lon_idx)
-                    wind_dir = self.get_scalar_value(ds, 'wdir', lat_idx, lon_idx)
-                    if wind_speed is not None and not numpy.isnan(wind_speed):
-                        forecast['wind'] = {
-                            'speed': round(wind_speed, 2),
-                            'direction': round(wind_dir, 2) if wind_dir is not None and not numpy.isnan(wind_dir) else None,
-                            'units': {'speed': 'm/s', 'direction': 'degrees'}
-                        }
-                    
-                    # Extract wave data
-                    wave_height = self.get_scalar_value(ds, 'swh', lat_idx, lon_idx)
-                    wave_period = self.get_scalar_value(ds, 'perpw', lat_idx, lon_idx)
-                    wave_dir = self.get_scalar_value(ds, 'dirpw', lat_idx, lon_idx)
-                    if wave_height is not None and not numpy.isnan(wave_height):
-                        forecast['waves'] = {
-                            'height': round(wave_height, 2),
-                            'period': round(wave_period, 2) if wave_period is not None and not numpy.isnan(wave_period) else None,
-                            'direction': round(wave_dir, 2) if wave_dir is not None and not numpy.isnan(wave_dir) else None,
-                            'units': {'height': 'm', 'period': 's', 'direction': 'degrees'}
-                        }
-                    
-                    # Extract wind wave data
-                    wind_wave_height = self.get_scalar_value(ds, 'shww', lat_idx, lon_idx)
-                    wind_wave_period = self.get_scalar_value(ds, 'mpww', lat_idx, lon_idx)
-                    wind_wave_dir = self.get_scalar_value(ds, 'wvdir', lat_idx, lon_idx)
-                    if wind_wave_height is not None and not numpy.isnan(wind_wave_height):
-                        forecast['wind_waves'] = {
-                            'height': round(wind_wave_height, 2),
-                            'period': round(wind_wave_period, 2) if wind_wave_period is not None and not numpy.isnan(wind_wave_period) else None,
-                            'direction': round(wind_wave_dir, 2) if wind_wave_dir is not None and not numpy.isnan(wind_wave_dir) else None,
-                            'units': {'height': 'm', 'period': 's', 'direction': 'degrees'}
-                        }
-                    
-                    # Extract swell data
-                    swell_height = self.get_scalar_value(ds, 'shts', lat_idx, lon_idx)
-                    swell_period = self.get_scalar_value(ds, 'mpts', lat_idx, lon_idx)
-                    swell_dir = self.get_scalar_value(ds, 'swdir', lat_idx, lon_idx)
-                    if swell_height is not None and not numpy.isnan(swell_height):
-                        forecast['swell'] = {
-                            'height': round(swell_height, 2),
-                            'period': round(swell_period, 2) if swell_period is not None and not numpy.isnan(swell_period) else None,
-                            'direction': round(swell_dir, 2) if swell_dir is not None and not numpy.isnan(swell_dir) else None,
-                            'units': {'height': 'm', 'period': 's', 'direction': 'degrees'}
-                        }
-                    
-                    if len(forecast) > 2:  # More than just timestamp and grid_point
-                        forecasts.append(forecast)
-                        
-                    ds.close()
-                    process_time = time.time() - process_start
-                    logger.debug(f"Processed hour {hour} in {process_time:.2f}s")
-                    
+                    # Check if variable has orderedSequenceData dimension
+                    if var_name in ['shww', 'mpww', 'wvdir', 'shts', 'mpts', 'swdir']:
+                        values = combined_ds[var_name].isel(
+                            orderedSequenceData=0,  # Take first swell component
+                            latitude=lat_idx,
+                            longitude=lon_idx
+                        ).values
+                    else:
+                        values = combined_ds[var_name].isel(
+                            latitude=lat_idx,
+                            longitude=lon_idx
+                        ).values
+                    data[var_name] = values
+                    logger.debug(f"Extracted {var_name} with shape {values.shape}")
                 except Exception as e:
-                    logger.error(f"Error processing hour {hour}: {str(e)}")
-                    continue
+                    logger.warning(f"Failed to extract {var_name}: {str(e)}")
+                    data[var_name] = None
+            
+            # Create forecasts for each time point
+            forecasts = []
+            times = combined_ds.time.values
+            
+            # Variable names mapping
+            var_names = {
+                'ws': 'speed',
+                'wdir': 'direction',
+                'u': 'u_component',
+                'v': 'v_component',
+                'swh': 'height',
+                'perpw': 'period',
+                'dirpw': 'direction',
+                'shww': 'height',
+                'mpww': 'period',
+                'wvdir': 'direction',
+                'shts': 'height',
+                'mpts': 'period',
+                'swdir': 'direction'
+            }
+            
+            # Units mapping
+            var_units = {
+                'speed': 'm/s',
+                'direction': 'degrees',
+                'u_component': 'm/s',
+                'v_component': 'm/s',
+                'height': 'm',
+                'period': 's'
+            }
+            
+            for i, time_val in enumerate(times):
+                forecast = {
+                    'timestamp': pd.Timestamp(time_val).isoformat(),
+                    'grid_point': {
+                        'latitude': grid_lat,
+                        'longitude': lon
+                    }
+                }
+                
+                # Add data for each group
+                for group, vars in variables.items():
+                    group_data = {}
+                    has_data = False
+                    
+                    for var in vars:
+                        if data[var] is not None:
+                            value = float(data[var][i])
+                            if not numpy.isnan(value):
+                                group_data[var_names[var]] = round(value, 2)
+                                has_data = True
+                    
+                    if has_data:
+                        # Add units for variables present in group_data
+                        group_data['units'] = {
+                            name: var_units[name]
+                            for name in group_data.keys()
+                            if name in var_units
+                        }
+                        forecast[group] = group_data
+                
+                if len(forecast) > 2:  # More than just timestamp and grid_point
+                    forecasts.append(forecast)
+            
+            combined_ds.close()
             
             total_time = time.time() - start_time
             logger.info(f"Processed {len(forecasts)} forecasts in {total_time:.2f}s")
@@ -321,12 +348,6 @@ class WaveDataProcessor:
                         "run": model_run,
                         "date": date,
                         "region": region
-                    },
-                    "units": {
-                        "wind_speed": "m/s",
-                        "wave_height": "m",
-                        "period": "s",
-                        "direction": "degrees"
                     }
                 },
                 "forecasts": forecasts
@@ -335,6 +356,11 @@ class WaveDataProcessor:
         except Exception as e:
             logger.error(f"Error processing GRIB2 files: {str(e)}")
             return {"forecasts": []}
+
+    def process_station_forecast(self, station_id: str, model_run: str = None, date: str = None) -> Dict:
+        """Process all forecast files for a station."""
+        # Use the optimized version
+        return self.process_station_forecast_optimized(station_id, model_run, date)
 
     def determine_region(self, lon: float, lat: float) -> Optional[str]:
         """Determine which model region contains the given coordinates."""

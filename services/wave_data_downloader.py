@@ -56,8 +56,8 @@ class WaveDataDownloader:
         for region in settings.models:
             model_name = settings.models[region]["name"]
             # Check first and last forecast hour files
-            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f120.grib2"  # Start at f120
-            last_file = f"gfswave.t{self.current_model_run}z.{model_name}.f384.grib2"
+            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f000.grib2"  # Start at f000
+            last_file = f"gfswave.t{self.current_model_run}z.{model_name}.f120.grib2"   # End at f120
             
             if not (self.data_dir / first_file).exists() or not (self.data_dir / last_file).exists():
                 return False
@@ -115,7 +115,7 @@ class WaveDataDownloader:
         """Download wave model data for the current run."""
         try:
             model_run, date = self.get_current_model_run()
-            logger.info(f"Downloading data for model run: {date} {model_run}z")
+            logger.info(f"Downloading data for model run: {date} {model_run}z (2-hourly from f000 to f120)")
             
             base_url = f"{settings.base_url}/gfs.{date}/{model_run}/wave/gridded"
             logger.info(f"Base URL: {base_url}")

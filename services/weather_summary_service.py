@@ -8,20 +8,20 @@ logger = logging.getLogger(__name__)
 class WeatherSummaryService:
     def __init__(self):
         self.wave_height_categories = {
-            (0, 0.5): "flat",
-            (0.5, 1): "very small",
-            (1, 1.5): "small",
-            (1.5, 2.5): "moderate",
-            (2.5, 4): "large",
-            (4, float('inf')): "very large"
+            (0, 1): "flat",
+            (1, 2): "very small",
+            (2, 3): "small",
+            (3, 5): "moderate",
+            (5, 8): "large",
+            (8, float('inf')): "very large"
         }
         
         self.wind_speed_categories = {
-            (0, 3): "light",
-            (3, 7): "gentle",
-            (7, 12): "moderate",
-            (12, 18): "fresh",
-            (18, 25): "strong",
+            (0, 5): "light",
+            (5, 10): "gentle",
+            (10, 15): "moderate",
+            (15, 20): "fresh",
+            (20, 25): "strong",
             (25, float('inf')): "gale"
         }
         
@@ -77,7 +77,7 @@ class WeatherSummaryService:
 
         # Convert forecasts to DataFrame for easier analysis
         df = pd.DataFrame(forecasts)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['timestamp'] = pd.to_datetime(df['time'])
         
         # Get current conditions
         current = forecasts[0]
@@ -96,28 +96,28 @@ class WeatherSummaryService:
         }
 
     def _generate_current_summary(self, current: Dict, metadata: Dict) -> str:
-        if 'waves' not in current or 'wind' not in current:
+        if 'wave' not in current or 'wind' not in current:
             return None
 
-        wave_height = current['waves'].get('height')
-        wave_period = current['waves'].get('period')
+        # Log raw values for debugging
+        logger.info(f"Raw forecast time: {current.get('time')}")
+        logger.info(f"Raw wave data: {current.get('wave')}")
+        logger.info(f"Raw wind data: {current.get('wind')}")
+
+        wave_height = current['wave'].get('height')
+        wave_period = current['wave'].get('period')
         wind_speed = current['wind'].get('speed')
         wind_dir = current['wind'].get('direction')
 
         if not all([wave_height, wave_period, wind_speed, wind_dir]):
             return None
 
-        # Convert m/s to mph for wind speed
-        wind_speed_mph = wind_speed * 2.237
-        # Convert meters to feet for wave height
-        wave_height_ft = wave_height * 3.28084
-
         wave_cat = self._get_wave_category(wave_height)
         period_cat = self._get_period_category(wave_period)
         wind_cat = self._get_wind_category(wind_speed)
         wind_cardinal = self._get_cardinal_direction(wind_dir)
 
-        return f"{wave_cat.capitalize()} {wave_height_ft:.1f}ft waves at {wave_period:.0f}s intervals with {wind_cat} {wind_speed_mph:.0f}mph {wind_cardinal} winds"
+        return f"{wave_cat.capitalize()} {wave_height:.1f}ft waves at {wave_period:.0f}s intervals with {wind_cat} {wind_speed:.0f}mph {wind_cardinal} winds"
 
     def _find_best_day(self, df: pd.DataFrame, metadata: Dict) -> str:
         # Group by day
@@ -133,6 +133,10 @@ class WeatherSummaryService:
             if date > datetime.now().date() + timedelta(days=7):
                 continue
 
+            # Log max wave height for each day
+            max_wave = day_data['wave'].apply(lambda x: x.get('height', 0)).max()
+            logger.info(f"Date {date}: Max wave height {max_wave}ft")
+
             # Calculate daily score based on conditions
             day_score = self._calculate_day_score(day_data, metadata)
             
@@ -143,6 +147,9 @@ class WeatherSummaryService:
                 # Get peak conditions for best day
                 peak_conditions = self._get_peak_conditions(day_data)
                 if peak_conditions:
+                    # Log peak conditions
+                    logger.info(f"Peak conditions for {date}:")
+                    logger.info(f"Raw data: {peak_conditions}")
                     best_summary = self._generate_current_summary(peak_conditions, metadata)
 
         if best_day and best_summary:
@@ -152,11 +159,11 @@ class WeatherSummaryService:
     def _calculate_day_score(self, day_data: pd.DataFrame, metadata: Dict) -> float:
         score = 0
         for _, row in day_data.iterrows():
-            if 'waves' not in row or 'wind' not in row:
+            if 'wave' not in row or 'wind' not in row:
                 continue
 
-            wave_height = row['waves'].get('height')
-            wave_period = row['waves'].get('period')
+            wave_height = row['wave'].get('height')
+            wave_period = row['wave'].get('period')
             wind_speed = row['wind'].get('speed')
             wind_dir = row['wind'].get('direction')
 
@@ -164,25 +171,25 @@ class WeatherSummaryService:
                 continue
 
             # Base score on wave height (0-5)
-            if 0.5 <= wave_height <= 2.5:
-                score += 5 - abs(1.5 - wave_height) * 2
+            if 1 <= wave_height <= 5:  # 1ft to 5ft
+                score += 5 - abs(3 - wave_height)  # Centered around 3ft
             
             # Bonus for good period (0-3)
             if wave_period >= 8:
                 score += min((wave_period - 8) / 2, 3)
             
             # Penalty for strong winds (-5 to 0)
-            if wind_speed > 7:  # > 15mph
-                score -= min((wind_speed - 7) / 3, 5)
+            if wind_speed > 15:  # > 15mph
+                score -= min((wind_speed - 15) / 2, 5)
             
             # Bonus for favorable wind direction (0-2)
-            if self._is_favorable_wind(wind_dir, metadata['station']['location']['longitude']):
+            if self._is_favorable_wind(wind_dir, metadata['location']['coordinates'][0]):
                 score += 2
 
         return score / len(day_data)  # Average score for the day
 
     def _get_peak_conditions(self, day_data: pd.DataFrame) -> Optional[Dict]:
-        if day_data.empty or 'waves' not in day_data.iloc[0]:
+        if day_data.empty or 'wave' not in day_data.iloc[0]:
             return None
             
         # Find time with highest waves during favorable conditions
@@ -190,10 +197,10 @@ class WeatherSummaryService:
         best_score = float('-inf')
         
         for _, row in day_data.iterrows():
-            if 'waves' not in row or 'wind' not in row:
+            if 'wave' not in row or 'wind' not in row:
                 continue
                 
-            wave_height = row['waves'].get('height')
+            wave_height = row['wave'].get('height')
             wind_speed = row['wind'].get('speed')
             
             if not all([wave_height, wind_speed]):
@@ -213,13 +220,13 @@ class WeatherSummaryService:
             return None
 
         # Get average conditions
-        avg_wave_height = df['waves'].apply(lambda x: x.get('height')).mean()
+        avg_wave_height = df['wave'].apply(lambda x: x.get('height')).mean()
         avg_wind_speed = df['wind'].apply(lambda x: x.get('speed')).mean()
         
         # Count favorable wind periods
         favorable_winds = df['wind'].apply(lambda x: 
             self._is_favorable_wind(x.get('direction', 0), 
-                                 metadata['station']['location']['longitude']) 
+                                 metadata['location']['coordinates'][0]) 
             if x and 'direction' in x else False)
         favorable_pct = (favorable_winds.sum() / len(df)) * 100
 

@@ -4,13 +4,11 @@ from typing import Dict, List, Any
 class Settings(BaseSettings):
     """Application settings."""
     
-    # Storage settings
     data_dir: str = "data"
-    
-    # Cache settings
+
     cache: Dict[str, Any] = {
         "enabled": True,
-        "backend": "memory",  # Using memory backend
+        "backend": "memory",
         "prefix": "salty_ocean",
         "ttl": {
             "wave_forecast": 21600,     # 6 hours (until next model run)
@@ -22,11 +20,8 @@ class Settings(BaseSettings):
         }
     }
     
-    # NDBC settings
     ndbc_base_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"
-    spectral_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"
-    
-    # NOAA CO-OPS settings
+
     coops_metadata_url: str = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi"
     coops_base_url: str = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
     coops_params: Dict = {
@@ -41,9 +36,9 @@ class Settings(BaseSettings):
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
     # NOAA NOMADS runs four times daily at 00, 06, 12, and 18 UTC
     model_runs: List[str] = ["00", "06", "12", "18"]
-    # Only download files that contain 3-hourly forecasts (f120 through f384)
-    forecast_files: List[int] = list(range(120, 385, 3))  # Files to download: f120, f123, f126, ..., f384
-    forecast_hours: List[int] = list(range(120, 385, 3))  # Process 3-hourly data points from these files
+    # Download files every 2 hours from f000 to f120
+    forecast_files: List[int] = list(range(0, 121, 2))  # Files to download: f000, f002, f004, ..., f120
+    forecast_hours: List[int] = list(range(0, 121, 2))  # Process 2-hourly data points
     
     models: Dict = {
         "atlantic": {
@@ -82,18 +77,10 @@ class Settings(BaseSettings):
         # }
     }
     
-    # Development settings
-    development: Dict = {
-        "enabled": True,
-        "force_download": False,
-        "max_forecast_hours": 24  # Limit forecast hours in development
-    }
-    
-    # Request settings
     request: Dict = {
-        "timeout": 300,  # 5 minutes
+        "timeout": 300,
         "max_retries": 3,
-        "retry_delay": 5  # seconds
+        "retry_delay": 5000
     }
 
     model_config = SettingsConfigDict(

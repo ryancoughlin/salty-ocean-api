@@ -61,7 +61,7 @@ class OffshoreController:
         """Get real-time observations for a specific NDBC station."""
         try:
             station = self._get_station(station_id)
-            observation = self.buoy_service.get_realtime_observations(station_id)
+            observation = await self.buoy_service.get_realtime_observations(station_id)
             
             return NDBCStation(
                 station_id=station["id"],

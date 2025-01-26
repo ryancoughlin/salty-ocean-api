@@ -45,13 +45,13 @@ class WaveDataProcessor:
             logger.error(f"Error preloading dataset: {str(e)}")
             raise
 
-    def _load_forecast_dataset(self, model_run: str, date: str) -> xr.Dataset:
+    def _load_forecast_dataset(self, model_run: str, date: str) -> Optional[xr.Dataset]:
         """Load and combine all forecast files for a model run."""
         if self._cached_dataset is not None and self._cached_model_run == model_run:
             logger.info("Using cached dataset")
             return self._cached_dataset
             
-        logger.info("Loading forecast files...")
+        logger.info("Loading forecast files (2-hourly from f000 to f120)...")
         start_time = datetime.now()
         
         # Get list of all forecast files
@@ -63,7 +63,8 @@ class WaveDataProcessor:
                 forecast_files.append((hour, file_path))
         
         if not forecast_files:
-            raise ValueError("No forecast files found")
+            logger.warning("No forecast files found - returning None")
+            return None
         
         # Load datasets and ensure time dimension is preserved
         datasets = []
@@ -85,7 +86,8 @@ class WaveDataProcessor:
             datasets.append(ds)
         
         if not datasets:
-            raise ValueError("No datasets could be loaded")
+            logger.warning("No datasets could be loaded - returning None")
+            return None
         
         # Combine all datasets along time dimension
         WaveDataProcessor._cached_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
@@ -117,6 +119,18 @@ class WaveDataProcessor:
             
             # Load or get cached dataset
             full_forecast = self._load_forecast_dataset(model_run, date)
+            if full_forecast is None:
+                logger.warning("No forecast data available - returning empty forecast")
+                return {
+                    "station_id": station_id,
+                    "name": station["name"],
+                    "location": station["location"],
+                    "model_run": f"{date} {model_run}z",
+                    "forecasts": [],
+                    "metadata": station,
+                    "status": "no_data"
+                }
+                
             logger.info(f"Processing {len(full_forecast.time)} forecasts")
             
             # Find nearest grid point (convert longitude to 0-360)

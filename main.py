@@ -31,9 +31,17 @@ async def lifespan(app: FastAPI):
         
         # Initialize services
         wave_processor = WaveDataProcessor()
+        wave_downloader = WaveDataDownloader()
         scheduler = SchedulerService()
         
-        # Start loading dataset in background
+        # First attempt to download initial data
+        logger.info("Downloading initial wave model data...")
+        success = await wave_downloader.download_model_data()
+        if not success:
+            logger.error("Failed to download initial wave model data")
+            raise ValueError("No wave model data available - cannot start app")
+            
+        # Then load the dataset
         logger.info("Loading initial wave model dataset...")
         await wave_processor.preload_dataset()
         logger.info("Initial dataset loaded")

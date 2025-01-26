@@ -1,7 +1,7 @@
 import xarray as xr
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, List
 import time
 
 logger = logging.getLogger(__name__)
@@ -101,14 +101,49 @@ class Grib2File:
         
         return lat_idx, lon_idx
         
-    def get_value_at_indices(self, variable: str, lat_idx: int, lon_idx: int) -> Optional[float]:
-        """Get value at specified indices for a variable, handling missing values."""
+    def get_value_at_indices(self, var_name: str, lat_idx: int, lon_idx: int) -> Optional[Union[float, List[float]]]:
+        """Get value at specified indices for a variable.
+        
+        Args:
+            var_name: Name of the variable to extract
+            lat_idx: Latitude index
+            lon_idx: Longitude index
+            
+        Returns:
+            For non-swell variables: single float value at the specified indices
+            For swell variables: list of float values for each depth
+            Returns None if value not found or error occurs
+        """
         try:
-            value = self.dataset[variable].values[0, lat_idx, lon_idx]
-            if value == 3.4028234663852886e+38:  # GRIB missing value
+            # Skip wind components
+            if var_name in {'u', 'v'}:
                 return None
-            return value
-        except (KeyError, IndexError):
+                
+            if var_name not in self.dataset:
+                logger.debug(f"Variable {var_name} not found in dataset")
+                return None
+                
+            da = self.dataset[var_name]
+            
+            # Only swell variables have orderedSequenceData dimension
+            SWELL_VARS = {'shts', 'mpts', 'swdir'}
+            
+            if var_name in SWELL_VARS:
+                # Return all depths for swell variables
+                values = da.isel(
+                    latitude=lat_idx,
+                    longitude=lon_idx
+                ).values
+                return [float(v) for v in values]
+            else:
+                value = da.isel(
+                    latitude=lat_idx,
+                    longitude=lon_idx
+                ).values.item()
+                return float(value)
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract {var_name}: {str(e)}")
             return None
             
     @classmethod
@@ -121,6 +156,7 @@ class Grib2File:
         cls._indices_cache.clear()
             
     def close(self):
-        """Close the dataset."""
-        # Don't actually close since we're caching
-        pass 
+        """Close the dataset and clear cache."""
+        if str(self.file_path) in self._dataset_cache:
+            self._dataset_cache[str(self.file_path)].close()
+            del self._dataset_cache[str(self.file_path)] 

@@ -79,7 +79,7 @@ def compare_datasets(files: List[str]) -> Tuple[Dict, Dict]:
         
         # Compare data values (excluding time-related fields)
         for var in structure['data_vars']:
-            if var in ['time', 'step', 'valid_time']:
+            if var in ['time']:
                 continue
                 
             try:

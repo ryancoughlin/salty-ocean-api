@@ -6,6 +6,7 @@ when making cecisions about the code, consider the following:
 - the code should be scalable and maintainable
 - the code should be secure and handle errors gracefully
 - DO NOT OVERCOMPLICATE THE CODE. KEEP IT SIMPLE AND EFFICIENT.
+- DO NOT MAKE ASSUMPTIONS ABOUT DATA OR ADDING CODE I DID NOT REQUEST.
 
 never write comments in the code.
 

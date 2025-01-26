@@ -79,7 +79,7 @@ class OffshoreController:
             logger.debug(f"Got model run info in {time.time() - t0:.2f}s: {date} {model_run}z")
             
             t0 = time.time()
-            forecast_data = self.wave_processor.process_station_forecast(station_id, model_run, date)
+            forecast_data = self.wave_processor.process_station_forecast(station_id)
             logger.debug(f"Processed forecast data in {time.time() - t0:.2f}s")
             logger.debug(f"Forecast data contains {len(forecast_data['forecasts'])} entries")
             

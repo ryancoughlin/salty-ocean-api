@@ -1,70 +1,126 @@
 import xarray as xr
+import pygrib
 import logging
 from pathlib import Path
 import numpy as np
+import pandas as pd
+from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Find first available Atlantic GRIB2 file
-data_dir = Path("data")
-grib_files = list(data_dir.glob("*atlocn*.grib2"))
+class GribInspector:
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
+        self.grbs = None
+        self.ds = None
+        
+    def inspect_with_pygrib(self):
+        """Detailed inspection using pygrib"""
+        logger.info(f"\nInspecting with pygrib: {self.file_path}")
+        try:
+            self.grbs = pygrib.open(str(self.file_path))
+            
+            # Get basic file information
+            logger.info("\n=== GRIB File Overview ===")
+            msg_count = len(self.grbs)
+            logger.info(f"Total messages: {msg_count}")
+            
+            # Analyze each message
+            for i, msg in enumerate(self.grbs, 1):
+                logger.info(f"\n--- Message {i}/{msg_count} ---")
+                logger.info(f"Variable: {msg.name}")
+                logger.info(f"Level: {msg.level} {msg.typeOfLevel}")
+                logger.info(f"Valid Date: {msg.validDate}")
+                logger.info(f"Grid Shape: {msg.values.shape}")
+                
+                # Get geographical bounds
+                logger.info("Geographical Bounds:")
+                logger.info(f"Lats: {msg.latitudeOfFirstGridPointInDegrees:.2f} to "
+                          f"{msg.latitudeOfLastGridPointInDegrees:.2f}")
+                logger.info(f"Lons: {msg.longitudeOfFirstGridPointInDegrees:.2f} to "
+                          f"{msg.longitudeOfLastGridPointInDegrees:.2f}")
+                
+                # Print first few data points
+                data_sample = msg.values.flatten()[:5]
+                logger.info(f"Data sample: {data_sample}")
+                
+                # Get key metadata
+                logger.info("\nKey Metadata:")
+                for key in ['parameterName', 'parameterUnits', 'dataDate', 
+                          'forecastTime', 'gridType']:
+                    try:
+                        value = msg.get(key)
+                        logger.info(f"{key}: {value}")
+                    except:
+                        pass
+                
+        except Exception as e:
+            logger.error(f"Error in pygrib inspection: {str(e)}")
+        finally:
+            if self.grbs:
+                self.grbs.close()
 
-if not grib_files:
-    logger.error("No Atlantic GRIB2 files found in data directory")
-    exit(1)
+    def inspect_with_xarray(self):
+        """Detailed inspection using xarray"""
+        logger.info(f"\nInspecting with xarray: {self.file_path}")
+        try:
+            self.ds = xr.open_dataset(
+                self.file_path, 
+                engine='cfgrib',
+                backend_kwargs={'indexpath': ''}
+            )
+            
+            logger.info("\n=== Dataset Overview ===")
+            logger.info(f"Dimensions: {dict(self.ds.dims)}")
+            
+            logger.info("\n=== Variables ===")
+            for var in self.ds.data_vars:
+                logger.info(f"\nVariable: {var}")
+                logger.info(f"Dimensions: {self.ds[var].dims}")
+                logger.info(f"Shape: {self.ds[var].shape}")
+                logger.info(f"Attributes: {self.ds[var].attrs}")
+                
+                # Show data sample
+                data = self.ds[var].values
+                if not np.isscalar(data):
+                    sample = data.flatten()[:5]
+                    logger.info(f"Data sample: {sample}")
+                
+            logger.info("\n=== Coordinates ===")
+            for coord in self.ds.coords:
+                logger.info(f"\nCoordinate: {coord}")
+                logger.info(f"Values: {self.ds[coord].values}")
+                
+            logger.info("\n=== Global Attributes ===")
+            for attr, value in self.ds.attrs.items():
+                logger.info(f"{attr}: {value}")
+                
+        except Exception as e:
+            logger.error(f"Error in xarray inspection: {str(e)}")
+        finally:
+            if self.ds is not None:
+                self.ds.close()
 
-file_path = grib_files[0]
-logger.info(f"\nInspecting Atlantic file: {file_path}")
+def main():
+    # Find GRIB2 files
+    data_dir = Path("data")
+    grib_files = list(data_dir.glob("*atlocn*.grib2"))
+    
+    if not grib_files:
+        logger.error("No Atlantic GRIB2 files found in data directory")
+        return
+    
+    # Inspect first file found
+    file_path = grib_files[0]
+    inspector = GribInspector(file_path)
+    
+    # Run both inspection methods
+    inspector.inspect_with_pygrib()
+    inspector.inspect_with_xarray()
 
-# Open and inspect dataset
-ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'indexpath': ''})
-
-print("\nDataset structure:")
-print(ds)
-
-print("\nDimensions:")
-print(ds.dims)
-
-print("\nCoordinates:")
-for coord in ds.coords:
-    print(f"\n{coord}:")
-    print(ds[coord].values)
-
-print("\nCoordinate Ranges:")
-print(f"Latitude range:  {float(ds.latitude.min())} to {float(ds.latitude.max())}")
-print(f"Longitude range: {float(ds.longitude.min())} to {float(ds.longitude.max())}")
-
-# Try specific coordinate access
-lat = 42.8
-lon = 289.829
-
-# Find indices
-lat_idx = abs(ds.latitude - lat).argmin().item()
-lon_idx = abs(ds.longitude - lon).argmin().item()
-
-print(f"\nRequested coordinates: lat={lat}, lon={lon}")
-print(f"Nearest grid point:")
-print(f"lat={float(ds.latitude[lat_idx])}, lon={float(ds.longitude[lon_idx])}")
-print(f"indices: lat_idx={lat_idx}, lon_idx={lon_idx}")
-
-# Try accessing each variable at this point
-print("\nValues at nearest point:")
-for var in ds.data_vars:
-    try:
-        if 'orderedSequenceData' in ds[var].dims:
-            value = ds[var].isel(
-                orderedSequenceData=0,
-                latitude=lat_idx,
-                longitude=lon_idx
-            ).values
-        else:
-            value = ds[var].isel(
-                latitude=lat_idx,
-                longitude=lon_idx
-            ).values
-        print(f"{var}: {value}")
-    except Exception as e:
-        print(f"{var}: Error - {str(e)}")
-
-ds.close() 
+if __name__ == "__main__":
+    main() 

@@ -53,16 +53,19 @@ class SchedulerService:
         logger.info(f"Starting scheduler at {current_utc.strftime('%Y-%m-%d %H:%M UTC')}")
         
         for model_run in settings.model_runs:
-            update_hour = (model_run + 3) % 24  # Add 3 hours to model run time
+            # Convert model_run to int before arithmetic
+            run_hour = int(model_run)
+            update_hour = (run_hour + 3) % 24  # Add 3 hours to model run time
+            
             self.scheduler.add_job(
                 self._update_model_data,
                 CronTrigger(hour=update_hour, minute=30),  # Run at :30 past the hour
-                id=f"wave_forecasts_{model_run}z",
-                name=f"Wave Model Update {model_run}Z",
+                id=f"wave_forecasts_{run_hour}z",
+                name=f"Wave Model Update {run_hour}Z",
                 misfire_grace_time=3600,
                 coalesce=True
             )
-            logger.info(f"Scheduled update for {model_run}z run at {update_hour:02d}:30 UTC")
+            logger.info(f"Scheduled update for {run_hour}z run at {update_hour:02d}:30 UTC")
             
         self.scheduler.start()
         logger.info("Scheduler started")

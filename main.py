@@ -19,33 +19,39 @@ from services.scheduler_service import SchedulerService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize services
-wave_processor = WaveDataProcessor()
-wave_downloader = WaveDataDownloader()
-scheduler = SchedulerService()
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle startup and shutdown events"""
+    """Startup and shutdown events."""
     try:
-        # 1. Create data directory and initialize cache
-        Path(settings.data_dir).mkdir(exist_ok=True)
+        # Create data directory if it doesn't exist
+        Path("data").mkdir(exist_ok=True)
+        
+        # Initialize cache
         await init_cache()
         
-        # 2. Start scheduler (runs independently)
-        scheduler.start()
+        # Initialize services
+        wave_processor = WaveDataProcessor()
+        scheduler = SchedulerService()
         
-        # 3. Start initial data download (runs independently)
-        asyncio.create_task(wave_downloader.download_model_data())
+        # Start loading dataset in background
+        logger.info("Loading initial wave model dataset...")
+        await wave_processor.preload_dataset()
+        logger.info("Initial dataset loaded")
+        
+        # Start scheduler for future updates
+        scheduler.start()
         
         logger.info("App started - services initialized")
         yield
+        
+        # Cleanup on shutdown
+        scheduler.stop()
+        logger.info("App shutdown")
         
     except Exception as e:
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
-        scheduler.stop()
         logger.info("App shutdown")
 
 app = FastAPI(

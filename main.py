@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from pathlib import Path
 import asyncio
-import signal
-import sys
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -25,8 +23,8 @@ logger = logging.getLogger(__name__)
 background_tasks = set()
 
 # Initialize services
-processor = WaveDataProcessor()
-downloader = WaveDataDownloader()
+wave_processor = WaveDataProcessor()
+wave_downloader = WaveDataDownloader()
 scheduler = SchedulerService()
 
 async def update_model_data():
@@ -36,7 +34,7 @@ async def update_model_data():
             logger.info("Starting model data update")
             
             try:
-                success = await downloader.download_model_data()
+                success = await wave_downloader.download_model_data()
                 if success:
                     logger.info("Successfully updated model data")
                 else:
@@ -109,9 +107,9 @@ async def lifespan(app: FastAPI):
         # Initialize cache
         await init_cache()
         
-        # Initialize services
-        wave_processor = WaveDataProcessor()
-        scheduler = SchedulerService()
+        # Start background task for model data updates
+        update_task = asyncio.create_task(update_model_data())
+        background_tasks.add(update_task)
         
         # Initial data load
         logger.info("Starting initial data load")

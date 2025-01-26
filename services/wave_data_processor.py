@@ -8,6 +8,7 @@ import pandas as pd
 import asyncio
 
 from core.config import settings
+from utils.model_time import get_latest_model_run
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +22,7 @@ class WaveDataProcessor:
         
     def get_current_model_run(self) -> tuple[str, str]:
         """Get latest available model run."""
-        now = datetime.now(timezone.utc)
-        current_hour = now.hour
-        model_runs = [0, 6, 12, 18]
-        latest_run = max((run for run in model_runs if current_hour >= run + 5), default=18)
-        
-        if latest_run == 18 and current_hour < model_runs[0] + 5:
-            now = now - timedelta(days=1)
-            
-        return str(latest_run).zfill(2), now.strftime("%Y%m%d")
+        return get_latest_model_run()
 
     async def preload_dataset(self) -> None:
         """Preload the dataset for the current model run."""

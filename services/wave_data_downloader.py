@@ -7,6 +7,7 @@ from typing import List, Optional
 import time
 
 from core.config import settings
+from utils.model_time import get_latest_model_run
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,33 +16,20 @@ class WaveDataDownloader:
     def __init__(self, data_dir: str = settings.data_dir):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
-        self.current_model_run = None
-        self.current_date = None
+        self.current_model_run, self.current_date = self.get_current_model_run()
         self._last_request_time = 0
         self._request_interval = 1.0  # Minimum seconds between requests
         self._download_state = {
             "last_attempt": None,
             "last_success": None,
-            "retry_after": 300  # 5 minutes default retry
+            "retry_after": 300,  # 5 minutes default retry
+            "last_model_run": None,
+            "last_model_date": None
         }
         
     def get_current_model_run(self) -> tuple[str, str]:
         """Get the latest available model run based on current UTC time."""
-        now = datetime.now(timezone.utc)
-        current_hour = now.hour
-        
-        # Model runs are at 00, 06, 12, 18 UTC
-        # Data is available ~5 hours after run time
-        model_runs = [0, 6, 12, 18]
-        
-        # Find the latest run that should have data available
-        latest_run = max((run for run in model_runs if current_hour >= run + 5), default=18)
-        
-        # If we're before the first run + delay of the day, use previous day's last run
-        if latest_run == 18 and current_hour < model_runs[0] + 5:
-            now = now - timedelta(days=1)
-        
-        return str(latest_run).zfill(2), now.strftime("%Y%m%d")
+        return get_latest_model_run()
 
     def should_attempt_download(self) -> bool:
         """Check if we should attempt a download based on previous attempts."""
@@ -63,17 +51,18 @@ class WaveDataDownloader:
     def has_current_data(self) -> bool:
         """Check if we have data for the current model run."""
         if not self.current_model_run:
-            self.get_current_model_run()
+            self.current_model_run, self.current_date = self.get_current_model_run()
             
         # Check each region for required files
         for region in settings.models:
             model_name = settings.models[region]["name"]
-            # Check first and last forecast hour files
-            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f120.grib2"  # Start at f120
-            last_file = f"gfswave.t{self.current_model_run}z.{model_name}.f384.grib2"
             
-            if not (self.data_dir / first_file).exists() or not (self.data_dir / last_file).exists():
-                return False
+            # Check all required forecast files
+            for hour in settings.forecast_files:
+                filename = f"gfswave.t{self.current_model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
+                if not (self.data_dir / filename).exists():
+                    logger.debug(f"Missing file: {filename}")
+                    return False
                         
         logger.info(f"Found existing data for model run {self.current_model_run}z")
         return True

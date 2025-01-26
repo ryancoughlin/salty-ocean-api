@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     
     # Wave model settings
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+    # NOAA NOMADS runs four times daily at 00, 06, 12, and 18 UTC
     model_runs: List[str] = ["00", "06", "12", "18"]
     # Only download files that contain 3-hourly forecasts (f120 through f384)
     forecast_files: List[int] = list(range(120, 385, 3))  # Files to download: f120, f123, f126, ..., f384

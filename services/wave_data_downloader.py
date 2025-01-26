@@ -16,15 +16,14 @@ class WaveDataDownloader:
     def __init__(self, data_dir: str = settings.data_dir):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
-        self.current_model_run, self.current_date = self.get_current_model_run()
+        self.current_model_run = None
+        self.current_date = None
         self._last_request_time = 0
         self._request_interval = 1.0  # Minimum seconds between requests
         self._download_state = {
             "last_attempt": None,
             "last_success": None,
-            "retry_after": 300,  # 5 minutes default retry
-            "last_model_run": None,
-            "last_model_date": None
+            "retry_after": 300  # 5 minutes default retry
         }
         
     def get_current_model_run(self) -> tuple[str, str]:
@@ -51,18 +50,17 @@ class WaveDataDownloader:
     def has_current_data(self) -> bool:
         """Check if we have data for the current model run."""
         if not self.current_model_run:
-            self.current_model_run, self.current_date = self.get_current_model_run()
+            self.get_current_model_run()
             
         # Check each region for required files
         for region in settings.models:
             model_name = settings.models[region]["name"]
+            # Check first and last forecast hour files
+            first_file = f"gfswave.t{self.current_model_run}z.{model_name}.f120.grib2"  # Start at f120
+            last_file = f"gfswave.t{self.current_model_run}z.{model_name}.f384.grib2"
             
-            # Check all required forecast files
-            for hour in settings.forecast_files:
-                filename = f"gfswave.t{self.current_model_run}z.{model_name}.f{str(hour).zfill(3)}.grib2"
-                if not (self.data_dir / filename).exists():
-                    logger.debug(f"Missing file: {filename}")
-                    return False
+            if not (self.data_dir / first_file).exists() or not (self.data_dir / last_file).exists():
+                return False
                         
         logger.info(f"Found existing data for model run {self.current_model_run}z")
         return True

@@ -1,9 +1,6 @@
 from typing import Dict, List, Optional
 import pandas as pd
 from datetime import datetime, timedelta
-import logging
-
-logger = logging.getLogger(__name__)
 
 class WeatherSummaryService:
     def __init__(self):
@@ -99,11 +96,6 @@ class WeatherSummaryService:
         if 'wave' not in current or 'wind' not in current:
             return None
 
-        # Log raw values for debugging
-        logger.info(f"Raw forecast time: {current.get('time')}")
-        logger.info(f"Raw wave data: {current.get('wave')}")
-        logger.info(f"Raw wind data: {current.get('wind')}")
-
         wave_height = current['wave'].get('height')
         wave_period = current['wave'].get('period')
         wind_speed = current['wind'].get('speed')
@@ -133,10 +125,6 @@ class WeatherSummaryService:
             if date > datetime.now().date() + timedelta(days=7):
                 continue
 
-            # Log max wave height for each day
-            max_wave = day_data['wave'].apply(lambda x: x.get('height', 0)).max()
-            logger.info(f"Date {date}: Max wave height {max_wave}ft")
-
             # Calculate daily score based on conditions
             day_score = self._calculate_day_score(day_data, metadata)
             
@@ -147,9 +135,6 @@ class WeatherSummaryService:
                 # Get peak conditions for best day
                 peak_conditions = self._get_peak_conditions(day_data)
                 if peak_conditions:
-                    # Log peak conditions
-                    logger.info(f"Peak conditions for {date}:")
-                    logger.info(f"Raw data: {peak_conditions}")
                     best_summary = self._generate_current_summary(peak_conditions, metadata)
 
         if best_day and best_summary:

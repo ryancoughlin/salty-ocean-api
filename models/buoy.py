@@ -27,7 +27,7 @@ class NDBCStation(BaseModel):
     station_id: str
     name: str
     location: Location
-    observations: List[NDBCObservation]
+    observations: NDBCObservation
 
 class NDBCForecastResponse(BaseModel):
     station_id: str

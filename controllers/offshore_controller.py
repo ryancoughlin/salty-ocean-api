@@ -67,7 +67,7 @@ class OffshoreController:
                 station_id=station["id"],
                 name=station["name"],
                 location=Location(type="Point", coordinates=station["location"]["coordinates"]),
-                observations=[NDBCObservation(**observation)]
+                observations=NDBCObservation(**observation)
             )
         except HTTPException:
             raise

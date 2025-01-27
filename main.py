@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from core.config import settings
+from core.logging_config import setup_logging
 from endpoints.tide_stations import router as tide_router
 from endpoints.offshore_stations import router as offshore_router
 from services.wave_data_processor import WaveDataProcessor
@@ -15,8 +16,8 @@ from services.wave_data_downloader import WaveDataDownloader
 from core.cache import init_cache
 from services.scheduler_service import SchedulerService
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Setup logging with EST times
+setup_logging()
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager

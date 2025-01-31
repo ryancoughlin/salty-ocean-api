@@ -15,6 +15,7 @@ from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
 from core.cache import init_cache
 from services.scheduler_service import SchedulerService
+from services.prefetch_service import PrefetchService
 
 # Setup logging with EST times
 setup_logging()
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
         scheduler = SchedulerService()
+        prefetch_service = PrefetchService()
         
         # First attempt to download initial data
         logger.info("Downloading initial wave model data...")
@@ -45,7 +47,9 @@ async def lifespan(app: FastAPI):
         # Then load the dataset
         logger.info("Loading initial wave model dataset...")
         await wave_processor.preload_dataset()
-        logger.info("Initial dataset loaded")
+        
+        logger.info("Prefetching station forecasts...")
+        await prefetch_service.prefetch_all()
         
         # Start scheduler for future updates
         scheduler.start()

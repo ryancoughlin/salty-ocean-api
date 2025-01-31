@@ -6,6 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
 from core.config import settings
+from services.prefetch_service import PrefetchService
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class SchedulerService:
             
             if success:
                 logger.info("Successfully downloaded new model data")
+                await self.wave_processor.preload_dataset()
+                prefetch_service = PrefetchService()
+                await prefetch_service.prefetch_all()
             else:
                 # If initial download fails, retry after 15 minutes
                 logger.warning("Initial download failed, scheduling retry in 15 minutes")

@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 class PrefetchService:
     """Service for prefetching wave model forecast data."""
     
-    def __init__(self):
-        self.wave_processor = WaveDataProcessor()
+    def __init__(self, wave_processor: WaveDataProcessor):
+        self.wave_processor = wave_processor
         self.station_repo = StationRepository(Path('ndbcStations.json'))
         self.semaphore = asyncio.Semaphore(4)  # Limit concurrent requests
         self._prefetch_lock = asyncio.Lock()  # Lock to prevent concurrent prefetches
@@ -25,7 +25,7 @@ class PrefetchService:
         async with self.semaphore:
             try:
                 station_id = station["id"]
-                logger.info(f"Prefetching forecast for station {station_id}")
+                logger.debug(f"Prefetching forecast for station {station_id}")
                 start_time = datetime.now()
                 
                 # Process forecast in executor to not block event loop
@@ -36,7 +36,7 @@ class PrefetchService:
                 )
                 
                 duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Completed forecast for {station_id} in {duration:.2f}s")
+                logger.debug(f"Completed forecast for {station_id} in {duration:.2f}s")
                 
             except Exception as e:
                 logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
@@ -74,7 +74,7 @@ class PrefetchService:
                         logger.error(f"Error during prefetch: {str(e)}")
                 
                 duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Completed wave forecast prefetch in {duration:.2f}s")
+                logger.info(f"Completed wave forecast prefetch for {len(stations)} stations in {duration:.2f}s")
                 
             except Exception as e:
                 logger.error(f"Error during wave forecast prefetch: {str(e)}")

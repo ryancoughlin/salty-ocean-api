@@ -31,25 +31,36 @@ async def lifespan(app: FastAPI):
         # Initialize cache
         await init_cache()
         
-        # Initialize services
+        # Initialize core services first
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
-        scheduler = SchedulerService()
-        prefetch_service = PrefetchService()
         
-        # First attempt to download initial data
+        # Initialize dependent services with shared instances
+        prefetch_service = PrefetchService(wave_processor=wave_processor)
+        scheduler = SchedulerService(
+            wave_processor=wave_processor,
+            wave_downloader=wave_downloader,
+            prefetch_service=prefetch_service
+        )
+        
+        # Store service instances in app state for reuse
+        app.state.wave_processor = wave_processor
+        app.state.wave_downloader = wave_downloader
+        app.state.prefetch_service = prefetch_service
+        app.state.scheduler = scheduler
+        
+        # Initial data load
         logger.info("Downloading initial wave model data...")
         success = await wave_downloader.download_model_data()
         if not success:
             logger.error("Failed to download initial wave model data")
             raise ValueError("No wave model data available - cannot start app")
             
-        # Then load the dataset
         logger.info("Loading initial wave model dataset...")
         await wave_processor.preload_dataset()
         
-        logger.info("Prefetching station forecasts...")
-        await prefetch_service.prefetch_all()
+        logger.info("Processing forecasts for all stations...")
+        await prefetch_service.prefetch_wave_forecasts()
         
         # Start scheduler for future updates
         scheduler.start()

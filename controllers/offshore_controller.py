@@ -82,21 +82,21 @@ class OffshoreController:
         expire=settings.cache["ttl"]["wave_forecast"]
     )
     async def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
-        """Get wave model forecast for a specific station"""
         start_time = time.time()
         logger.info(f"Starting forecast request for station {station_id}")
         
         try:
             station = self._get_station(station_id)
             
-            t0 = time.time()
             model_run, date = self.wave_processor.get_current_model_run()
-            logger.debug(f"Got model run info in {time.time() - t0:.2f}s: {date} {model_run}z")
-            
-            t0 = time.time()
             forecast_data = self.wave_processor.process_station_forecast(station_id)
-            logger.debug(f"Processed forecast data in {time.time() - t0:.2f}s")
-            logger.debug(f"Forecast data contains {len(forecast_data['forecasts'])} entries")
+            
+            if not forecast_data or not forecast_data.get('forecasts'):
+                logger.error(f"No forecast data available for station {station_id}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Forecast data not available. Please try again later."
+                )
             
             response = NDBCForecastResponse(
                 station_id=station_id,

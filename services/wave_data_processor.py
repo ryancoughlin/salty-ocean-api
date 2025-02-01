@@ -13,7 +13,6 @@ from utils.model_time import get_latest_model_run
 logger = logging.getLogger(__name__)
 
 class WaveDataProcessor:
-    # Static cache shared across all instances
     _cached_dataset = None
     _cached_model_run = None
     
@@ -48,63 +47,62 @@ class WaveDataProcessor:
     def _load_forecast_dataset(self, model_run: str, date: str) -> Optional[xr.Dataset]:
         """Load and combine all forecast files for a model run."""
         if self._cached_dataset is not None and self._cached_model_run == model_run:
-            logger.info("Using cached dataset")
+            logger.debug("Using cached dataset")
             return self._cached_dataset
             
-        logger.info("Loading forecast files (2-hourly from f000 to f120)...")
+        logger.info("Loading forecast files...")
         start_time = datetime.now()
         
-        # Get list of all forecast files
-        forecast_files = []
-        for hour in sorted(settings.forecast_hours):  # Sort to ensure chronological order
-            filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
-            file_path = self.data_dir / filename
-            if file_path.exists():
-                forecast_files.append((hour, file_path))
-        
-        if not forecast_files:
-            logger.warning("No forecast files found - returning None")
+        try:
+            # Get list of all forecast files
+            forecast_files = []
+            for hour in sorted(settings.forecast_hours):  # Sort to ensure chronological order
+                filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
+                file_path = self.data_dir / filename
+                if file_path.exists():
+                    forecast_files.append((hour, file_path))
+            
+            if not forecast_files:
+                logger.warning("No forecast files found - returning None")
+                return None
+            
+            # Load datasets and ensure time dimension is preserved
+            datasets = []
+            model_run_time = datetime.strptime(f"{date} {model_run}00", "%Y%m%d %H%M")
+            model_run_time = model_run_time.replace(tzinfo=timezone.utc)
+            
+            for hour, file_path in forecast_files:
+                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'time_dims': ('time',)})
+                
+                forecast_time = model_run_time + timedelta(hours=hour)
+                
+                ds = ds.assign_coords(time=forecast_time)
+                
+                logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
+                
+                datasets.append(ds)
+            
+            if not datasets:
+                logger.warning("No datasets could be loaded - returning None")
+                return None
+            
+            WaveDataProcessor._cached_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
+            WaveDataProcessor._cached_model_run = model_run
+            
+            times = WaveDataProcessor._cached_dataset.time.values
+            if not all(times[i] < times[i+1] for i in range(len(times)-1)):
+                logger.error("Time dimension is not monotonically increasing")
+                logger.error(f"Time values: {times}")
+                raise ValueError("Invalid time dimension in combined dataset")
+            
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
+            logger.info(f"Time range: {times[0]} to {times[-1]}")
+            
+            return WaveDataProcessor._cached_dataset
+        except Exception as e:
+            logger.error(f"Error loading forecast dataset: {str(e)}")
             return None
-        
-        # Load datasets and ensure time dimension is preserved
-        datasets = []
-        model_run_time = datetime.strptime(f"{date} {model_run}00", "%Y%m%d %H%M")
-        model_run_time = model_run_time.replace(tzinfo=timezone.utc)
-        
-        for hour, file_path in forecast_files:
-            ds = xr.open_dataset(file_path, engine='cfgrib')
-            
-            # Calculate the actual forecast time for this file
-            forecast_time = model_run_time + timedelta(hours=hour)
-            
-            # Ensure the dataset has the correct time coordinate
-            ds = ds.assign_coords(time=forecast_time)
-            
-            # Log time values for debugging
-            logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
-            
-            datasets.append(ds)
-        
-        if not datasets:
-            logger.warning("No datasets could be loaded - returning None")
-            return None
-        
-        # Combine all datasets along time dimension
-        WaveDataProcessor._cached_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
-        WaveDataProcessor._cached_model_run = model_run
-        
-        # Verify time dimension is monotonically increasing
-        times = WaveDataProcessor._cached_dataset.time.values
-        if not all(times[i] < times[i+1] for i in range(len(times)-1)):
-            logger.error("Time dimension is not monotonically increasing")
-            logger.error(f"Time values: {times}")
-            raise ValueError("Invalid time dimension in combined dataset")
-        
-        duration = (datetime.now() - start_time).total_seconds()
-        logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
-        logger.info(f"Time range: {times[0]} to {times[-1]}")
-        
-        return WaveDataProcessor._cached_dataset
 
     def process_station_forecast(self, station_id: str) -> Dict:
         """Process wave model forecast for a station."""
@@ -120,7 +118,7 @@ class WaveDataProcessor:
             # Load or get cached dataset
             full_forecast = self._load_forecast_dataset(model_run, date)
             if full_forecast is None:
-                logger.warning("No forecast data available - returning empty forecast")
+                logger.warning(f"No forecast data available for station {station_id}")
                 return {
                     "station_id": station_id,
                     "name": station["name"],
@@ -131,7 +129,7 @@ class WaveDataProcessor:
                     "status": "no_data"
                 }
                 
-            logger.info(f"Processing {len(full_forecast.time)} forecasts")
+            logger.debug(f"Processing {len(full_forecast.time)} forecasts for station {station_id}")
             
             # Find nearest grid point (convert longitude to 0-360)
             lat = station["location"]["coordinates"][1]
@@ -190,8 +188,7 @@ class WaveDataProcessor:
                             'speed': round(speed, 1),
                             'direction': round(direction, 1)
                         }
-                
-                # Add wave data (combined sea and swell)
+
                 wave_vars = {
                     'wave_height': 'height',
                     'wave_period': 'period',
@@ -221,8 +218,7 @@ class WaveDataProcessor:
                                 'period': round(period, 1),
                                 'direction': round(direction, 1)
                             })
-                
-                # Add all groups to forecast
+
                 forecast.update({
                     'wind': wind,
                     'wave': wave,

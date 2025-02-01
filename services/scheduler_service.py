@@ -13,10 +13,16 @@ logger = logging.getLogger(__name__)
 class SchedulerService:
     """Service for scheduling model data updates."""
     
-    def __init__(self):
+    def __init__(
+        self,
+        wave_processor: WaveDataProcessor,
+        wave_downloader: WaveDataDownloader,
+        prefetch_service: PrefetchService
+    ):
         self.scheduler = AsyncIOScheduler()
-        self.wave_processor = WaveDataProcessor()
-        self.wave_downloader = WaveDataDownloader()
+        self.wave_processor = wave_processor
+        self.wave_downloader = wave_downloader
+        self.prefetch_service = prefetch_service
         
     async def _update_model_data(self):
         """Download and process new model data."""
@@ -28,8 +34,9 @@ class SchedulerService:
             if success:
                 logger.info("Successfully downloaded new model data")
                 await self.wave_processor.preload_dataset()
-                prefetch_service = PrefetchService()
-                await prefetch_service.prefetch_all()
+                
+                logger.info("Processing forecasts for all stations...")
+                await self.prefetch_service.prefetch_wave_forecasts()
             else:
                 # If initial download fails, retry after 15 minutes
                 logger.warning("Initial download failed, scheduling retry in 15 minutes")

@@ -8,6 +8,7 @@ from services.wave_data_processor import WaveDataProcessor
 from repositories.station_repo import StationRepository
 from core.config import settings
 from pathlib import Path
+from services.weather_summary_service import WeatherSummaryService
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class PrefetchService:
     def __init__(self, wave_processor: WaveDataProcessor):
         self.wave_processor = wave_processor
         self.station_repo = StationRepository(Path('ndbcStations.json'))
+        self.summary_service = WeatherSummaryService()
         self.semaphore = asyncio.Semaphore(4)  # Limit concurrent requests
         self._prefetch_lock = asyncio.Lock()  # Lock to prevent concurrent prefetches
         
@@ -35,18 +37,27 @@ class PrefetchService:
                     station_id
                 )
                 
+                if forecast and forecast.get('forecasts'):
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        self.summary_service.generate_summary,
+                        forecast['forecasts'],
+                        forecast['metadata']
+                    )
+                    logger.debug(f"Generated summary for station {station_id}")
+                
                 duration = (datetime.now() - start_time).total_seconds()
-                logger.debug(f"Completed forecast for {station_id} in {duration:.2f}s")
+                logger.debug(f"Completed forecast and summary for {station_id} in {duration:.2f}s")
                 
             except Exception as e:
-                logger.error(f"Error processing forecast for station {station_id}: {str(e)}")
+                logger.error(f"Error processing forecast/summary for station {station_id}: {str(e)}")
         
     async def prefetch_wave_forecasts(self) -> None:
         """Prefetch wave model forecasts for all stations."""
         # Use lock to prevent multiple concurrent prefetch operations
         async with self._prefetch_lock:
             try:
-                logger.info("Starting wave forecast prefetch")
+                logger.info("Starting wave forecast and summary prefetch")
                 start_time = datetime.now()
                 
                 # Preload dataset first
@@ -54,7 +65,7 @@ class PrefetchService:
                 
                 # Load stations and process forecasts
                 stations = self.station_repo.load_stations()
-                logger.info(f"Processing forecasts for {len(stations)} stations")
+                logger.info(f"Processing forecasts and summaries for {len(stations)} stations")
                 
                 # Create tasks for all stations
                 tasks = []
@@ -74,10 +85,10 @@ class PrefetchService:
                         logger.error(f"Error during prefetch: {str(e)}")
                 
                 duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Completed wave forecast prefetch for {len(stations)} stations in {duration:.2f}s")
+                logger.info(f"Completed wave forecast and summary prefetch for {len(stations)} stations in {duration:.2f}s")
                 
             except Exception as e:
-                logger.error(f"Error during wave forecast prefetch: {str(e)}")
+                logger.error(f"Error during wave forecast and summary prefetch: {str(e)}")
             
     async def prefetch_all(self) -> None:
         """Run all prefetch tasks."""

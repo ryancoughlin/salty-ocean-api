@@ -1,5 +1,5 @@
 import aiohttp
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 from typing import Dict, Any, Optional, List
 from core.config import settings
@@ -43,13 +43,26 @@ class BuoyService:
             # Create timestamp using fixed positions (NDBC format is standardized)
             try:
                 if len(data) >= 5:  # Ensure we have enough fields
-                    observation['timestamp'] = datetime(
+                    observation_time = datetime(
                         year=int(data[0]),
                         month=int(data[1]),
                         day=int(data[2]),
                         hour=int(data[3]) if data[3] != "MM" else 0,
-                        minute=int(data[4]) if data[4] != "MM" else 0
+                        minute=int(data[4]) if data[4] != "MM" else 0,
+                        tzinfo=timezone.utc
                     )
+                    observation['timestamp'] = observation_time
+                    
+                    # Calculate how out of date the reading is
+                    current_time = datetime.now(timezone.utc)
+                    time_diff = current_time - observation_time
+                    minutes_old = time_diff.total_seconds() / 60
+                    
+                    # Add freshness information
+                    observation['data_age'] = {
+                        'minutes': round(minutes_old, 1),
+                        'is_stale': minutes_old > 45  # Consider data stale if more than 45 minutes old
+                    }
                 else:
                     raise ValueError("Not enough fields for timestamp")
             except (ValueError, IndexError) as e:

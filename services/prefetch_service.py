@@ -54,20 +54,26 @@ class PrefetchService:
         
     async def prefetch_wave_forecasts(self) -> None:
         """Prefetch wave model forecasts for all stations."""
-        # Use lock to prevent multiple concurrent prefetch operations
         async with self._prefetch_lock:
             try:
                 logger.info("Starting wave forecast and summary prefetch")
                 start_time = datetime.now()
                 
-                # Preload dataset first
-                await self.wave_processor.preload_dataset()
+                model_run, date = self.wave_processor.get_current_model_run()
+                dataset = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    self.wave_processor._load_forecast_dataset,
+                    model_run,
+                    date
+                )
                 
-                # Load stations and process forecasts
+                if dataset is None:
+                    logger.error("Failed to load dataset for prefetch")
+                    return
+                
                 stations = self.station_repo.load_stations()
                 logger.info(f"Processing forecasts and summaries for {len(stations)} stations")
                 
-                # Create tasks for all stations
                 tasks = []
                 for station in stations:
                     task = asyncio.create_task(
@@ -76,9 +82,8 @@ class PrefetchService:
                     tasks.append(task)
                 
                 if tasks:
-                    # Wait for all tasks with timeout
                     try:
-                        await asyncio.wait_for(asyncio.gather(*tasks), timeout=900)  # 15 minute timeout
+                        await asyncio.wait_for(asyncio.gather(*tasks), timeout=900)
                     except asyncio.TimeoutError:
                         logger.error("Prefetch timed out after 15 minutes")
                     except Exception as e:
@@ -89,6 +94,7 @@ class PrefetchService:
                 
             except Exception as e:
                 logger.error(f"Error during wave forecast and summary prefetch: {str(e)}")
+                raise
             
     async def prefetch_all(self) -> None:
         """Run all prefetch tasks."""

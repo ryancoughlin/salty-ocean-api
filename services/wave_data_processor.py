@@ -45,7 +45,6 @@ class WaveDataProcessor:
             raise
 
     def _load_forecast_dataset(self, model_run: str, date: str) -> Optional[xr.Dataset]:
-        """Load and combine all forecast files for a model run."""
         if self._cached_dataset is not None and self._cached_model_run == model_run:
             logger.debug("Using cached dataset")
             return self._cached_dataset
@@ -54,9 +53,8 @@ class WaveDataProcessor:
         start_time = datetime.now()
         
         try:
-            # Get list of all forecast files
             forecast_files = []
-            for hour in sorted(settings.forecast_hours):  # Sort to ensure chronological order
+            for hour in sorted(settings.forecast_hours):
                 filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
                 file_path = self.data_dir / filename
                 if file_path.exists():
@@ -66,42 +64,47 @@ class WaveDataProcessor:
                 logger.warning("No forecast files found - returning None")
                 return None
             
-            # Load datasets and ensure time dimension is preserved
             datasets = []
             model_run_time = datetime.strptime(f"{date} {model_run}00", "%Y%m%d %H%M")
             model_run_time = model_run_time.replace(tzinfo=timezone.utc)
             
-            for hour, file_path in forecast_files:
-                ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'time_dims': ('time',)})
+            try:
+                for hour, file_path in forecast_files:
+                    ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'time_dims': ('time',)})
+                    forecast_time = model_run_time + timedelta(hours=hour)
+                    ds = ds.assign_coords(time=forecast_time)
+                    logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
+                    datasets.append(ds)
                 
-                forecast_time = model_run_time + timedelta(hours=hour)
+                if not datasets:
+                    logger.warning("No datasets could be loaded - returning None")
+                    return None
                 
-                ds = ds.assign_coords(time=forecast_time)
+                combined_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
                 
-                logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
+                times = combined_dataset.time.values
+                if not all(times[i] < times[i+1] for i in range(len(times)-1)):
+                    logger.error("Time dimension is not monotonically increasing")
+                    logger.error(f"Time values: {times}")
+                    raise ValueError("Invalid time dimension in combined dataset")
                 
-                datasets.append(ds)
-            
-            if not datasets:
-                logger.warning("No datasets could be loaded - returning None")
-                return None
-            
-            WaveDataProcessor._cached_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
-            WaveDataProcessor._cached_model_run = model_run
-            
-            times = WaveDataProcessor._cached_dataset.time.values
-            if not all(times[i] < times[i+1] for i in range(len(times)-1)):
-                logger.error("Time dimension is not monotonically increasing")
-                logger.error(f"Time values: {times}")
-                raise ValueError("Invalid time dimension in combined dataset")
-            
-            duration = (datetime.now() - start_time).total_seconds()
-            logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
-            logger.info(f"Time range: {times[0]} to {times[-1]}")
-            
-            return WaveDataProcessor._cached_dataset
+                duration = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
+                
+                WaveDataProcessor._cached_dataset = combined_dataset
+                WaveDataProcessor._cached_model_run = model_run
+                
+                return WaveDataProcessor._cached_dataset
+                
+            finally:
+                for ds in datasets:
+                    ds.close()
+                    
         except Exception as e:
             logger.error(f"Error loading forecast dataset: {str(e)}")
+            if self._cached_dataset is not None:
+                logger.info("Using previously cached dataset")
+                return self._cached_dataset
             return None
 
     def process_station_forecast(self, station_id: str) -> Dict:
@@ -129,7 +132,19 @@ class WaveDataProcessor:
                     "status": "no_data"
                 }
                 
-            logger.debug(f"Processing {len(full_forecast.time)} forecasts for station {station_id}")
+            # Print all forecast times in EST for debugging
+            logger.info(f"Processing forecasts for station {station_id}")
+            logger.info(f"Model run: {date} {model_run}z")
+            
+            # Convert all times to EST and sort them
+            est_times = []
+            for time in full_forecast.time.values:
+                utc_time = pd.Timestamp(time).tz_localize('UTC')
+                est_time = utc_time.tz_convert('EST')
+                est_times.append(est_time)
+            
+            est_times.sort()
+            logger.info(f"Forecast range (EST): {est_times[0].strftime('%Y-%m-%d %H:%M %Z')} to {est_times[-1].strftime('%Y-%m-%d %H:%M %Z')}")
             
             # Find nearest grid point (convert longitude to 0-360)
             lat = station["location"]["coordinates"][1]
@@ -173,7 +188,10 @@ class WaveDataProcessor:
             # Process each timestamp
             forecasts = []
             for i, time in enumerate(full_forecast.time.values):
-                forecast = {"time": pd.Timestamp(time).isoformat()}
+                # First localize naive timestamp to UTC, then convert to EST
+                utc_time = pd.Timestamp(time).tz_localize('UTC')
+                forecast_time = utc_time.tz_convert('EST')
+                forecast = {"time": forecast_time.isoformat()}
                 
                 # Group variables by type
                 wind = {}
@@ -226,6 +244,9 @@ class WaveDataProcessor:
                 })
                 
                 forecasts.append(forecast)
+            
+            # Sort forecasts by time
+            forecasts.sort(key=lambda x: x['time'])
             
             return {
                 "station_id": station_id,

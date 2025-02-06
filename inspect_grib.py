@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -18,52 +18,6 @@ class GribInspector:
         self.grbs = None
         self.ds = None
         
-    def inspect_with_pygrib(self):
-        """Detailed inspection using pygrib"""
-        logger.info(f"\nInspecting with pygrib: {self.file_path}")
-        try:
-            self.grbs = pygrib.open(str(self.file_path))
-            
-            # Get basic file information
-            logger.info("\n=== GRIB File Overview ===")
-            msg_count = len(self.grbs)
-            logger.info(f"Total messages: {msg_count}")
-            
-            # Analyze each message
-            for i, msg in enumerate(self.grbs, 1):
-                logger.info(f"\n--- Message {i}/{msg_count} ---")
-                logger.info(f"Variable: {msg.name}")
-                logger.info(f"Level: {msg.level} {msg.typeOfLevel}")
-                logger.info(f"Valid Date: {msg.validDate}")
-                logger.info(f"Grid Shape: {msg.values.shape}")
-                
-                # Get geographical bounds
-                logger.info("Geographical Bounds:")
-                logger.info(f"Lats: {msg.latitudeOfFirstGridPointInDegrees:.2f} to "
-                          f"{msg.latitudeOfLastGridPointInDegrees:.2f}")
-                logger.info(f"Lons: {msg.longitudeOfFirstGridPointInDegrees:.2f} to "
-                          f"{msg.longitudeOfLastGridPointInDegrees:.2f}")
-                
-                # Print first few data points
-                data_sample = msg.values.flatten()[:5]
-                logger.info(f"Data sample: {data_sample}")
-                
-                # Get key metadata
-                logger.info("\nKey Metadata:")
-                for key in ['parameterName', 'parameterUnits', 'dataDate', 
-                          'forecastTime', 'gridType']:
-                    try:
-                        value = msg.get(key)
-                        logger.info(f"{key}: {value}")
-                    except:
-                        pass
-                
-        except Exception as e:
-            logger.error(f"Error in pygrib inspection: {str(e)}")
-        finally:
-            if self.grbs:
-                self.grbs.close()
-
     def inspect_with_xarray(self):
         """Detailed inspection using xarray"""
         logger.info(f"\nInspecting with xarray: {self.file_path}")
@@ -74,53 +28,68 @@ class GribInspector:
                 backend_kwargs={'indexpath': ''}
             )
             
-            logger.info("\n=== Dataset Overview ===")
-            logger.info(f"Dimensions: {dict(self.ds.dims)}")
-            
-            logger.info("\n=== Variables ===")
+            # Debug information
+            logger.info("Dataset variables:")
             for var in self.ds.data_vars:
-                logger.info(f"\nVariable: {var}")
-                logger.info(f"Dimensions: {self.ds[var].dims}")
-                logger.info(f"Shape: {self.ds[var].shape}")
-                logger.info(f"Attributes: {self.ds[var].attrs}")
-                
-                # Show data sample
-                data = self.ds[var].values
-                if not np.isscalar(data):
-                    sample = data.flatten()[:5]
-                    logger.info(f"Data sample: {sample}")
-                
-            logger.info("\n=== Coordinates ===")
-            for coord in self.ds.coords:
-                logger.info(f"\nCoordinate: {coord}")
-                logger.info(f"Values: {self.ds[coord].values}")
-                
-            logger.info("\n=== Global Attributes ===")
-            for attr, value in self.ds.attrs.items():
-                logger.info(f"{attr}: {value}")
-                
+                logger.info(f"  {var}: {self.ds[var].shape}")
+            
+            return self.ds
         except Exception as e:
             logger.error(f"Error in xarray inspection: {str(e)}")
+            return None
         finally:
             if self.ds is not None:
                 self.ds.close()
+                
+    def inspect_with_pygrib(self):
+        """Inspect using pygrib for more detailed information"""
+        try:
+            grbs = pygrib.open(str(self.file_path))
+            
+            # Get the first message for metadata
+            msg = grbs[1]
+            logger.info(f"\nGRIB File Details:")
+            logger.info(f"Analysis/Forecast time: {msg.analDate} -> {msg.validDate}")
+            logger.info(f"Grid: {msg.Ni}x{msg.Nj} points")
+            logger.info(f"Lat/Lon Bounds: {msg.latitudeOfFirstGridPointInDegrees}N to {msg.latitudeOfLastGridPointInDegrees}N, "
+                       f"{msg.longitudeOfFirstGridPointInDegrees}E to {msg.longitudeOfLastGridPointInDegrees}E")
+            
+            # List all parameters
+            logger.info("\nParameters in file:")
+            for msg in grbs:
+                logger.info(f"  {msg.parameterName}: {msg.level} {msg.typeOfLevel}")
+                
+                # Get some statistics for wave height
+                if msg.parameterName == 'Significant height of combined wind waves and swell':
+                    data = msg.values
+                    logger.info(f"    Min: {np.min(data):.2f} m")
+                    logger.info(f"    Max: {np.max(data):.2f} m")
+                    logger.info(f"    Mean: {np.mean(data):.2f} m")
+            
+            grbs.close()
+            
+        except Exception as e:
+            logger.error(f"Error in pygrib inspection: {str(e)}")
 
-def main():
-    # Find GRIB2 files
-    data_dir = Path("data")
-    grib_files = list(data_dir.glob("*atlocn*.grib2"))
+def compare_grib_files():
+    """Compare the three GRIB2 files from different model runs."""
+    test_dir = Path("test")
+    grib_files = sorted(list(test_dir.glob("gfswave.t*.atlocn.0p16.f000.grib2")))
     
-    if not grib_files:
-        logger.error("No Atlantic GRIB2 files found in data directory")
+    if len(grib_files) != 3:
+        logger.error(f"Expected 3 GRIB2 files, found {len(grib_files)}")
         return
+        
+    logger.info("\nComparing GRIB2 files from different model runs:")
     
-    # Inspect first file found
-    file_path = grib_files[0]
-    inspector = GribInspector(file_path)
-    
-    # Run both inspection methods
-    inspector.inspect_with_pygrib()
-    inspector.inspect_with_xarray()
+    # Analyze each file with both methods
+    for file in grib_files:
+        model_run = file.name.split('.')[1][1:3]  # Extract HH from tHHz
+        logger.info(f"\n{'='*50}")
+        logger.info(f"Analyzing {model_run}z run file:")
+        inspector = GribInspector(file)
+        inspector.inspect_with_pygrib()
+        inspector.inspect_with_xarray()
 
 if __name__ == "__main__":
-    main() 
+    compare_grib_files() 

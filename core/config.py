@@ -36,9 +36,9 @@ class Settings(BaseSettings):
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
     # NOAA NOMADS runs four times daily at 00, 06, 12, and 18 UTC
     model_runs: List[str] = ["00", "06", "12", "18"]
-    # Download files every 2 hours from f000 to f120
-    forecast_files: List[int] = list(range(0, 121, 2))  # Files to download: f000, f002, f004, ..., f120
-    forecast_hours: List[int] = list(range(0, 121, 2))  # Process 2-hourly data points
+    # Download files every hour from f000 to f120
+    forecast_files: List[int] = list(range(0, 121, 1))  # Files to download: f000, f001, f002, ..., f120
+    forecast_hours: List[int] = list(range(0, 121, 1))  # Process hourly data points
     
     models: Dict = {
         "atlantic": {

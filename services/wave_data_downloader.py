@@ -115,7 +115,7 @@ class WaveDataDownloader:
         """Download wave model data for the current run."""
         try:
             model_run, date = self.get_current_model_run()
-            logger.info(f"Downloading data for model run: {date} {model_run}z (2-hourly from f000 to f120)")
+            logger.info(f"Downloading data for model run: {date} {model_run}z")
             
             base_url = f"{settings.base_url}/gfs.{date}/{model_run}/wave/gridded"
             logger.info(f"Base URL: {base_url}")

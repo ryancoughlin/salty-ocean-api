@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 from pydantic import BaseModel, Field
 
@@ -8,6 +8,7 @@ class Location(BaseModel):
 
 class NDBCObservation(BaseModel):
     timestamp: datetime
+    data_age: Dict[str, float | bool]
     wind_dir: Optional[float] = None
     wind_speed: Optional[float] = None
     wind_gust: Optional[float] = None

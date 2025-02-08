@@ -49,65 +49,119 @@ class WaveDataProcessor:
             logger.debug("Using cached dataset")
             return self._cached_dataset
             
-        logger.info("Loading forecast files...")
+        logger.info(f"Loading forecast files for model run {date} {model_run}z...")
         start_time = datetime.now()
         
         try:
-            forecast_files = []
-            for hour in sorted(settings.forecast_hours):
-                filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
-                file_path = self.data_dir / filename
-                if file_path.exists():
-                    forecast_files.append((hour, file_path))
-            
-            if not forecast_files:
-                logger.warning("No forecast files found - returning None")
-                return None
-            
-            datasets = []
+            # Get current model run time
             model_run_time = datetime.strptime(f"{date} {model_run}00", "%Y%m%d %H%M")
             model_run_time = model_run_time.replace(tzinfo=timezone.utc)
             
-            try:
+            # For complete coverage of today, we need:
+            # - Current run for most hours
+            # - Previous run for early hours
+            needed_runs = []
+            
+            # Current run
+            if (datetime.now(timezone.utc) - model_run_time) >= timedelta(hours=3, minutes=30):
+                needed_runs.append((date, model_run))
+                logger.info(f"Using current run {date} {model_run}z")
+            
+            # Previous run (for early hours)
+            prev_run = str(int(model_run) - 6).zfill(2)  # Simple 6-hour lookback
+            if prev_run not in settings.model_runs:
+                # If previous run would be yesterday, get last run of yesterday
+                prev_date = (model_run_time - timedelta(days=1)).strftime("%Y%m%d")
+                prev_run = "18"  # Last run of the day
+            else:
+                prev_date = date
+                
+            prev_run_time = datetime.strptime(f"{prev_date} {prev_run}00", "%Y%m%d %H%M")
+            prev_run_time = prev_run_time.replace(tzinfo=timezone.utc)
+            
+            if (datetime.now(timezone.utc) - prev_run_time) >= timedelta(hours=3, minutes=30):
+                needed_runs.append((prev_date, prev_run))
+                logger.info(f"Using previous run {prev_date} {prev_run}z for early hours")
+            
+            if not needed_runs:
+                logger.warning("No model runs available")
+                return None
+            
+            # Load datasets
+            all_datasets = []
+            base_url = settings.base_url
+            
+            for run_date, run_hour in needed_runs:
+                forecast_files = []
+                max_hours = 24 if run_date != date or run_hour != model_run else 120
+                
+                # Only load files we need
+                for hour in [h for h in settings.forecast_hours if h <= max_hours]:
+                    filename = f"gfswave.t{run_hour}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
+                    file_path = self.data_dir / filename
+                    
+                    if file_path.exists():
+                        forecast_files.append((hour, file_path))
+                        logger.debug(f"Found file: {filename}")
+                
+                if not forecast_files:
+                    logger.warning(f"No files found for run {run_date} {run_hour}z")
+                    continue
+                
+                logger.info(f"Loading {len(forecast_files)} files from run {run_date} {run_hour}z")
+                
+                # Process files for this run
+                run_time = datetime.strptime(f"{run_date} {run_hour}00", "%Y%m%d %H%M")
+                run_time = run_time.replace(tzinfo=timezone.utc)
+                
                 for hour, file_path in forecast_files:
-                    ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={
-                        'time_dims': ('time',),
-                        'indexpath': '',  # Disable index file usage
-                        'filter_by_keys': {'typeOfLevel': 'surface'}
-                    })
-                    forecast_time = model_run_time + timedelta(hours=hour)
-                    ds = ds.assign_coords(time=forecast_time)
-                    logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
-                    datasets.append(ds)
+                    try:
+                        ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={
+                            'time_dims': ('time',),
+                            'indexpath': '',
+                            'filter_by_keys': {'typeOfLevel': 'surface'}
+                        })
+                        forecast_time = run_time + timedelta(hours=hour)
+                        ds = ds.assign_coords(time=forecast_time)
+                        all_datasets.append((forecast_time, ds))
+                    except Exception as e:
+                        logger.error(f"Error loading {file_path}: {str(e)}")
+                        if ds is not None:
+                            ds.close()
+            
+            if not all_datasets:
+                logger.warning("No forecast data could be loaded")
+                return None
+            
+            try:
+                # Keep most recent forecast for each timestamp
+                all_datasets.sort(key=lambda x: x[0])
+                unique_datasets = {}
+                for time, ds in all_datasets:
+                    if time not in unique_datasets:
+                        unique_datasets[time] = ds
                 
-                if not datasets:
-                    logger.warning("No datasets could be loaded - returning None")
-                    return None
+                # Combine and sort
+                combined = xr.concat([ds for _, ds in sorted(unique_datasets.items())], 
+                                   dim="time", 
+                                   combine_attrs="override")
+                combined = combined.sortby('time')
                 
-                combined_dataset = xr.concat(datasets, dim="time", combine_attrs="override")
+                logger.info(f"Processed {len(unique_datasets)} forecasts in {(datetime.now() - start_time).total_seconds():.1f}s")
+                logger.info(f"Time range: {combined.time.values[0]} to {combined.time.values[-1]}")
                 
-                times = combined_dataset.time.values
-                if not all(times[i] < times[i+1] for i in range(len(times)-1)):
-                    logger.error("Time dimension is not monotonically increasing")
-                    logger.error(f"Time values: {times}")
-                    raise ValueError("Invalid time dimension in combined dataset")
-                
-                duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Loaded and combined {len(forecast_files)} forecast files in {duration:.2f}s")
-                
-                WaveDataProcessor._cached_dataset = combined_dataset
+                WaveDataProcessor._cached_dataset = combined
                 WaveDataProcessor._cached_model_run = model_run
-                
-                return WaveDataProcessor._cached_dataset
+                return combined
                 
             finally:
-                for ds in datasets:
+                for _, ds in all_datasets:
                     ds.close()
                     
         except Exception as e:
             logger.error(f"Error loading forecast dataset: {str(e)}")
             if self._cached_dataset is not None:
-                logger.info("Using previously cached dataset")
+                logger.info("Using cached dataset")
                 return self._cached_dataset
             return None
 
@@ -206,20 +260,38 @@ class WaveDataProcessor:
                             'direction': round(direction, 1)
                         }
 
-                wave_vars = {
+                # Process primary wave parameters first
+                primary_wave_vars = {
                     'wave_height': 'height',
                     'wave_period': 'period',
-                    'wave_direction': 'direction',
+                    'wave_direction': 'direction'
+                }
+                
+                # Add primary wave parameters
+                for src, dest in primary_wave_vars.items():
+                    if src in point_data:
+                        val = float(point_data[src][i])
+                        if not pd.isna(val):
+                            wave[dest] = round(val, 1)
+                
+                # Add wind wave components if available
+                wind_wave_vars = {
                     'wind_wave_height': 'wind_height',
                     'wind_wave_period': 'wind_period',
                     'wind_wave_direction': 'wind_direction'
                 }
                 
-                for src, dest in wave_vars.items():
-                    if src in point_data:
+                # Only add wind wave components if all are available
+                if all(src in point_data for src in wind_wave_vars.keys()):
+                    wind_wave_data = {}
+                    for src, dest in wind_wave_vars.items():
                         val = float(point_data[src][i])
                         if not pd.isna(val):
-                            wave[dest] = round(val, 1)
+                            wind_wave_data[dest] = round(val, 1)
+                    
+                    # Only add wind wave components if we have all the data
+                    if len(wind_wave_data) == len(wind_wave_vars):
+                        wave.update(wind_wave_data)
                 
                 # Add swell components
                 swell = []

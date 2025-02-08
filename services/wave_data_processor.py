@@ -70,7 +70,11 @@ class WaveDataProcessor:
             
             try:
                 for hour, file_path in forecast_files:
-                    ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={'time_dims': ('time',)})
+                    ds = xr.open_dataset(file_path, engine='cfgrib', backend_kwargs={
+                        'time_dims': ('time',),
+                        'indexpath': '',  # Disable index file usage
+                        'filter_by_keys': {'typeOfLevel': 'surface'}
+                    })
                     forecast_time = model_run_time + timedelta(hours=hour)
                     ds = ds.assign_coords(time=forecast_time)
                     logger.debug(f"Processing forecast hour {hour}, time: {forecast_time}")
@@ -131,11 +135,7 @@ class WaveDataProcessor:
                     "metadata": station,
                     "status": "no_data"
                 }
-                
-            # Print all forecast times in EST for debugging
-            logger.info(f"Processing forecasts for station {station_id}")
-            logger.info(f"Model run: {date} {model_run}z")
-            
+
             # Convert all times to EST and sort them
             est_times = []
             for time in full_forecast.time.values:
@@ -144,7 +144,6 @@ class WaveDataProcessor:
                 est_times.append(est_time)
             
             est_times.sort()
-            logger.info(f"Forecast range (EST): {est_times[0].strftime('%Y-%m-%d %H:%M %Z')} to {est_times[-1].strftime('%Y-%m-%d %H:%M %Z')}")
             
             # Find nearest grid point (convert longitude to 0-360)
             lat = station["location"]["coordinates"][1]

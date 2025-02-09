@@ -15,8 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
+# Create necessary directories
+RUN mkdir -p /app/data /app/logs
+
 # Expose the port the app runs on
 EXPOSE 5010
 
-# Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5010"] 
+# Command to run the application with Gunicorn in production
+CMD ["gunicorn", "-c", "gunicorn_conf.py", "main:app"] 

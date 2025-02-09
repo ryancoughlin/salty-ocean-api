@@ -50,22 +50,19 @@ async def lifespan(app: FastAPI):
         app.state.scheduler = scheduler
         
         # Initial data load
-        logger.info("Downloading initial wave model data...")
+        logger.info("Downloading wave model data...")
         success = await wave_downloader.download_model_data()
         if not success:
-            logger.error("Failed to download initial wave model data")
+            logger.error("Failed to download wave model data")
             raise ValueError("No wave model data available - cannot start app")
-            
-        logger.info("Loading initial wave model dataset...")
+
         await wave_processor.preload_dataset()
-        
-        logger.info("Processing forecasts for all stations...")
         await prefetch_service.prefetch_wave_forecasts()
         
         # Start scheduler for future updates
         scheduler.start()
         
-        logger.info("App started - services initialized")
+        logger.info("🚀 App started")
         yield
         
         # Cleanup on shutdown
@@ -117,10 +114,12 @@ if __name__ == "__main__":
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5010))
     
+    # Development mode uses Uvicorn with reload
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
-        reload=True,
-        log_level="info"
+        reload=True,  # Always reload in direct execution
+        log_level="info",
+        workers=1  # Single worker for development
     ) 

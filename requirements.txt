@@ -13,4 +13,5 @@ eccodes>=1.0.0
 fastapi-cache2>=0.2.1
 APScheduler>=3.10.0 
 dask>=2023.1.0 
+gunicorn>=21.2.0
 

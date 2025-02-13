@@ -77,10 +77,7 @@ class OffshoreController:
                 detail=f"Error fetching observations: {str(e)}"
             )
 
-    @cached(
-        namespace="wave_forecast",
-        expire=settings.cache["ttl"]["wave_forecast"]
-    )
+    @cached(namespace="wave_forecast")
     async def get_station_forecast(self, station_id: str) -> NDBCForecastResponse:
         start_time = time.time()
         logger.info(f"Starting forecast request for station {station_id}")
@@ -89,6 +86,7 @@ class OffshoreController:
             station = self._get_station(station_id)
             
             model_run, date = self.wave_processor.get_current_model_run()
+            # Process forecast synchronously since it's CPU-bound
             forecast_data = self.wave_processor.process_station_forecast(station_id)
             
             if not forecast_data or not forecast_data.get('forecasts'):

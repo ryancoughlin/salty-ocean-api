@@ -7,6 +7,7 @@ from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
 from core.config import settings
 from services.prefetch_service import PrefetchService
+from fastapi_cache import FastAPICache
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,11 @@ class SchedulerService:
             
             if success:
                 logger.info("Successfully downloaded new model data")
+                
+                # Flush the cache before loading new data
+                logger.info("Flushing cache before loading new model data")
+                await FastAPICache.clear()
+                
                 await self.wave_processor.preload_dataset()
                 
                 logger.info("Processing forecasts for all stations...")
@@ -56,13 +62,13 @@ class SchedulerService:
         if self.scheduler.running:
             return
             
+        current_utc = datetime.now(timezone.utc)
+        logger.info(f"Starting scheduler at {current_utc.strftime('%Y-%m-%d %H:%M UTC')}")
+        
         # Schedule updates based on NCEP processing times
         # NOAA runs at 00, 06, 12, 18 UTC
         # Wave products start ~3.5 hours after model run
         # So we schedule at 03:30, 09:30, 15:30, 21:30 UTC
-        current_utc = datetime.now(timezone.utc)
-        logger.info(f"Starting scheduler at {current_utc.strftime('%Y-%m-%d %H:%M UTC')}")
-        
         for model_run in settings.model_runs:
             # Convert model_run to int before arithmetic
             run_hour = int(model_run)

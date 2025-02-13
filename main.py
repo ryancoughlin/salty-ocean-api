@@ -6,6 +6,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+import signal
 
 from core.config import settings
 from core.logging_config import setup_logging
@@ -31,11 +32,9 @@ async def lifespan(app: FastAPI):
         # Initialize cache
         await init_cache()
         
-        # Initialize core services first
+        # Initialize core services
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
-        
-        # Initialize dependent services with shared instances
         prefetch_service = PrefetchService(wave_processor=wave_processor)
         scheduler = SchedulerService(
             wave_processor=wave_processor,
@@ -43,7 +42,7 @@ async def lifespan(app: FastAPI):
             prefetch_service=prefetch_service
         )
         
-        # Store service instances in app state for reuse
+        # Store service instances in app state
         app.state.wave_processor = wave_processor
         app.state.wave_downloader = wave_downloader
         app.state.prefetch_service = prefetch_service
@@ -55,9 +54,11 @@ async def lifespan(app: FastAPI):
         if not success:
             logger.error("Failed to download wave model data")
             raise ValueError("No wave model data available - cannot start app")
-
-        await wave_processor.preload_dataset()
-        await prefetch_service.prefetch_wave_forecasts()
+            
+        # Load the downloaded data
+        logger.info("Loading wave model data...")
+        model_run, date = wave_processor.get_current_model_run()
+        wave_processor.load_dataset(model_run, date)
         
         # Start scheduler for future updates
         scheduler.start()
@@ -65,14 +66,12 @@ async def lifespan(app: FastAPI):
         logger.info("🚀 App started")
         yield
         
-        # Cleanup on shutdown
-        scheduler.stop()
-        logger.info("App shutdown")
-        
     except Exception as e:
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
+        if hasattr(app.state, 'scheduler'):
+            app.state.scheduler.stop()
         logger.info("App shutdown")
 
 app = FastAPI(
@@ -102,10 +101,8 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "scheduler_running": scheduler.scheduler.running,
-        "next_runs": {
-            "wave_forecasts": scheduler.get_next_run_time("wave_forecasts"),
-        }
+        "scheduler_running": app.state.scheduler.scheduler.running,
+        "time": datetime.now().isoformat()
     }
 
 if __name__ == "__main__":

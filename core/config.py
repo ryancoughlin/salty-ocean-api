@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Any
+from datetime import datetime, timedelta, timezone
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -9,15 +10,7 @@ class Settings(BaseSettings):
     cache: Dict[str, Any] = {
         "enabled": True,
         "backend": "memory",
-        "prefix": "salty_ocean",
-        "ttl": {
-            "wave_forecast": 21600,     # 6 hours (until next model run)
-            "station_summary": 21600,   # 6 hours (until next model run)
-            "ndbc_observations": 1800,  # 30 minutes (NDBC updates at :26 and :56)
-            "tide_stations": None,      # No expiration for static station lists
-            "tide_predictions": 86400,  # 24 hours for tide predictions
-            "stations_geojson": None    # No expiration for static station lists
-        }
+        "prefix": "salty_ocean"
     }
     
     ndbc_base_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"
@@ -82,6 +75,17 @@ class Settings(BaseSettings):
         "max_retries": 3,
         "retry_delay": 5000
     }
+
+    def get_cache_ttl(self) -> Dict[str, int]:
+        """Get cache TTL values. Cache is flushed when new model data is available."""
+        return {
+            "wave_forecast": 14400,     # 4 hours (max time between model runs)
+            "station_summary": 14400,   # 4 hours (max time between model runs)
+            "ndbc_observations": 1800,  # 30 minutes (NDBC updates at :26 and :56)
+            "tide_stations": None,      # No expiration for static station lists
+            "tide_predictions": 86400,  # 24 hours for tide predictions
+            "stations_geojson": None    # No expiration for static station lists
+        }
 
     model_config = SettingsConfigDict(
         env_prefix="salty_",

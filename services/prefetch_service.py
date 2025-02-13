@@ -62,7 +62,7 @@ class PrefetchService:
                 model_run, date = self.wave_processor.get_current_model_run()
                 dataset = await asyncio.get_event_loop().run_in_executor(
                     None,
-                    self.wave_processor._load_forecast_dataset,
+                    self.wave_processor.load_dataset,
                     model_run,
                     date
                 )

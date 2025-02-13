@@ -30,7 +30,7 @@ def cached(
         # Get TTL from settings if not provided
         ttl = expire
         if ttl is None and namespace:
-            ttl = settings.cache["ttl"].get(namespace)
+            ttl = settings.get_cache_ttl().get(namespace)
             
         return cache(
             expire=ttl,

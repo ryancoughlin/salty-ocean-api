@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
 import json
 
 from services.wave_data_processor import WaveDataProcessor
@@ -13,94 +13,76 @@ from services.weather_summary_service import WeatherSummaryService
 logger = logging.getLogger(__name__)
 
 class PrefetchService:
-    """Service for prefetching wave model forecast data."""
+    """Service for prefetching and caching wave model forecast data."""
     
     def __init__(self, wave_processor: WaveDataProcessor):
         self.wave_processor = wave_processor
         self.station_repo = StationRepository(Path('ndbcStations.json'))
         self.summary_service = WeatherSummaryService()
-        self.semaphore = asyncio.Semaphore(4)  # Limit concurrent requests
-        self._prefetch_lock = asyncio.Lock()  # Lock to prevent concurrent prefetches
+        self._forecast_cache = {}
+        self._summary_cache = {}
         
-    async def _process_station_forecast(self, station: dict) -> None:
-        """Helper to process forecast for a single station with semaphore."""
-        async with self.semaphore:
-            try:
-                station_id = station["id"]
-                logger.debug(f"Prefetching forecast for station {station_id}")
-                start_time = datetime.now()
-                
-                # Process forecast in executor to not block event loop
-                forecast = await asyncio.get_event_loop().run_in_executor(
-                    None, 
-                    self.wave_processor.process_station_forecast,
-                    station_id
-                )
-                
-                if forecast and forecast.get('forecasts'):
-                    await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        self.summary_service.generate_summary,
-                        forecast['forecasts'],
-                        forecast['metadata']
-                    )
-                    logger.debug(f"Generated summary for station {station_id}")
-                
-                duration = (datetime.now() - start_time).total_seconds()
-                logger.debug(f"Completed forecast and summary for {station_id} in {duration:.2f}s")
-                
-            except Exception as e:
-                logger.error(f"Error processing forecast/summary for station {station_id}: {str(e)}")
+    def get_station_forecast(self, station_id: str) -> Optional[Dict]:
+        """Get cached forecast for a station."""
+        return self._forecast_cache.get(station_id)
         
-    async def prefetch_wave_forecasts(self) -> None:
-        """Prefetch wave model forecasts for all stations."""
-        async with self._prefetch_lock:
-            try:
-                logger.info("Starting wave forecast and summary prefetch")
-                start_time = datetime.now()
-                
-                model_run, date = self.wave_processor.get_current_model_run()
-                dataset = await asyncio.get_event_loop().run_in_executor(
-                    None,
-                    self.wave_processor.load_dataset,
-                    model_run,
-                    date
-                )
-                
-                if dataset is None:
-                    logger.error("Failed to load dataset for prefetch")
-                    return
-                
-                stations = self.station_repo.load_stations()
-                logger.info(f"Processing forecasts and summaries for {len(stations)} stations")
-                
-                tasks = []
-                for station in stations:
-                    task = asyncio.create_task(
-                        self._process_station_forecast(station)
-                    )
-                    tasks.append(task)
-                
-                if tasks:
-                    try:
-                        await asyncio.wait_for(asyncio.gather(*tasks), timeout=900)
-                    except asyncio.TimeoutError:
-                        logger.error("Prefetch timed out after 15 minutes")
-                    except Exception as e:
-                        logger.error(f"Error during prefetch: {str(e)}")
-                
-                duration = (datetime.now() - start_time).total_seconds()
-                logger.info(f"Completed wave forecast and summary prefetch for {len(stations)} stations in {duration:.2f}s")
-                
-            except Exception as e:
-                logger.error(f"Error during wave forecast and summary prefetch: {str(e)}")
-                raise
-            
+    def get_station_summary(self, station_id: str) -> Optional[Dict]:
+        """Get cached summary for a station."""
+        return self._summary_cache.get(station_id)
+        
     async def prefetch_all(self) -> None:
-        """Run all prefetch tasks."""
+        """Prefetch all station data."""
         try:
-            await self.prefetch_wave_forecasts()
-            logger.info("Completed all prefetch tasks")
+            start_time = datetime.now()
+            
+            # Get all stations
+            stations = self.station_repo.load_stations()
+            
+            success_count = 0
+            error_count = 0
+            outside_grid_count = 0
+            
+            # Process each station
+            for station in stations:
+                station_id = station["id"]
+                try:
+                    # Get forecast
+                    forecast = self.wave_processor.process_station_forecast(station_id)
+                    
+                    # Handle different response statuses
+                    if forecast["status"] == "success":
+                        # Cache forecast
+                        self._forecast_cache[station_id] = forecast
+                        
+                        # Generate and cache summary
+                        if forecast.get('forecasts'):
+                            summary = self.summary_service.generate_summary(
+                                forecast['forecasts'],
+                                forecast['metadata']
+                            )
+                            self._summary_cache[station_id] = {
+                                "station_id": station_id,
+                                "metadata": forecast["metadata"],
+                                "summary": summary
+                            }
+                        success_count += 1
+                    elif forecast["status"] == "outside_grid":
+                        outside_grid_count += 1
+                    else:
+                        error_count += 1
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Error processing station {station_id}: {str(e)}")
+            
+            duration = (datetime.now() - start_time).total_seconds()
+            logger.info(
+                f"Prefetch completed in {duration:.2f}s. "
+                f"Success: {success_count}, "
+                f"Outside Grid: {outside_grid_count}, "
+                f"Failed: {error_count}"
+            )
+            
         except Exception as e:
-            logger.error(f"Error in prefetch_all: {str(e)}")
+            logger.error(f"Error during prefetch: {str(e)}")
             raise 

@@ -76,8 +76,11 @@ class WeatherSummaryService:
         df = pd.DataFrame(forecasts)
         df['timestamp'] = pd.to_datetime(df['time'])
         
-        # Get current conditions
-        current = forecasts[0]
+        # Find forecast closest to current time
+        now = datetime.now(df['timestamp'].iloc[0].tzinfo)  # Use same timezone as forecasts
+        df['time_diff'] = abs(df['timestamp'] - now)
+        current_idx = df['time_diff'].idxmin()
+        current = forecasts[current_idx]
         current_summary = self._generate_current_summary(current, station_metadata)
         
         # Find best day in the next week

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from pathlib import Path
@@ -6,7 +6,6 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-import signal
 
 from core.config import settings
 from core.logging_config import setup_logging
@@ -17,6 +16,7 @@ from services.wave_data_downloader import WaveDataDownloader
 from core.cache import init_cache
 from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
+from controllers.offshore_controller import OffshoreController
 
 # Setup logging with EST times
 setup_logging()
@@ -48,30 +48,50 @@ async def lifespan(app: FastAPI):
         app.state.prefetch_service = prefetch_service
         app.state.scheduler = scheduler
         
+        # Initialize controllers with services
+        app.state.offshore_controller = OffshoreController(prefetch_service=prefetch_service)
+        
         # Initial data load
-        logger.info("Downloading wave model data...")
-        success = await wave_downloader.download_model_data()
-        if not success:
-            logger.error("Failed to download wave model data")
-            raise ValueError("No wave model data available - cannot start app")
+        try:
+            logger.info("Checking wave model data...")
+            if await wave_downloader.download_latest():
+                logger.info("New wave model data downloaded")
+            else:
+                logger.info("Using existing wave model data")
+        
+            # Load the data
+            logger.info("Loading wave model data...")
+            if wave_processor.get_dataset() is not None:
+                logger.info("Wave model data loaded successfully")
+                
+                # Prefetch all station data
+                logger.info("Prefetching station data...")
+                await prefetch_service.prefetch_all()
+                logger.info("Station data prefetched successfully")
+            else:
+                logger.error("Failed to load wave model data")
+                raise HTTPException(status_code=500, detail="Failed to load wave model data")
+        
+            # Start scheduler for future updates
+            logger.info("Starting scheduler...")
+            await scheduler.start()
+        
+            logger.info("🚀 App started")
+            yield
             
-        # Load the downloaded data
-        logger.info("Loading wave model data...")
-        model_run, date = wave_processor.get_current_model_run()
-        wave_processor.load_dataset(model_run, date)
-        
-        # Start scheduler for future updates
-        scheduler.start()
-        
-        logger.info("🚀 App started")
-        yield
-        
+        except Exception as e:
+            logger.error(f"Error during data initialization: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
+            
     except Exception as e:
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
+        # Properly shutdown services
         if hasattr(app.state, 'scheduler'):
-            app.state.scheduler.stop()
+            await app.state.scheduler.stop()
+        if hasattr(app.state, 'wave_downloader'):
+            await app.state.wave_downloader.close()
         logger.info("App shutdown")
 
 app = FastAPI(
@@ -101,7 +121,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "scheduler_running": app.state.scheduler.scheduler.running,
+        "scheduler_running": app.state.scheduler._task is not None and not app.state.scheduler._task.done(),
         "time": datetime.now().isoformat()
     }
 

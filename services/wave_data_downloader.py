@@ -18,13 +18,9 @@ class WaveDataDownloader:
         self.data_dir.mkdir(exist_ok=True)
         self.current_model_run = None
         self.current_date = None
+        self._download_state = {}
         self._last_request_time = 0
         self._request_interval = 1.0  # Minimum seconds between requests
-        self._download_state = {
-            "last_attempt": None,
-            "last_success": None,
-            "retry_after": 300  # 5 minutes default retry
-        }
         self._rate_limiter = asyncio.Semaphore(5)  # Control concurrent downloads
         self._session = None
         
@@ -75,12 +71,12 @@ class WaveDataDownloader:
             await asyncio.sleep(self._request_interval - time_since_last)
         self._last_request_time = time.time()
         
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Lazy initialize and reuse session."""
+    async def _init_session(self):
+        """Initialize HTTP session if needed."""
         if self._session is None:
             self._session = aiohttp.ClientSession()
         return self._session
-    
+        
     def _get_files_to_download(self, model_run: str, date: str) -> List[tuple]:
         """Get list of files that need downloading."""
         base_url = f"{settings.base_url}/gfs.{date}/{model_run}/wave/gridded"
@@ -98,13 +94,16 @@ class WaveDataDownloader:
     async def download_file(self, url: str, file_path: Path) -> bool:
         """Download single file with rate limiting."""
         async with self._rate_limiter:
-            session = await self._get_session()
+            await self._enforce_rate_limit()
+            session = await self._init_session()
+            
             try:
                 async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.read()
                         file_path.write_bytes(content)
                         return True
+                    logger.warning(f"Failed to download {url}: HTTP {response.status}")
                     return False
             except Exception as e:
                 logger.error(f"Error downloading {url}: {str(e)}")
@@ -128,4 +127,59 @@ class WaveDataDownloader:
             
         except Exception as e:
             logger.error(f"Error downloading model data: {str(e)}")
-            return False 
+            return False
+
+    async def download_latest(self) -> bool:
+        """Download latest model run data if available."""
+        model_run, date = get_latest_model_run()
+        logger.info(f"Checking for new data from {date} {model_run}z run")
+        
+        # Check if we need to download new files
+        new_files = []
+        for hour in settings.forecast_hours:
+            filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
+            file_path = self.data_dir / filename
+            if not file_path.exists():
+                new_files.append((hour, filename))
+        
+        if not new_files:
+            logger.debug("All forecast files already present")
+            return False
+            
+        logger.info(f"Downloading {len(new_files)} new forecast files")
+        
+        try:
+            # Download missing files
+            for hour, filename in new_files:
+                await self._download_file(date, model_run, filename)
+                
+            logger.info(f"Successfully downloaded {len(new_files)} forecast files")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error downloading forecast files: {str(e)}")
+            return False
+
+    def _is_run_downloaded(self, model_run: str, date: str) -> bool:
+        """Check if we already have this model run."""
+        if not self._download_state:
+            return False
+            
+        return (
+            self._download_state.get('model_run') == model_run and
+            self._download_state.get('date') == date
+        )
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
+
+    async def close(self):
+        """Close resources."""
+        if self._session:
+            await self._session.close()
+            self._session = None 

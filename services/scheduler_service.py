@@ -1,5 +1,7 @@
 import logging
+import asyncio
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -24,73 +26,72 @@ class SchedulerService:
         self.wave_processor = wave_processor
         self.wave_downloader = wave_downloader
         self.prefetch_service = prefetch_service
+        self._task: Optional[asyncio.Task] = None
         
-    async def _update_model_data(self):
-        """Download and process new model data."""
+    async def _update_model_data(self, run_hour: int):
+        """Update model data for a specific run hour."""
         try:
-            current_utc = datetime.now(timezone.utc)
-            logger.info(f"Starting model data update at {current_utc.strftime('%Y-%m-%d %H:%M UTC')}")
-            success = await self.wave_downloader.download_model_data()
+            logger.debug(f"Checking for {run_hour:02d}z model run updates...")
             
-            if success:
-                logger.info("Successfully downloaded new model data")
-                
+            # Check for new data
+            if await self.wave_downloader.download_latest():
                 # Flush the cache before loading new data
-                logger.info("Flushing cache before loading new model data")
+                logger.info("New model data available - flushing cache")
                 await FastAPICache.clear()
                 
-                await self.wave_processor.preload_dataset()
-                
-                logger.info("Processing forecasts for all stations...")
-                await self.prefetch_service.prefetch_wave_forecasts()
+                # Load new data
+                if await self.wave_processor.preload_dataset():
+                    # Prefetch forecasts for all stations with new data
+                    await self.prefetch_service.prefetch_all()
+                else:
+                    logger.error("Failed to load new model data")
             else:
-                # If initial download fails, retry after 15 minutes
-                logger.warning("Initial download failed, scheduling retry in 15 minutes")
-                self.scheduler.add_job(
-                    self._update_model_data,
-                    'date',
-                    run_date=datetime.now() + timedelta(minutes=15),
-                    id='retry_download',
-                    replace_existing=True
-                )
+                logger.debug(f"No updates needed for {run_hour:02d}z run")
                 
         except Exception as e:
-            logger.error(f"Error updating model data: {str(e)}")
-    
-    def start(self):
+            logger.error(f"Error during {run_hour:02d}z model update: {str(e)}")
+            
+    async def _schedule_updates(self):
+        """Schedule model updates."""
+        while True:
+            try:
+                now = datetime.utcnow()
+                
+                # Schedule updates 1.5 hours after each model run
+                # Model runs are at 00z, 06z, 12z, and 18z
+                for run_hour in [0, 6, 12, 18]:
+                    # Calculate next update time
+                    update_time = now.replace(hour=run_hour, minute=30, second=0, microsecond=0)
+                    if update_time <= now:
+                        update_time += timedelta(hours=6)
+                        
+                    # Log scheduled update
+                    logger.info(f"Scheduled update for {run_hour}z run at {update_time.strftime('%H:%M')} UTC")
+                    
+                    # Wait until update time
+                    wait_seconds = (update_time - now).total_seconds()
+                    if wait_seconds > 0:
+                        await asyncio.sleep(wait_seconds)
+                        await self._update_model_data(run_hour)
+                    
+            except Exception as e:
+                logger.error(f"Error in scheduler: {str(e)}")
+                await asyncio.sleep(300)  # Wait 5 minutes on error
+                
+    async def start(self):
         """Start the scheduler."""
-        if self.scheduler.running:
-            return
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._schedule_updates())
+            logger.info("Scheduler started")
             
-        current_utc = datetime.now(timezone.utc)
-        logger.info(f"Starting scheduler at {current_utc.strftime('%Y-%m-%d %H:%M UTC')}")
-        
-        # Schedule updates based on NCEP processing times
-        # NOAA runs at 00, 06, 12, 18 UTC
-        # Wave products start ~3.5 hours after model run
-        # So we schedule at 03:30, 09:30, 15:30, 21:30 UTC
-        for model_run in settings.model_runs:
-            # Convert model_run to int before arithmetic
-            run_hour = int(model_run)
-            update_hour = (run_hour + 3) % 24  # Add 3 hours to model run time
-            
-            self.scheduler.add_job(
-                self._update_model_data,
-                CronTrigger(hour=update_hour, minute=30),  # Run at :30 past the hour
-                id=f"wave_forecasts_{run_hour}z",
-                name=f"Wave Model Update {run_hour}Z",
-                misfire_grace_time=3600,
-                coalesce=True
-            )
-            logger.info(f"Scheduled update for {run_hour}z run at {update_hour:02d}:30 UTC")
-            
-        self.scheduler.start()
-        logger.info("Scheduler started")
-        
-    def stop(self):
+    async def stop(self):
         """Stop the scheduler."""
-        if self.scheduler.running:
-            self.scheduler.shutdown()
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
             logger.info("Scheduler stopped")
             
     def get_next_run_time(self, job_id: str):

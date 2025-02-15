@@ -135,12 +135,13 @@ class WaveDataDownloader:
         logger.info(f"Checking for new data from {date} {model_run}z run")
         
         # Check if we need to download new files
+        base_url = f"{settings.base_url}/gfs.{date}/{model_run}/wave/gridded"
         new_files = []
         for hour in settings.forecast_hours:
             filename = f"gfswave.t{model_run}z.{settings.models['atlantic']['name']}.f{str(hour).zfill(3)}.grib2"
             file_path = self.data_dir / filename
             if not file_path.exists():
-                new_files.append((hour, filename))
+                new_files.append((f"{base_url}/{filename}", file_path))
         
         if not new_files:
             logger.debug("All forecast files already present")
@@ -149,12 +150,17 @@ class WaveDataDownloader:
         logger.info(f"Downloading {len(new_files)} new forecast files")
         
         try:
-            # Download missing files
-            for hour, filename in new_files:
-                await self._download_file(date, model_run, filename)
-                
-            logger.info(f"Successfully downloaded {len(new_files)} forecast files")
-            return True
+            # Download missing files concurrently
+            tasks = [self.download_file(url, path) for url, path in new_files]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            success_count = sum(1 for r in results if r is True)
+            if success_count == len(new_files):
+                logger.info(f"Successfully downloaded {success_count} forecast files")
+                return True
+            else:
+                logger.error(f"Only downloaded {success_count}/{len(new_files)} files successfully")
+                return False
             
         except Exception as e:
             logger.error(f"Error downloading forecast files: {str(e)}")

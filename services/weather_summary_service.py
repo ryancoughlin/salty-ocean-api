@@ -64,89 +64,112 @@ class WeatherSummaryService:
             favorable_winds = {"E", "SE", "NE"}
             return any(wind in wind_cardinal for wind in favorable_winds)
 
-    def generate_summary(self, forecasts: List[Dict], station_metadata: Dict) -> Dict:
+    def generate_summary(self, forecasts: List[Dict], station_metadata: Dict, current_observations: Optional[Dict] = None) -> Dict:
         if not forecasts:
             return {
-                "current_conditions": None,
-                "weekly_best": None,
-                "overall_conditions": None
+                "conditions": None,
+                "best_window": None
             }
 
         # Convert forecasts to DataFrame for easier analysis
         df = pd.DataFrame(forecasts)
         df['timestamp'] = pd.to_datetime(df['time'])
         
-        # Find forecast closest to current time
-        now = datetime.now(df['timestamp'].iloc[0].tzinfo)  # Use same timezone as forecasts
-        df['time_diff'] = abs(df['timestamp'] - now)
-        current_idx = df['time_diff'].idxmin()
-        current = forecasts[current_idx]
-        current_summary = self._generate_current_summary(current, station_metadata)
-        
-        # Find best day in the next week
-        weekly_best = self._find_best_day(df, station_metadata)
-        
-        # Generate overall conditions summary
-        overall = self._generate_overall_summary(df, station_metadata)
+        # Get current data
+        current_data = None
+        if current_observations and 'wave' in current_observations and 'wind' in current_observations:
+            current_data = current_observations
+        else:
+            now = datetime.now(df['timestamp'].iloc[0].tzinfo)
+            df['time_diff'] = abs(df['timestamp'] - now)
+            current_idx = df['time_diff'].idxmin()
+            current_data = forecasts[current_idx]
+
+        # Analyze next 24 hours for trend
+        next_24h = df[df['timestamp'] <= df['timestamp'].iloc[0] + timedelta(hours=24)]
+        wave_trend = None
+        wind_trend = None
+        if not next_24h.empty:
+            wave_trend = self._analyze_trend(next_24h['wave'].apply(lambda x: x.get('height')))
+            wind_trend = self._analyze_trend(next_24h['wind'].apply(lambda x: x.get('speed')))
+
+        # Generate combined conditions summary
+        conditions = self._generate_conditions_summary(current_data, wave_trend, wind_trend, station_metadata)
+
+        # Find best window in next 3 days
+        best_window = self._find_best_window(df[:72], station_metadata)  # Look at next 72 hours
 
         return {
-            "current_conditions": current_summary,
-            "weekly_best": weekly_best,
-            "overall_conditions": overall
+            "conditions": conditions,
+            "best_window": best_window
         }
 
-    def _generate_current_summary(self, current: Dict, metadata: Dict) -> str:
-        if 'wave' not in current or 'wind' not in current:
+    def _analyze_trend(self, series: pd.Series) -> str:
+        """Analyze if a series is holding, building, or dropping."""
+        if series.empty:
+            return "steady"
+            
+        start_val = series.iloc[0]
+        end_val = series.iloc[-1]
+        change = end_val - start_val
+        
+        if abs(change) < 0.5:  # Less than 0.5 change is considered steady
+            return "steady"
+        return "building" if change > 0 else "dropping"
+
+    def _generate_conditions_summary(self, data: Dict, wave_trend: Optional[str], wind_trend: Optional[str], metadata: Dict) -> Optional[str]:
+        """Generate a concise summary combining current conditions with trends."""
+        if 'wave' not in data or 'wind' not in data:
             return None
 
-        wave_height = current['wave'].get('height')
-        wave_period = current['wave'].get('period')
-        wind_speed = current['wind'].get('speed')
-        wind_dir = current['wind'].get('direction')
+        wave_height = data['wave'].get('height')
+        wave_period = data['wave'].get('period')
+        wind_speed = data['wind'].get('speed')
+        wind_dir = data['wind'].get('direction')
 
         if not all([wave_height, wave_period, wind_speed, wind_dir]):
             return None
 
         wave_cat = self._get_wave_category(wave_height)
-        period_cat = self._get_period_category(wave_period)
         wind_cat = self._get_wind_category(wind_speed)
         wind_cardinal = self._get_cardinal_direction(wind_dir)
-
-        return f"{wave_cat.capitalize()} {wave_height:.1f}ft waves at {wave_period:.0f}s intervals with {wind_cat} {wind_speed:.0f}mph {wind_cardinal} winds"
-
-    def _find_best_day(self, df: pd.DataFrame, metadata: Dict) -> str:
-        # Group by day
-        df['date'] = df['timestamp'].dt.date
-        daily_groups = df.groupby('date')
-
-        best_score = float('-inf')
-        best_day = None
-        best_summary = None
-
-        for date, day_data in daily_groups:
-            # Skip if more than 7 days in future
-            if date > datetime.now().date() + timedelta(days=7):
-                continue
-
-            # Calculate daily score based on conditions
-            day_score = self._calculate_day_score(day_data, metadata)
-            
-            if day_score > best_score:
-                best_score = day_score
-                best_day = date
+        
+        # Base conditions
+        summary = f"{wave_cat.capitalize()} {wave_height:.1f}ft @ {wave_period:.0f}s, {wind_cat} {wind_cardinal}"
+        
+        # Add trend if available
+        if wave_trend and wind_trend:
+            trend_text = self._get_trend_suffix(wave_trend, wind_trend)
+            if trend_text:
+                summary += f" ({trend_text})"
                 
-                # Get peak conditions for best day
-                peak_conditions = self._get_peak_conditions(day_data)
-                if peak_conditions:
-                    best_summary = self._generate_current_summary(peak_conditions, metadata)
+        return summary
 
-        if best_day and best_summary:
-            return f"Best on {best_day.strftime('%A')}: {best_summary}"
-        return None
+    def _get_trend_suffix(self, wave_trend: str, wind_trend: str) -> str:
+        """Get a concise trend suffix."""
+        if wave_trend == "steady" and wind_trend == "steady":
+            return ""  # Don't add trend if everything is steady
+            
+        trends = {
+            ("building", "steady"): "building",
+            ("dropping", "steady"): "dropping",
+            ("steady", "building"): "winds increasing",
+            ("steady", "dropping"): "winds easing",
+            ("building", "building"): "all building",
+            ("building", "dropping"): "building + winds easing",
+            ("dropping", "building"): "dropping + winds building",
+            ("dropping", "dropping"): "all easing"
+        }
+        return trends.get((wave_trend, wind_trend), "")
 
-    def _calculate_day_score(self, day_data: pd.DataFrame, metadata: Dict) -> float:
-        score = 0
-        for _, row in day_data.iterrows():
+    def _find_best_window(self, df: pd.DataFrame, metadata: Dict) -> Optional[str]:
+        """Find the best time window in the forecast period."""
+        if df.empty:
+            return None
+
+        # Calculate score for each hour
+        scores = []
+        for _, row in df.iterrows():
             if 'wave' not in row or 'wind' not in row:
                 continue
 
@@ -154,87 +177,55 @@ class WeatherSummaryService:
             wave_period = row['wave'].get('period')
             wind_speed = row['wind'].get('speed')
             wind_dir = row['wind'].get('direction')
-
+            
             if not all([wave_height, wave_period, wind_speed, wind_dir]):
                 continue
 
-            # Base score on wave height (0-5)
-            if 1 <= wave_height <= 5:  # 1ft to 5ft
-                score += 5 - abs(3 - wave_height)  # Centered around 3ft
+            # Score based on ideal conditions
+            score = 0
+            # Wave height (optimal 2-4ft)
+            if 2 <= wave_height <= 4:
+                score += 5
+            elif 1 <= wave_height <= 5:
+                score += 3
             
-            # Bonus for good period (0-3)
-            if wave_period >= 8:
-                score += min((wave_period - 8) / 2, 3)
-            
-            # Penalty for strong winds (-5 to 0)
-            if wind_speed > 15:  # > 15mph
-                score -= min((wind_speed - 15) / 2, 5)
-            
-            # Bonus for favorable wind direction (0-2)
+            # Period (longer is better)
+            if wave_period >= 10:
+                score += 3
+            elif wave_period >= 7:
+                score += 1
+
+            # Wind (less is better)
+            if wind_speed < 10:
+                score += 3
+            elif wind_speed < 15:
+                score += 1
+
+            # Favorable wind direction
             if self._is_favorable_wind(wind_dir, metadata['location']['coordinates'][0]):
                 score += 2
 
-        return score / len(day_data)  # Average score for the day
+            scores.append((row['timestamp'], score))
 
-    def _get_peak_conditions(self, day_data: pd.DataFrame) -> Optional[Dict]:
-        if day_data.empty or 'wave' not in day_data.iloc[0]:
-            return None
-            
-        # Find time with highest waves during favorable conditions
-        best_conditions = None
-        best_score = float('-inf')
-        
-        for _, row in day_data.iterrows():
-            if 'wave' not in row or 'wind' not in row:
-                continue
-                
-            wave_height = row['wave'].get('height')
-            wind_speed = row['wind'].get('speed')
-            
-            if not all([wave_height, wind_speed]):
-                continue
-                
-            # Simple scoring for peak conditions
-            score = wave_height - (wind_speed / 5)  # Penalize strong winds
-            
-            if score > best_score:
-                best_score = score
-                best_conditions = row.to_dict()
-                
-        return best_conditions
-
-    def _generate_overall_summary(self, df: pd.DataFrame, metadata: Dict) -> str:
-        if df.empty:
+        if not scores:
             return None
 
-        # Get average conditions
-        avg_wave_height = df['wave'].apply(lambda x: x.get('height')).mean()
-        avg_wind_speed = df['wind'].apply(lambda x: x.get('speed')).mean()
-        
-        # Count favorable wind periods
-        favorable_winds = df['wind'].apply(lambda x: 
-            self._is_favorable_wind(x.get('direction', 0), 
-                                 metadata['location']['coordinates'][0]) 
-            if x and 'direction' in x else False)
-        favorable_pct = (favorable_winds.sum() / len(df)) * 100
+        # Find best continuous window (at least 3 hours with good scores)
+        best_start = None
+        best_score = 0
+        window_length = timedelta(hours=3)
 
-        wave_cat = self._get_wave_category(avg_wave_height)
-        wind_cat = self._get_wind_category(avg_wind_speed)
+        for i, (time, _) in enumerate(scores[:-2]):  # Look for 3-hour windows
+            window_scores = [s[1] for s in scores[i:i+3]]  # Get 3 consecutive scores
+            avg_score = sum(window_scores) / 3
+            
+            if avg_score > best_score:
+                best_score = avg_score
+                best_start = time
 
-        conditions = []
-        
-        # Wave conditions
-        conditions.append(f"{wave_cat} waves")
-        
-        # Wind conditions
-        conditions.append(f"{wind_cat} winds")
-        
-        # Wind direction pattern
-        if favorable_pct >= 60:
-            conditions.append("mostly favorable winds")
-        elif favorable_pct >= 40:
-            conditions.append("mixed wind directions")
-        else:
-            conditions.append("mostly unfavorable winds")
-
-        return f"{', '.join(conditions).capitalize()}" 
+        if best_start and best_score > 8:  # Only return if it's actually good conditions
+            day = best_start.strftime("%A")
+            time = best_start.strftime("%-I%p").lower()
+            return f"Best conditions {day} {time}"
+            
+        return None 

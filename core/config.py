@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         """Get cache TTL values. Cache is flushed when new model data is available."""
         return {
             "wave_forecast": 14400,     # 4 hours (max time between model runs)
-            "station_summary": 14400,   # 4 hours (max time between model runs)
+            "station_summary": 1800,    # 30 minutes (match NDBC observation frequency)
             "ndbc_observations": 1800,  # 30 minutes (NDBC updates at :26 and :56)
             "tide_stations": None,      # No expiration for static station lists
             "tide_predictions": 86400,  # 24 hours for tide predictions

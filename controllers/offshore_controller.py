@@ -3,7 +3,12 @@ from fastapi import HTTPException
 from services.buoy_service import BuoyService
 from services.wave_data_processor import WaveDataProcessor
 from services.weather_summary_service import WeatherSummaryService
-from models.buoy import NDBCStation, NDBCObservation, NDBCForecastResponse, Location
+from models.buoy import (
+    NDBCStation,
+    NDBCForecastResponse,
+    StationSummary,
+    Location
+)
 from core.cache import cached
 import json
 import logging
@@ -73,20 +78,15 @@ class OffshoreController:
             station = self._get_station(station_id)
             forecast_data = self.prefetch_service.get_station_forecast(station_id)
             
-            if not forecast_data or not forecast_data.get('forecasts'):
+            if not forecast_data:
                 logger.error(f"No forecast data available for station {station_id}")
                 raise HTTPException(
                     status_code=503,
                     detail="Forecast data not available. Please try again later."
                 )
             
-            return NDBCForecastResponse(
-                station_id=station_id,
-                name=station["name"],
-                location=Location(type="Point", coordinates=station["location"]["coordinates"]),
-                model_run=forecast_data["model_run"],
-                forecasts=forecast_data["forecasts"]
-            )
+            return forecast_data  # Already in correct type from prefetch service
+            
         except HTTPException:
             raise
         except Exception as e:
@@ -94,10 +94,10 @@ class OffshoreController:
             raise HTTPException(status_code=500, detail=str(e))
 
     @cached(namespace="station_summary")
-    async def get_station_summary(self, station_id: str) -> Dict:
+    async def get_station_summary(self, station_id: str) -> StationSummary:
         """Get a summary for a specific station."""
         try:
-            summary_data = self.prefetch_service.get_station_summary(station_id)
+            summary_data = await self.prefetch_service.get_station_summary(station_id)
             if not summary_data:
                 raise HTTPException(status_code=404, detail="No summary available for station")
             return summary_data

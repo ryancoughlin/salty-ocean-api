@@ -6,33 +6,47 @@ class Location(BaseModel):
     type: str = "Point"
     coordinates: List[float]
 
+class WindData(BaseModel):
+    speed: float
+    direction: float
+
+class WaveData(BaseModel):
+    height: float
+    period: float
+    direction: float
+    wind_height: Optional[float] = None
+    wind_period: Optional[float] = None
+    wind_direction: Optional[float] = None
+
+class ForecastPoint(BaseModel):
+    time: datetime
+    wind: WindData
+    wave: WaveData
+
 class NDBCObservation(BaseModel):
-    timestamp: datetime
-    data_age: Dict[str, float | bool]
-    wind_dir: Optional[float] = None
-    wind_speed: Optional[float] = None
-    wind_gust: Optional[float] = None
-    wave_height: Optional[float] = None
-    dominant_period: Optional[float] = None
-    average_period: Optional[float] = None
-    mean_wave_direction: Optional[float] = None
-    pressure: Optional[float] = None
-    air_temp: Optional[float] = None
-    water_temp: Optional[float] = None
-    dewpoint: Optional[float] = None
-    visibility: Optional[float] = None
-    pressure_tendency: Optional[float] = None
-    tide: Optional[float] = None
+    time: datetime
+    wind: WindData
+    wave: WaveData
 
 class NDBCStation(BaseModel):
     station_id: str
     name: str
     location: Location
-    observations: NDBCObservation
+    observations: Optional["NDBCObservation"] = None
 
 class NDBCForecastResponse(BaseModel):
     station_id: str
     name: str
     location: Location
     model_run: str
-    forecasts: List[dict] 
+    forecasts: List[ForecastPoint]
+
+class StationSummary(BaseModel):
+    station_id: str
+    metadata: Dict
+    summary: Dict
+    last_updated: datetime
+
+class WeatherConditions(BaseModel):
+    conditions: Optional[str]
+    best_window: Optional[str] 

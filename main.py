@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
         buoy_service = BuoyService()
-        prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
+        prefetch_service = PrefetchService(wave_processor=wave_processor)
         scheduler = SchedulerService(
             wave_processor=wave_processor,
             wave_downloader=wave_downloader,

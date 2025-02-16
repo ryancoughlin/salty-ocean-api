@@ -225,10 +225,22 @@ class WaveDataProcessor:
                 utc_time = pd.Timestamp(time).tz_localize('UTC')
                 forecast_time = utc_time.tz_convert('EST')
                 
-                # Helper function to safely round values
-                def safe_round(value):
+                # Helper function to handle invalid values
+                def format_value(value, value_type=None):
                     try:
-                        return round(float(value), 1)
+                        val = float(value)
+                        if pd.isna(val) or np.isnan(val) or np.isinf(val):
+                            return None
+                            
+                        # Apply specific rounding rules
+                        if value_type == 'wave_height':
+                            return round(val, 1)  # Wave height to 1 decimal
+                        elif value_type == 'period':
+                            return round(val)  # Wave period to whole number
+                        elif value_type in ['direction', 'speed']:
+                            return round(val)  # Wind values to whole numbers
+                        
+                        return val
                     except (TypeError, ValueError):
                         return None
                 
@@ -236,16 +248,16 @@ class WaveDataProcessor:
                 forecast = {
                     'time': forecast_time.isoformat(),
                     'wind': {
-                        'speed': safe_round(point_data['wind_speed'][i]),
-                        'direction': safe_round(point_data['wind_direction'][i])
+                        'speed': format_value(point_data['wind_speed'][i], 'speed'),
+                        'direction': format_value(point_data['wind_direction'][i], 'direction')
                     },
                     'wave': {
-                        'height': safe_round(point_data['wave_height'][i]),
-                        'period': safe_round(point_data['wave_period'][i]),
-                        'direction': safe_round(point_data['wave_direction'][i]),
-                        'wind_height': safe_round(point_data['wind_wave_height'][i]),
-                        'wind_period': safe_round(point_data['wind_wave_period'][i]),
-                        'wind_direction': safe_round(point_data['wind_wave_direction'][i])
+                        'height': format_value(point_data['wave_height'][i], 'wave_height'),
+                        'period': format_value(point_data['wave_period'][i], 'period'),
+                        'direction': format_value(point_data['wave_direction'][i], 'direction'),
+                        'wind_height': format_value(point_data['wind_wave_height'][i], 'wave_height'),
+                        'wind_period': format_value(point_data['wind_wave_period'][i], 'period'),
+                        'wind_direction': format_value(point_data['wind_wave_direction'][i], 'direction')
                     }
                 }
                 

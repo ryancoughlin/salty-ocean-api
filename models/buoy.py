@@ -7,13 +7,13 @@ class Location(BaseModel):
     coordinates: List[float]
 
 class WindData(BaseModel):
-    speed: float
-    direction: float
+    speed: Optional[float] = None
+    direction: Optional[float] = None
 
 class WaveData(BaseModel):
-    height: float
-    period: float
-    direction: float
+    height: Optional[float] = None
+    period: Optional[float] = None
+    direction: Optional[float] = None
     wind_height: Optional[float] = None
     wind_period: Optional[float] = None
     wind_direction: Optional[float] = None
@@ -40,6 +40,15 @@ class NDBCForecastResponse(BaseModel):
     location: Location
     model_run: str
     forecasts: List[ForecastPoint]
+    
+    @property
+    def metadata(self) -> Dict:
+        """Return metadata about this station."""
+        return {
+            "id": self.station_id,
+            "name": self.name,
+            "location": self.location.model_dump()
+        }
 
 class StationSummary(BaseModel):
     station_id: str

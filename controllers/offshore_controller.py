@@ -23,10 +23,10 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OffshoreController:
-    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: NDBCObservationService):
+    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, ndbc_observation_service: NDBCObservationService):
         self.prefetch_service = prefetch_service
         self.weather_service = weather_service
-        self.buoy_service = buoy_service
+        self.ndbc_observation_service = ndbc_observation_service
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -73,7 +73,7 @@ class OffshoreController:
             station = self._get_station(station_id)
             
             # Fetch latest observations
-            raw_data = await self.buoy_service.get_realtime_observations(station_id)
+            raw_data = await self.ndbc_observation_service.get_realtime_observations(station_id)
             
             # Create observation model
             observation = NDBCObservation(
@@ -135,7 +135,7 @@ class OffshoreController:
             # Get current observations if available
             current_obs = None
             try:
-                current_obs = await self.buoy_service.get_realtime_observations(station_id)
+                current_obs = await self.ndbc_observation_service.get_realtime_observations(station_id)
             except Exception as e:
                 logger.warning(f"Could not fetch observations for {station_id}: {str(e)}")
 

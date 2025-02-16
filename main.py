@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from pathlib import Path
-import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -20,7 +19,6 @@ from controllers.offshore_controller import OffshoreController
 from services.ndbc_observation_service import NDBCObservationService
 from services.weather_summary_service import WeatherSummaryService
 
-# Setup logging with EST times
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -28,17 +26,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     try:
-        # Create data directory if it doesn't exist
         Path("data").mkdir(exist_ok=True)
-        
-        # Initialize cache
+
         await init_cache()
-        
-        # Initialize core services
+
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
-        buoy_service = NDBCObservationService()
-        prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
+        ndbc_observation_service = NDBCObservationService()
+        prefetch_service = PrefetchService(wave_processor=wave_processor, ndbc_observation_service=ndbc_observation_service)
         weather_service = WeatherSummaryService()
         scheduler = SchedulerService(
             wave_processor=wave_processor,
@@ -57,7 +52,7 @@ async def lifespan(app: FastAPI):
         app.state.offshore_controller = OffshoreController(
             prefetch_service=prefetch_service,
             weather_service=weather_service,
-            buoy_service=buoy_service
+            ndbc_observation_service=ndbc_observation_service
         )
         
         # Initial data load

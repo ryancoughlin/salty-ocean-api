@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 class PrefetchService:
     """Service for prefetching and caching wave model forecast data."""
     
-    def __init__(self, wave_processor: WaveDataProcessor, buoy_service = None):
+    def __init__(self, wave_processor: WaveDataProcessor, ndbc_observation_service = None):
         self.wave_processor = wave_processor
         self.station_repo = StationRepository(Path('ndbcStations.json'))
-        self.buoy_service = buoy_service
+        self.ndbc_observation_service = ndbc_observation_service
         self._forecast_cache: Dict[str, NDBCForecastResponse] = {}
         
     def get_station_forecast(self, station_id: str) -> Optional[NDBCForecastResponse]:

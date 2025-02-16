@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 from datetime import datetime
 
-from .models import WaveCategory, WindCategory
+from .models import WindCategory
 from .trend_analyzer import TrendAnalyzer
 from .conditions_scorer import ConditionsScorer
 
@@ -17,8 +17,7 @@ class WeatherSummaryService:
         if not forecasts:
             return {
                 "current_conditions": None,
-                "weekly_best": None,
-                "overall_conditions": None
+                "weekly_best": None
             }
 
         # Convert forecasts to DataFrame for easier analysis
@@ -38,16 +37,9 @@ class WeatherSummaryService:
         scores = self._calculate_condition_scores(df, station_metadata)
         best_window = self.conditions_scorer.find_best_window(scores)
         
-        # Generate overall conditions summary
-        overall_conditions = self._generate_overall_summary(df, trends, station_metadata)
-        
-        # Format the overall conditions description if it exists
-        overall_conditions_str = overall_conditions.get("averageConditions", {}).get("description") if overall_conditions else None
-
         return {
             "current_conditions": current_conditions,
-            "weekly_best": best_window,
-            "overall_conditions": overall_conditions_str
+            "weekly_best": best_window
         }
 
     def _get_current_data(self, df: pd.DataFrame, current_observations: Optional[Dict]) -> Dict:
@@ -72,9 +64,6 @@ class WeatherSummaryService:
 
         if not all([wave_height, wave_period, wind_speed, wind_dir]):
             return None
-
-        # Get wave description
-        wave_cat = WaveCategory.get_category(wave_height)
         
         # Determine quality based on wind direction and location
         longitude = metadata['location']['coordinates'][0]
@@ -86,7 +75,7 @@ class WeatherSummaryService:
         wind_cardinal = self.conditions_scorer._get_cardinal_direction(wind_dir)
         
         # Build the summary
-        summary = f"{quality}, {wave_cat} conditions with {wave_height:.1f}ft waves at {wave_period:.0f}s and {wind_cat} {wind_cardinal} winds"
+        summary = f"{quality} {wave_height:.1f}ft at {wave_period:.0f}s, {wind_cat} {wind_cardinal} winds"
         
         # Add trend if changing
         trend_desc = self.trend_analyzer.get_trend_description(trends)

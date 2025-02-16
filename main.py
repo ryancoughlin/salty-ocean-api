@@ -17,7 +17,7 @@ from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
 from controllers.offshore_controller import OffshoreController
 from services.ndbc_observation_service import NDBCObservationService
-from services.weather import WeatherSummaryService
+from services.weather.summary_service import WeatherSummaryService
 
 setup_logging()
 logger = logging.getLogger(__name__)

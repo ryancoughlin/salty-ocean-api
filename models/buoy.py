@@ -6,10 +6,6 @@ class Location(BaseModel):
     type: str = "Point"
     coordinates: List[float]
 
-class DataAge(BaseModel):
-    minutes: float
-    isStale: bool
-
 class WindData(BaseModel):
     speed: Optional[float] = None
     direction: Optional[float] = None
@@ -21,6 +17,10 @@ class WaveData(BaseModel):
     wind_height: Optional[float] = None
     wind_period: Optional[float] = None
     wind_direction: Optional[float] = None
+
+class DataAge(BaseModel):
+    minutes: float
+    isStale: bool
 
 class ForecastPoint(BaseModel):
     time: datetime
@@ -37,7 +37,7 @@ class NDBCStation(BaseModel):
     station_id: str
     name: str
     location: Location
-    observations: Optional["NDBCObservation"] = None
+    observations: Optional[NDBCObservation] = None
 
 class NDBCForecastResponse(BaseModel):
     station_id: str
@@ -62,6 +62,6 @@ class StationSummary(BaseModel):
     last_updated: datetime
 
 class WeatherConditions(BaseModel):
-    currentConditions: Optional[str]
-    weeklyBest: Optional[str]
-    overallConditions: Optional[str] 
+    currentConditions: Optional[str] = None
+    weeklyBest: Optional[str] = None
+    overallConditions: Optional[str] = None 

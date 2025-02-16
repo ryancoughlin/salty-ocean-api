@@ -11,7 +11,8 @@ from models.buoy import (
     Location,
     NDBCObservation,
     WindData,
-    WaveData
+    WaveData,
+    DataAge
 )
 from core.cache import cached
 from core.config import settings
@@ -77,7 +78,8 @@ class OffshoreController:
             observation = NDBCObservation(
                 time=raw_data['timestamp'],
                 wind=WindData(**raw_data['wind']),
-                wave=WaveData(**raw_data['wave'])
+                wave=WaveData(**raw_data['wave']),
+                data_age=DataAge(**raw_data['data_age'])
             )
             
             # Return complete station data

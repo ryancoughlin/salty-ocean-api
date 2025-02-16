@@ -6,6 +6,10 @@ class Location(BaseModel):
     type: str = "Point"
     coordinates: List[float]
 
+class DataAge(BaseModel):
+    minutes: float
+    isStale: bool
+
 class WindData(BaseModel):
     speed: Optional[float] = None
     direction: Optional[float] = None
@@ -27,6 +31,7 @@ class NDBCObservation(BaseModel):
     time: datetime
     wind: WindData
     wave: WaveData
+    data_age: DataAge
 
 class NDBCStation(BaseModel):
     station_id: str

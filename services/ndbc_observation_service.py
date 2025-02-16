@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import logging
 from typing import Dict, Any, List
 from core.config import settings
-from models.buoy import WindData, WaveData
+from models.buoy import WindData, WaveData, DataAge, NDBCObservation
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class NDBCObservationService:
                 - timestamp: UTC datetime of observation
                 - wind: WindData with speed and direction
                 - wave: WaveData with height, period, and direction
-                - data_age: Dict with minutes old and staleness
+                - data_age: DataAge with minutes and isStale
         """
         # Fetch raw data
         url = f"{self.base_url}/{station_id}.txt"
@@ -50,16 +50,22 @@ class NDBCObservationService:
         # Parse wind and wave data
         wind = self._parse_wind_data(data)
         wave = self._parse_wave_data(data)
+        
+        # Create data age model
+        data_age = DataAge(
+            minutes=round(age_minutes, 1),
+            isStale=age_minutes > 45
+        )
+        
+        # Create and return observation
+        observation = NDBCObservation(
+            time=timestamp,
+            wind=wind,
+            wave=wave,
+            data_age=data_age
+        )
                 
-        return {
-            'timestamp': timestamp,
-            'data_age': {
-                'minutes': round(age_minutes, 1),
-                'isStale': age_minutes > 45
-            },
-            'wind': wind.model_dump(),
-            'wave': wave.model_dump()
-        }
+        return observation.model_dump()
         
     def _parse_timestamp(self, time_data: List[str]) -> datetime:
         """Parse NDBC timestamp fields into datetime."""

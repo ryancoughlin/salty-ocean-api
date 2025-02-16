@@ -57,15 +57,19 @@ class NDBCObservationService:
             isStale=age_minutes > 45
         )
         
-        # Create and return observation
+        # Create observation model
         observation = NDBCObservation(
             time=timestamp,
             wind=wind,
             wave=wave,
             data_age=data_age
         )
+        
+        # Convert to dict and adjust timestamp key
+        result = observation.model_dump()
+        result['timestamp'] = result.pop('time')
                 
-        return observation.model_dump()
+        return result
         
     def _parse_timestamp(self, time_data: List[str]) -> datetime:
         """Parse NDBC timestamp fields into datetime."""

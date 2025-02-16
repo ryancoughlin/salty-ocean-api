@@ -1,0 +1,8 @@
+---
+description: response format key names api data
+globs: *.py
+---
+# do not change response format if working with existing response 
+- keep the same key names and format to avoid regressions
+- if needed mention it explicitly
+- keep response semantic and succint; avoid over nesting

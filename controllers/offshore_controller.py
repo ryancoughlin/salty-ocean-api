@@ -1,8 +1,9 @@
+import json
+import logging
 from typing import Dict, List
 from fastapi import HTTPException
 from services.ndbc_observation_service import NDBCObservationService
-from services.wave_data_processor import WaveDataProcessor
-from services.weather import WeatherSummaryService
+from services.weather.summary_service import WeatherSummaryService
 from models.buoy import (
     NDBCStation,
     NDBCForecastResponse,
@@ -13,9 +14,6 @@ from models.buoy import (
     WaveData
 )
 from core.cache import cached
-import json
-import logging
-import time
 from core.config import settings
 from services.prefetch_service import PrefetchService
 from datetime import datetime

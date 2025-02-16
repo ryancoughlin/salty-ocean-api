@@ -16,9 +16,9 @@ class WeatherSummaryService:
         """Generate a summary of current conditions and future trends."""
         if not forecasts:
             return {
-                "currentConditions": None,
-                "weeklyBest": None,
-                "overallConditions": None
+                "current_conditions": None,
+                "weekly_best": None,
+                "overall_conditions": None
             }
 
         # Convert forecasts to DataFrame for easier analysis
@@ -40,11 +40,14 @@ class WeatherSummaryService:
         
         # Generate overall conditions summary
         overall_conditions = self._generate_overall_summary(df, trends, station_metadata)
+        
+        # Format the overall conditions description if it exists
+        overall_conditions_str = overall_conditions.get("averageConditions", {}).get("description") if overall_conditions else None
 
         return {
-            "currentConditions": current_conditions,
-            "weeklyBest": best_window,
-            "overallConditions": overall_conditions
+            "current_conditions": current_conditions,
+            "weekly_best": best_window,
+            "overall_conditions": overall_conditions_str
         }
 
     def _get_current_data(self, df: pd.DataFrame, current_observations: Optional[Dict]) -> Dict:

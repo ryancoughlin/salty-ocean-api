@@ -55,7 +55,7 @@ class NDBCObservationService:
             'timestamp': timestamp,
             'data_age': {
                 'minutes': round(age_minutes, 1),
-                'is_stale': age_minutes > 45
+                'isStale': age_minutes > 45
             },
             'wind': wind.model_dump(),
             'wave': wave.model_dump()

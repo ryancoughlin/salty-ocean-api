@@ -16,7 +16,7 @@ from core.cache import init_cache
 from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
 from controllers.offshore_controller import OffshoreController
-from services.ndbc_observation_service import NDBCObservationService
+from services.buoy_service import BuoyService
 from services.weather.summary_service import WeatherSummaryService
 
 setup_logging()
@@ -32,8 +32,8 @@ async def lifespan(app: FastAPI):
 
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
-        ndbc_observation_service = NDBCObservationService()
-        prefetch_service = PrefetchService(wave_processor=wave_processor, ndbc_observation_service=ndbc_observation_service)
+        buoy_service = BuoyService()
+        prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
         weather_service = WeatherSummaryService()
         scheduler = SchedulerService(
             wave_processor=wave_processor,
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         app.state.offshore_controller = OffshoreController(
             prefetch_service=prefetch_service,
             weather_service=weather_service,
-            ndbc_observation_service=ndbc_observation_service
+            buoy_service=buoy_service
         )
         
         # Initial data load

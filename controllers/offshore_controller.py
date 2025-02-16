@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Dict, List
 from fastapi import HTTPException
-from services.ndbc_observation_service import NDBCObservationService
+from services.buoy_service import BuoyService
 from services.weather.summary_service import WeatherSummaryService
 from models.buoy import (
     NDBCStation,
@@ -22,10 +22,10 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OffshoreController:
-    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, ndbc_observation_service: NDBCObservationService):
+    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: BuoyService):
         self.prefetch_service = prefetch_service
         self.weather_service = weather_service
-        self.ndbc_observation_service = ndbc_observation_service
+        self.buoy_service = buoy_service
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -72,15 +72,7 @@ class OffshoreController:
             station = self._get_station(station_id)
             
             # Fetch latest observations
-            raw_data = await self.ndbc_observation_service.get_realtime_observations(station_id)
-            
-            # Create observation model
-            observation = NDBCObservation(
-                time=raw_data['timestamp'],
-                wind=WindData(**raw_data['wind']),
-                wave=WaveData(**raw_data['wave']),
-                data_age=DataAge(**raw_data['data_age'])
-            )
+            observation = await self.buoy_service.get_observation(station_id)
             
             # Return complete station data
             return NDBCStation(
@@ -135,7 +127,7 @@ class OffshoreController:
             # Get current observations if available
             current_obs = None
             try:
-                current_obs = await self.ndbc_observation_service.get_realtime_observations(station_id)
+                current_obs = await self.buoy_service.get_observation(station_id)
             except Exception as e:
                 logger.warning(f"Could not fetch observations for {station_id}: {str(e)}")
 

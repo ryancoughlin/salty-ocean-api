@@ -57,5 +57,6 @@ class StationSummary(BaseModel):
     last_updated: datetime
 
 class WeatherConditions(BaseModel):
-    conditions: Optional[str]
-    best_window: Optional[str] 
+    currentConditions: Optional[str]
+    weeklyBest: Optional[str]
+    overallConditions: Optional[str] 

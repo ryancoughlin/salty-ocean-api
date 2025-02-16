@@ -7,44 +7,34 @@ from .trend_analyzer import TrendAnalyzer
 from .conditions_scorer import ConditionsScorer
 
 class WeatherSummaryService:
-    """Service for generating human-readable weather summaries."""
-    
     def __init__(self):
         self.trend_analyzer = TrendAnalyzer()
         self.conditions_scorer = ConditionsScorer()
 
-    def generate_summary(self, forecast_points: List[Dict], metadata: Dict) -> Dict:
-        """
-        Generate a summary of conditions from forecast points.
-        
-        Args:
-            forecast_points: List of forecast points with wave and wind data
-            metadata: Station metadata including location
-            
-        Returns:
-            Dict with conditions summary and best window
-        """
-        if not forecast_points:
+    def generate_summary(self, forecasts: List[Dict], station_metadata: Dict, 
+                        current_observations: Optional[Dict] = None) -> Dict:
+        """Generate a summary of current conditions and future trends."""
+        if not forecasts:
             return {
                 "conditions": None,
                 "best_window": None
             }
 
-        # Convert to DataFrame for analysis
-        df = pd.DataFrame(forecast_points)
+        # Convert forecasts to DataFrame for easier analysis
+        df = pd.DataFrame(forecasts)
         df['timestamp'] = pd.to_datetime(df['time'])
         
-        # Get current conditions
-        current_data = df.iloc[0].to_dict()
+        # Get current data
+        current_data = self._get_current_data(df, current_observations)
         
         # Analyze trends
         trends = self.trend_analyzer.analyze_trends(df)
         
-        # Generate text summaries
-        conditions = self._generate_conditions_summary(current_data, trends)
+        # Generate conditions summary
+        conditions = self._generate_conditions_summary(current_data, trends, station_metadata)
         
-        # Find best window
-        scores = self._calculate_condition_scores(df, metadata)
+        # Calculate scores and find best window
+        scores = self._calculate_condition_scores(df, station_metadata)
         best_window = self.conditions_scorer.find_best_window(scores)
 
         return {
@@ -52,7 +42,17 @@ class WeatherSummaryService:
             "best_window": best_window
         }
 
-    def _generate_conditions_summary(self, data: Dict, trends: Dict) -> Optional[str]:
+    def _get_current_data(self, df: pd.DataFrame, current_observations: Optional[Dict]) -> Dict:
+        """Get current conditions from observations or nearest forecast."""
+        if current_observations and 'wave' in current_observations and 'wind' in current_observations:
+            return current_observations
+        
+        now = datetime.now(df['timestamp'].iloc[0].tzinfo)
+        df['time_diff'] = abs(df['timestamp'] - now)
+        current_idx = df['time_diff'].idxmin()
+        return df.iloc[current_idx].to_dict()
+
+    def _generate_conditions_summary(self, data: Dict, trends: Dict, metadata: Dict) -> Optional[str]:
         """Generate a human-readable summary of current conditions and trends."""
         if 'wave' not in data or 'wind' not in data:
             return None

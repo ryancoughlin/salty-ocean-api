@@ -1,20 +1,22 @@
 import logging
 import asyncio
-from datetime import datetime, timedelta, timezone
 from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.job import Job
 
 from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
-from core.config import settings
 from services.prefetch_service import PrefetchService
 from fastapi_cache import FastAPICache
 
 logger = logging.getLogger(__name__)
 
 class SchedulerService:
-    """Service for scheduling model data updates."""
+    """Service for scheduling wave model data updates."""
+    
+    RUN_HOURS = [0, 6, 12, 18]  # Model run hours (UTC)
+    UPDATE_DELAY = 30  # Minutes after the hour to check for updates
     
     def __init__(
         self,
@@ -26,75 +28,66 @@ class SchedulerService:
         self.wave_processor = wave_processor
         self.wave_downloader = wave_downloader
         self.prefetch_service = prefetch_service
-        self._task: Optional[asyncio.Task] = None
         
-    async def _update_model_data(self, run_hour: int):
-        """Update model data for a specific run hour."""
+    async def _update_model_data(self, run_hour: int) -> None:
+        """Update wave model data for a specific run hour."""
         try:
             logger.debug(f"Checking for {run_hour:02d}z model run updates...")
             
-            # Check for new data
-            if await self.wave_downloader.download_latest():
-                # Flush the cache before loading new data
-                logger.info("New model data available - flushing cache")
-                await FastAPICache.clear()
-                
-                # Load new data
-                if await self.wave_processor.preload_dataset():
-                    # Prefetch forecasts for all stations with new data
-                    await self.prefetch_service.prefetch_all()
-                else:
-                    logger.error("Failed to load new model data")
-            else:
+            if not await self.wave_downloader.download_latest():
                 logger.debug(f"No updates needed for {run_hour:02d}z run")
+                return
+                
+            logger.info("New model data available - flushing cache")
+            await FastAPICache.clear()
+            
+            if not await self.wave_processor.preload_dataset():
+                logger.error("Failed to load new model data")
+                return
+                
+            await self.prefetch_service.prefetch_all()
+            logger.info(f"Successfully updated {run_hour:02d}z model data")
                 
         except Exception as e:
             logger.error(f"Error during {run_hour:02d}z model update: {str(e)}")
             
-    async def _schedule_updates(self):
-        """Schedule model updates."""
-        while True:
-            try:
-                now = datetime.utcnow()
+    def _schedule_job(self, run_hour: int) -> None:
+        """Schedule a single update job for the given run hour."""
+        job_id = f"model_update_{run_hour}z"
+        self.scheduler.add_job(
+            self._update_model_data,
+            CronTrigger(hour=run_hour, minute=self.UPDATE_DELAY),
+            args=[run_hour],
+            id=job_id,
+            replace_existing=True
+        )
+        logger.info(f"Scheduled update for {run_hour:02d}z run at {run_hour:02d}:{self.UPDATE_DELAY:02d} UTC")
+
+    async def start(self) -> None:
+        """Start the scheduler and schedule all update jobs."""
+        try:
+            for run_hour in self.RUN_HOURS:
+                self._schedule_job(run_hour)
                 
-                # Schedule updates 1.5 hours after each model run
-                # Model runs are at 00z, 06z, 12z, and 18z
-                for run_hour in [0, 6, 12, 18]:
-                    # Calculate next update time
-                    update_time = now.replace(hour=run_hour, minute=30, second=0, microsecond=0)
-                    if update_time <= now:
-                        update_time += timedelta(hours=6)
-                        
-                    # Log scheduled update
-                    logger.info(f"Scheduled update for {run_hour}z run at {update_time.strftime('%H:%M')} UTC")
-                    
-                    # Wait until update time
-                    wait_seconds = (update_time - now).total_seconds()
-                    if wait_seconds > 0:
-                        await asyncio.sleep(wait_seconds)
-                        await self._update_model_data(run_hour)
-                    
-            except Exception as e:
-                logger.error(f"Error in scheduler: {str(e)}")
-                await asyncio.sleep(300)  # Wait 5 minutes on error
+            if not self.scheduler.running:
+                self.scheduler.start()
+                logger.info("Scheduler started successfully")
                 
-    async def start(self):
-        """Start the scheduler."""
-        if self._task is None or self._task.done():
-            self._task = asyncio.create_task(self._schedule_updates())
-            logger.info("Scheduler started")
+        except Exception as e:
+            logger.error(f"Failed to start scheduler: {str(e)}")
+            raise
             
-    async def stop(self):
-        """Stop the scheduler."""
-        if self._task and not self._task.done():
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+    async def stop(self) -> None:
+        """Stop the scheduler gracefully."""
+        if self.scheduler.running:
+            self.scheduler.shutdown()
             logger.info("Scheduler stopped")
             
-    def get_next_run_time(self, job_id: str):
-        """Get next scheduled run time."""
+    def get_next_run_time(self, run_hour: int) -> Optional[str]:
+        """Get the next scheduled run time for a specific model run hour."""
+        if run_hour not in self.RUN_HOURS:
+            return None
+            
+        job_id = f"model_update_{run_hour}z"
         job = self.scheduler.get_job(job_id)
-        return job.next_run_time if job else None 
+        return job.next_run_time.isoformat() if job else None 

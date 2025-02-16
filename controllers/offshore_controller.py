@@ -2,7 +2,7 @@ from typing import Dict, List
 from fastapi import HTTPException
 from services.buoy_service import BuoyService
 from services.wave_data_processor import WaveDataProcessor
-from services.weather import WeatherSummaryService
+from services.weather_summary_service import WeatherSummaryService
 from models.buoy import (
     NDBCStation,
     NDBCForecastResponse,
@@ -12,17 +12,18 @@ from models.buoy import (
 from core.cache import cached
 import json
 import logging
-from datetime import datetime
+import time
 from core.config import settings
 from services.prefetch_service import PrefetchService
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class OffshoreController:
-    def __init__(self, prefetch_service: PrefetchService):
+    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: BuoyService):
         self.prefetch_service = prefetch_service
-        self.buoy_service = BuoyService()
-        self.summary_service = WeatherSummaryService()
+        self.weather_service = weather_service
+        self.buoy_service = buoy_service
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -62,7 +63,7 @@ class OffshoreController:
                 station_id=station["id"],
                 name=station["name"],
                 location=Location(type="Point", coordinates=station["location"]["coordinates"]),
-                observations=observation
+                observations=NDBCObservation(**observation)
             )
         except HTTPException:
             raise
@@ -86,7 +87,7 @@ class OffshoreController:
                     detail="Forecast data not available. Please try again later."
                 )
             
-            return forecast_data
+            return forecast_data  # Already in correct type from prefetch service
             
         except HTTPException:
             raise
@@ -98,31 +99,23 @@ class OffshoreController:
     async def get_station_summary(self, station_id: str) -> StationSummary:
         """Get a summary for a specific station."""
         try:
-            # Get forecast data
-            forecast = await self.get_station_forecast(station_id)
+            # Get forecast from cache
+            forecast = self.prefetch_service.get_station_forecast(station_id)
             if not forecast or not forecast.forecasts:
-                raise HTTPException(status_code=404, detail="No forecast data available")
-
-            # Prepare forecast points
-            forecast_points = [f.model_dump() for f in forecast.forecasts]
+                raise HTTPException(status_code=404, detail="No forecast available for station")
 
             # Get current observations if available
+            current_obs = None
             try:
-                station = await self.get_station_observations(station_id)
-                if station and station.observations:
-                    obs_point = {
-                        'time': station.observations.time,
-                        'wave': station.observations.wave.model_dump(),
-                        'wind': station.observations.wind.model_dump()
-                    }
-                    forecast_points.insert(0, obs_point)
+                current_obs = await self.buoy_service.get_realtime_observations(station_id)
             except Exception as e:
                 logger.warning(f"Could not fetch observations for {station_id}: {str(e)}")
 
-            # Generate summary
-            conditions = self.summary_service.generate_summary(
-                forecast_points=forecast_points,
-                metadata=forecast.metadata
+            # Generate fresh summary
+            conditions = self.weather_service.generate_summary(
+                [f.model_dump() for f in forecast.forecasts],
+                forecast.metadata,
+                current_observations=current_obs
             )
             
             return StationSummary(

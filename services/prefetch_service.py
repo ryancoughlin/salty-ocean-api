@@ -1,22 +1,26 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 
 from services.wave_data_processor import WaveDataProcessor
 from repositories.station_repo import StationRepository
 from core.config import settings
 from pathlib import Path
-from models.buoy import NDBCForecastResponse, ForecastPoint
+from models.buoy import (
+    NDBCForecastResponse,
+    ForecastPoint
+)
 
 logger = logging.getLogger(__name__)
 
 class PrefetchService:
     """Service for prefetching and caching wave model forecast data."""
     
-    def __init__(self, wave_processor: WaveDataProcessor):
+    def __init__(self, wave_processor: WaveDataProcessor, buoy_service = None):
         self.wave_processor = wave_processor
         self.station_repo = StationRepository(Path('ndbcStations.json'))
+        self.buoy_service = buoy_service
         self._forecast_cache: Dict[str, NDBCForecastResponse] = {}
         
     def get_station_forecast(self, station_id: str) -> Optional[NDBCForecastResponse]:

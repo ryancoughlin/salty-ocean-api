@@ -18,6 +18,7 @@ from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
 from controllers.offshore_controller import OffshoreController
 from services.buoy_service import BuoyService
+from services.weather_summary_service import WeatherSummaryService
 
 # Setup logging with EST times
 setup_logging()
@@ -37,7 +38,8 @@ async def lifespan(app: FastAPI):
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
         buoy_service = BuoyService()
-        prefetch_service = PrefetchService(wave_processor=wave_processor)
+        prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
+        weather_service = WeatherSummaryService()
         scheduler = SchedulerService(
             wave_processor=wave_processor,
             wave_downloader=wave_downloader,
@@ -48,10 +50,15 @@ async def lifespan(app: FastAPI):
         app.state.wave_processor = wave_processor
         app.state.wave_downloader = wave_downloader
         app.state.prefetch_service = prefetch_service
+        app.state.weather_service = weather_service
         app.state.scheduler = scheduler
         
         # Initialize controllers with services
-        app.state.offshore_controller = OffshoreController(prefetch_service=prefetch_service)
+        app.state.offshore_controller = OffshoreController(
+            prefetch_service=prefetch_service,
+            weather_service=weather_service,
+            buoy_service=buoy_service
+        )
         
         # Initial data load
         try:
@@ -66,10 +73,10 @@ async def lifespan(app: FastAPI):
             if wave_processor.get_dataset() is not None:
                 logger.info("Wave model data loaded successfully")
                 
-                # Prefetch all station data
-                logger.info("Prefetching station data...")
+                # Prefetch forecast data
+                logger.info("Prefetching forecast data...")
                 await prefetch_service.prefetch_all()
-                logger.info("Station data prefetched successfully")
+                logger.info("Forecast data prefetched successfully")
             else:
                 logger.error("Failed to load wave model data")
                 raise HTTPException(status_code=500, detail="Failed to load wave model data")

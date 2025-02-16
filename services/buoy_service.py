@@ -1,8 +1,8 @@
 import aiohttp
 from datetime import datetime, timezone
 import logging
-from typing import Dict, Any, Optional
-from models.buoy import WindData, WaveData, DataAge, NDBCObservation
+from typing import Dict, Any
+from models.ndbc_types import NDBCWindData, NDBCWaveData, NDBCDataAge, NDBCObservation
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -76,31 +76,31 @@ class BuoyService:
         except (ValueError, IndexError) as e:
             raise ValueError(f"Invalid timestamp data: {e}")
     
-    def _parse_wind_data(self, data: list[str]) -> WindData:
+    def _parse_wind_data(self, data: list[str]) -> NDBCWindData:
         """Parse NDBC wind fields into WindData model."""
         try:
-            return WindData(
+            return NDBCWindData(
                 direction=float(data[5]) if len(data) > 5 and data[5] != "MM" else None,
                 speed=float(data[6]) if len(data) > 6 and data[6] != "MM" else None
             )
         except (ValueError, IndexError):
-            return WindData()
+            return NDBCWindData()
     
-    def _parse_wave_data(self, data: list[str]) -> WaveData:
+    def _parse_wave_data(self, data: list[str]) -> NDBCWaveData:
         """Parse NDBC wave fields into WaveData model."""
         try:
-            return WaveData(
+            return NDBCWaveData(
                 height=float(data[8]) if len(data) > 8 and data[8] != "MM" else None,
                 period=float(data[9]) if len(data) > 9 and data[9] != "MM" else None,
                 direction=float(data[11]) if len(data) > 11 and data[11] != "MM" else None
             )
         except (ValueError, IndexError):
-            return WaveData()
+            return NDBCWaveData()
     
-    def _calculate_data_age(self, timestamp: datetime) -> DataAge:
+    def _calculate_data_age(self, timestamp: datetime) -> NDBCDataAge:
         """Calculate age of data from timestamp."""
         age_minutes = (datetime.now(timezone.utc) - timestamp).total_seconds() / 60
-        return DataAge(
+        return NDBCDataAge(
             minutes=round(age_minutes, 1),
             isStale=age_minutes > 45
         ) 

@@ -1,8 +1,7 @@
-from typing import List, Optional, Dict
-from fastapi import APIRouter, HTTPException, Depends, Request
-from models.buoy import NDBCStation, NDBCObservation, NDBCForecastResponse
+from typing import List, Dict
+from fastapi import APIRouter, Depends, Request
+from models.ndbc_types import NDBCStation, NDBCForecastResponse
 from controllers.offshore_controller import OffshoreController
-from services.prefetch_service import PrefetchService
 import logging
 
 logger = logging.getLogger(__name__)

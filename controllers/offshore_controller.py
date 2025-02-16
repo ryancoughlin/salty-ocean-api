@@ -4,15 +4,11 @@ from typing import Dict, List
 from fastapi import HTTPException
 from services.buoy_service import BuoyService
 from services.weather.summary_service import WeatherSummaryService
-from models.buoy import (
+from models.ndbc_types import (
     NDBCStation,
     NDBCForecastResponse,
     StationSummary,
-    Location,
-    NDBCObservation,
-    WindData,
-    WaveData,
-    DataAge
+    NDBCLocation,
 )
 from core.cache import cached
 from core.config import settings
@@ -78,7 +74,7 @@ class OffshoreController:
             return NDBCStation(
                 station_id=station["id"],
                 name=station["name"],
-                location=Location(
+                location=NDBCLocation(
                     type="Point", 
                     coordinates=station["location"]["coordinates"]
                 ),

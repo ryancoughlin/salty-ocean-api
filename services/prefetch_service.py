@@ -7,9 +7,9 @@ from services.wave_data_processor import WaveDataProcessor
 from repositories.station_repo import StationRepository
 from core.config import settings
 from pathlib import Path
-from models.buoy import (
+from models.ndbc_types import (
     NDBCForecastResponse,
-    ForecastPoint
+    NDBCForecastPoint
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ class PrefetchService:
                             name=station["name"],
                             location=forecast["location"],
                             model_run=forecast["model_run"],
-                            forecasts=[ForecastPoint(**f) for f in forecast["forecasts"]]
+                            forecasts=[NDBCForecastPoint(**f) for f in forecast["forecasts"]]
                         )
                         success_count += 1
                     elif forecast["status"] == "outside_grid":

@@ -17,7 +17,7 @@ from core.cache import init_cache
 from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
 from controllers.offshore_controller import OffshoreController
-from services.buoy_service import NDBCObservationService
+from services.ndbc_observation_service import NDBCObservationService
 from services.weather_summary_service import WeatherSummaryService
 
 # Setup logging with EST times

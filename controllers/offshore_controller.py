@@ -1,6 +1,6 @@
 from typing import Dict, List
 from fastapi import HTTPException
-from services.buoy_service import NDBCObservationService
+from services.ndbc_observation_service import NDBCObservationService
 from services.wave_data_processor import WaveDataProcessor
 from services.weather_summary_service import WeatherSummaryService
 from models.buoy import (

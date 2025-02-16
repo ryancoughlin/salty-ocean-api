@@ -1,6 +1,6 @@
 from typing import Dict, List
 from fastapi import HTTPException
-from services.buoy_service import BuoyService
+from services.buoy_service import NDBCObservationService
 from services.wave_data_processor import WaveDataProcessor
 from services.weather_summary_service import WeatherSummaryService
 from models.buoy import (
@@ -23,7 +23,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class OffshoreController:
-    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: BuoyService):
+    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: NDBCObservationService):
         self.prefetch_service = prefetch_service
         self.weather_service = weather_service
         self.buoy_service = buoy_service
@@ -57,31 +57,42 @@ class OffshoreController:
 
     @cached(namespace="ndbc_observations")
     async def get_station_observations(self, station_id: str) -> NDBCStation:
-        """Get real-time observations for a specific NDBC station."""
-        try:
-            station = self._get_station(station_id)
-            raw_observation = await self.buoy_service.get_realtime_observations(station_id)
+        """Get real-time observations for a specific NDBC station.
+        
+        Args:
+            station_id: The NDBC station identifier (e.g. "44098")
             
-            # Transform raw observation into proper model structure
+        Returns:
+            NDBCStation: Station info with latest observations
+            
+        Raises:
+            HTTPException: If station not found or error fetching data
+        """
+        try:
+            # Get station metadata
+            station = self._get_station(station_id)
+            
+            # Fetch latest observations
+            raw_data = await self.buoy_service.get_realtime_observations(station_id)
+            
+            # Create observation model
             observation = NDBCObservation(
-                time=raw_observation['timestamp'],
-                wind=WindData(
-                    speed=raw_observation.get('wind_speed'),
-                    direction=raw_observation.get('wind_dir')
-                ),
-                wave=WaveData(
-                    height=raw_observation.get('wave_height'),
-                    period=raw_observation.get('dominant_period'),
-                    direction=raw_observation.get('mean_wave_direction')
-                )
+                time=raw_data['timestamp'],
+                wind=WindData(**raw_data['wind']),
+                wave=WaveData(**raw_data['wave'])
             )
             
+            # Return complete station data
             return NDBCStation(
                 station_id=station["id"],
                 name=station["name"],
-                location=Location(type="Point", coordinates=station["location"]["coordinates"]),
+                location=Location(
+                    type="Point", 
+                    coordinates=station["location"]["coordinates"]
+                ),
                 observations=observation
             )
+            
         except HTTPException:
             raise
         except Exception as e:

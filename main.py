@@ -17,7 +17,7 @@ from core.cache import init_cache
 from services.scheduler_service import SchedulerService
 from services.prefetch_service import PrefetchService
 from controllers.offshore_controller import OffshoreController
-from services.buoy_service import BuoyService
+from services.buoy_service import NDBCObservationService
 from services.weather_summary_service import WeatherSummaryService
 
 # Setup logging with EST times
@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         # Initialize core services
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
-        buoy_service = BuoyService()
+        buoy_service = NDBCObservationService()
         prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
         weather_service = WeatherSummaryService()
         scheduler = SchedulerService(

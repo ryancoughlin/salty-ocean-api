@@ -7,7 +7,10 @@ from models.buoy import (
     NDBCStation,
     NDBCForecastResponse,
     StationSummary,
-    Location
+    Location,
+    NDBCObservation,
+    WindData,
+    WaveData
 )
 from core.cache import cached
 import json
@@ -57,13 +60,27 @@ class OffshoreController:
         """Get real-time observations for a specific NDBC station."""
         try:
             station = self._get_station(station_id)
-            observation = await self.buoy_service.get_realtime_observations(station_id)
+            raw_observation = await self.buoy_service.get_realtime_observations(station_id)
+            
+            # Transform raw observation into proper model structure
+            observation = NDBCObservation(
+                time=raw_observation['timestamp'],
+                wind=WindData(
+                    speed=raw_observation.get('wind_speed'),
+                    direction=raw_observation.get('wind_dir')
+                ),
+                wave=WaveData(
+                    height=raw_observation.get('wave_height'),
+                    period=raw_observation.get('dominant_period'),
+                    direction=raw_observation.get('mean_wave_direction')
+                )
+            )
             
             return NDBCStation(
                 station_id=station["id"],
                 name=station["name"],
                 location=Location(type="Point", coordinates=station["location"]["coordinates"]),
-                observations=NDBCObservation(**observation)
+                observations=observation
             )
         except HTTPException:
             raise

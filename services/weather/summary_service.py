@@ -67,15 +67,18 @@ class WeatherSummaryService:
 
         # Get wave description
         wave_cat = WaveCategory.get_category(wave_height)
-        wave_desc = f"{wave_cat} {wave_height:.1f}ft @ {wave_period:.0f}s"
-            
+        
+        # Determine quality based on wind direction and location
+        longitude = metadata['location']['coordinates'][0]
+        is_favorable_wind = self.conditions_scorer._is_favorable_wind(wind_dir, longitude)
+        quality = "Clean" if is_favorable_wind else "Fair"
+        
         # Get wind description
         wind_cat = WindCategory.get_category(wind_speed)
         wind_cardinal = self.conditions_scorer._get_cardinal_direction(wind_dir)
-        wind_desc = f"{wind_cat} {wind_cardinal}"
         
-        # Combine descriptions
-        summary = f"{wave_desc}, {wind_desc}"
+        # Build the summary
+        summary = f"{quality}, {wave_cat} conditions with {wave_height:.1f}ft waves at {wave_period:.0f}s and {wind_cat} {wind_cardinal} winds"
         
         # Add trend if changing
         trend_desc = self.trend_analyzer.get_trend_description(trends)

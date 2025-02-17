@@ -38,6 +38,48 @@ Example:
 GET /tide-stations/8419807/predictions
 ```
 
+## Station Endpoints
+
+### Get All Stations GeoJSON
+
+```
+GET /stations/geojson
+```
+
+Returns all monitoring stations in GeoJSON format for mapping applications.
+
+### Get Station Observations
+
+```
+GET /stations/{station_id}/observations
+```
+
+Returns the latest observations from NDBC for the specified station including waves, wind, and meteorological data.
+
+### Get Wave Forecast
+
+```
+GET /stations/{station_id}/waves/forecast
+```
+
+Returns the latest wave model forecast from NOAA for the specified station.
+
+### Get Wave Summary
+
+```
+GET /stations/{station_id}/waves/summary
+```
+
+Returns a summary of wave conditions and forecast for the specified station.
+
+### Get Station Summary
+
+```
+GET /stations/{station_id}/summary
+```
+
+Returns general station information and metadata.
+
 ## Deployment
 
 1. Build and start with Docker:
@@ -53,11 +95,6 @@ The API will be available at `http://localhost:5010`
 ### GET /health
 
 Health check endpoint returns status of the API.
-
-### Offshore Stations
-
-- GET /offshore-stations/{station_id}/observations - Get real-time observations for a station
-- GET /offshore-stations/{station_id}/forecast - Get wave forecast for a station
 
 ## License
 

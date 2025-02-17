@@ -13,15 +13,23 @@ from models.ndbc_types import (
 from core.cache import cached
 from core.config import settings
 from services.prefetch_service import PrefetchService
+from services.station_service import StationService
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 class OffshoreController:
-    def __init__(self, prefetch_service: PrefetchService, weather_service: WeatherSummaryService, buoy_service: BuoyService):
+    def __init__(
+        self, 
+        prefetch_service: PrefetchService, 
+        weather_service: WeatherSummaryService, 
+        buoy_service: BuoyService,
+        station_service: StationService
+    ):
         self.prefetch_service = prefetch_service
         self.weather_service = weather_service
         self.buoy_service = buoy_service
+        self.station_service = station_service
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -166,4 +174,42 @@ class OffshoreController:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error converting stations to GeoJSON: {str(e)}"
+            )
+
+    @cached(namespace="offshore_data")
+    async def get_station_data(self, station_id: str) -> NDBCForecastResponse:
+        """Get current conditions and forecast for a station."""
+        try:
+            station = self.station_service.get_station(station_id)
+            
+            # Get current conditions
+            current = await self.buoy_service.get_station_data(station_id)
+            
+            # Get forecast data
+            forecast = await self.prefetch_service.get_station_forecast(station_id)
+            
+            # Generate summary
+            summary = None
+            if forecast and forecast.get("forecasts"):
+                summary = self.weather_service.generate_summary(forecast["forecasts"])
+            
+            return NDBCForecastResponse(
+                station=NDBCStation(
+                    id=station_id,
+                    name=station["name"],
+                    location=NDBCLocation(
+                        latitude=station["location"]["coordinates"][1],
+                        longitude=station["location"]["coordinates"][0]
+                    )
+                ),
+                current=current,
+                forecast=forecast,
+                summary=summary
+            )
+            
+        except Exception as e:
+            logger.error(f"Error getting data for station {station_id}: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error processing station data: {str(e)}"
             ) 

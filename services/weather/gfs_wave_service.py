@@ -9,6 +9,7 @@ from functools import partial
 
 from models.gfs_types import GFSWaveForecast, GFSCycle, WaveForecast, WaveComponent, StationInfo
 from core.config import settings
+from core.cache import cached
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,7 @@ class GFSWaveService:
         
         return forecasts
 
+    @cached(namespace="gfs_wave_forecast")
     async def get_station_forecast(self, station_id: str, station_info: Dict) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
@@ -240,7 +242,6 @@ class GFSWaveService:
                         prev_forecasts = sorted(prev_forecasts, key=lambda x: x.timestamp)
                         logger.info(f"Previous cycle has {len(prev_forecasts)} forecasts from {prev_forecasts[0].timestamp} to {prev_forecasts[-1].timestamp}")
                         
-                        # Get forecasts from previous cycle that are for today
                         todays_forecasts = [f for f in prev_forecasts 
                                           if f.timestamp.date() == today.date() 
                                           and f.timestamp < current_forecasts[0].timestamp]
@@ -248,17 +249,18 @@ class GFSWaveService:
                             logger.info(f"Adding {len(todays_forecasts)} forecasts from previous cycle for today")
                             current_forecasts = todays_forecasts + current_forecasts
             
-            # Ensure we only return 7 days of forecasts
-            end_date = today + timedelta(days=7)
-            filtered_forecasts = [f for f in current_forecasts if f.timestamp < end_date]
-            
-            logger.info(f"Final forecast set: {len(filtered_forecasts)} forecasts from {filtered_forecasts[0].timestamp} to {filtered_forecasts[-1].timestamp}")
-            
             return GFSWaveForecast(
                 station_id=station_id,
-                station_info=StationInfo(**station_info),
-                cycle=GFSCycle(date=date, hour=hour),
-                forecasts=filtered_forecasts
+                station_info=StationInfo(
+                    name=station_info["name"],
+                    location=station_info["location"],
+                    type=station_info.get("type", "buoy")
+                ),
+                cycle=GFSCycle(
+                    date=date,
+                    hour=hour
+                ),
+                forecasts=current_forecasts
             )
             
         except Exception as e:

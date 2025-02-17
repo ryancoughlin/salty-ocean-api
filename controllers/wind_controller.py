@@ -5,12 +5,14 @@ from fastapi import HTTPException
 from services.weather.gfs_service import GFSForecastManager
 from models.wind_types import WindData, WindForecast
 from core.cache import cached
+from services.station_service import StationService
 
 logger = logging.getLogger(__name__)
 
 class WindController:
-    def __init__(self, gfs_manager: GFSForecastManager):
+    def __init__(self, gfs_manager: GFSForecastManager, station_service: StationService):
         self.gfs_manager = gfs_manager
+        self.station_service = station_service
 
     def _load_stations(self):
         """Load NDBC stations from JSON file."""
@@ -43,7 +45,7 @@ class WindController:
     async def get_station_wind_data(self, station_id: str) -> WindData:
         """Get current wind conditions for a specific station."""
         try:
-            station = self._get_station(station_id)
+            station = self.station_service.get_station(station_id)
             return self.gfs_manager.get_station_wind_data(station_id, station)
         except HTTPException:
             raise
@@ -58,7 +60,7 @@ class WindController:
     async def get_station_wind_forecast(self, station_id: str) -> WindForecast:
         """Get wind forecast for a specific station."""
         try:
-            station = self._get_station(station_id)
+            station = self.station_service.get_station(station_id)
             return self.gfs_manager.get_station_wind_forecast(station_id, station)
         except HTTPException:
             raise

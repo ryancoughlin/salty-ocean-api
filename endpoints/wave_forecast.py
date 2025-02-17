@@ -4,22 +4,22 @@ from pathlib import Path
 
 from services.weather.gfs_wave_service import GFSWaveService
 from models.gfs_types import GFSWaveForecast
-from repositories.station_repo import StationRepository
+from services.station_service import StationService
 
 router = APIRouter(
     prefix="/wave-forecast",
     tags=["Wave Forecast"]
 )
 
-def get_station_repo():
-    """Dependency to create StationRepository instance."""
-    return StationRepository(Path("ndbcStations.json"))
+def get_station_service():
+    """Dependency to create StationService instance."""
+    return StationService(Path("ndbcStations.json"))
 
 @router.get("/{station_id}", response_model=GFSWaveForecast)
 async def get_wave_forecast(
     station_id: str,
     wave_service: GFSWaveService = Depends(GFSWaveService),
-    station_repo: StationRepository = Depends(get_station_repo)
+    station_service: StationService = Depends(get_station_service)
 ) -> GFSWaveForecast:
     """Get GFS wave forecast for a specific station.
     
@@ -34,7 +34,7 @@ async def get_wave_forecast(
     """
     try:
         # Get station info
-        station = station_repo.get_station(station_id)
+        station = station_service.get_station(station_id)
         if not station:
             raise HTTPException(
                 status_code=404,

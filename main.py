@@ -21,6 +21,7 @@ from controllers.wind_controller import WindController
 from services.buoy_service import BuoyService
 from services.weather.summary_service import WeatherSummaryService
 from services.weather.gfs_service import GFSForecastManager
+from services.station_service import StationService
 from endpoints import wave_forecast
 
 setup_logging()
@@ -34,9 +35,11 @@ async def lifespan(app: FastAPI):
 
         await init_cache()
 
+        # Initialize services
         wave_processor = WaveDataProcessor()
         wave_downloader = WaveDataDownloader()
         buoy_service = BuoyService()
+        station_service = StationService()
         prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
         weather_service = WeatherSummaryService()
         gfs_manager = GFSForecastManager()
@@ -54,16 +57,19 @@ async def lifespan(app: FastAPI):
         app.state.weather_service = weather_service
         app.state.gfs_manager = gfs_manager
         app.state.scheduler = scheduler
+        app.state.station_service = station_service
         
         # Initialize controllers with services
         app.state.offshore_controller = OffshoreController(
             prefetch_service=prefetch_service,
             weather_service=weather_service,
-            buoy_service=buoy_service
+            buoy_service=buoy_service,
+            station_service=station_service
         )
         
         app.state.wind_controller = WindController(
-            gfs_manager=gfs_manager
+            gfs_manager=gfs_manager,
+            station_service=station_service
         )
         
         # Initial data load

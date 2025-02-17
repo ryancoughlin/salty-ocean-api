@@ -3,105 +3,84 @@ import pandas as pd
 from datetime import datetime
 
 from .models import WindCategory
-from .trend_analyzer import TrendAnalyzer
-from .conditions_scorer import ConditionsScorer
 
 class WeatherSummaryService:
     def __init__(self):
-        self.trend_analyzer = TrendAnalyzer()
-        self.conditions_scorer = ConditionsScorer()
+        pass
 
-    def generate_summary(self, forecasts: List[Dict], station_metadata: Dict, 
-                        current_observations: Optional[Dict] = None) -> Dict:
-        """Generate a summary of current conditions and future trends."""
+    def generate_summary(self, forecasts: List[Dict]) -> Optional[str]:
+        """Generate a summary of conditions expected over the next 8 hours."""
         if not forecasts:
-            return {
-                "current_conditions": None,
-                "weekly_best": None
-            }
-
-        # Convert forecasts to DataFrame for easier analysis
-        df = pd.DataFrame(forecasts)
-        df['timestamp'] = pd.to_datetime(df['time'])
-        
-        # Get current data
-        current_data = self._get_current_data(df, current_observations)
-        
-        # Analyze trends
-        trends = self.trend_analyzer.analyze_trends(df)
-        
-        # Generate conditions summary
-        current_conditions = self._generate_conditions_summary(current_data, trends, station_metadata)
-        
-        # Calculate scores and find best window
-        scores = self._calculate_condition_scores(df, station_metadata)
-        best_window = self.conditions_scorer.find_best_window(scores)
-        
-        return {
-            "current_conditions": current_conditions,
-            "weekly_best": best_window
-        }
-
-    def _get_current_data(self, df: pd.DataFrame, current_observations: Optional[Dict]) -> Dict:
-        """Get current conditions from observations or nearest forecast."""
-        if current_observations and 'wave' in current_observations and 'wind' in current_observations:
-            return current_observations
-        
-        now = datetime.now(df['timestamp'].iloc[0].tzinfo)
-        df['time_diff'] = abs(df['timestamp'] - now)
-        current_idx = df['time_diff'].idxmin()
-        return df.iloc[current_idx].to_dict()
-
-    def _generate_conditions_summary(self, data: Dict, trends: Dict, metadata: Dict) -> Optional[str]:
-        """Generate a human-readable summary of current conditions and trends."""
-        if 'wave' not in data or 'wind' not in data:
             return None
 
-        wave_height = data['wave'].get('height')
-        wave_period = data['wave'].get('period')
-        wind_speed = data['wind'].get('speed')
-        wind_dir = data['wind'].get('direction')
-
-        if not all([wave_height, wave_period, wind_speed, wind_dir]):
-            return None
-        
-        # Determine quality based on wind direction and location
-        longitude = metadata['location']['coordinates'][0]
-        is_favorable_wind = self.conditions_scorer._is_favorable_wind(wind_dir, longitude)
-        quality = "Clean" if is_favorable_wind else "Fair"
-        
-        # Get wind description
-        wind_cat = WindCategory.get_category(wind_speed)
-        wind_cardinal = self.conditions_scorer._get_cardinal_direction(wind_dir)
-        
-        # Build the summary
-        summary = f"{quality} {wave_height:.1f}ft at {wave_period:.0f}s, {wind_cat} {wind_cardinal} winds"
-        
-        # Add trend if changing
-        trend_desc = self.trend_analyzer.get_trend_description(trends)
-        if trend_desc:
-            summary += f". {trend_desc}"
-                
-        return summary
-
-    def _calculate_condition_scores(self, df: pd.DataFrame, metadata: Dict) -> List[tuple]:
-        """Calculate condition scores for each time point."""
-        scores = []
-        for _, row in df.iterrows():
-            if 'wave' not in row or 'wind' not in row:
-                continue
-
-            wave_height = row['wave'].get('height')
-            wave_period = row['wave'].get('period')
-            wind_speed = row['wind'].get('speed')
-            wind_dir = row['wind'].get('direction')
+        try:
+            # Convert forecasts to DataFrame for easier analysis
+            df = pd.DataFrame(forecasts)
+            df['timestamp'] = pd.to_datetime(df['time'])
             
-            if not all([wave_height, wave_period, wind_speed, wind_dir]):
-                continue
+            # Get next 8 hours of data
+            now = datetime.now(df['timestamp'].iloc[0].tzinfo)
+            next_8_hours = df[df['timestamp'] <= now + pd.Timedelta(hours=8)].copy()
+            if len(next_8_hours) < 2:
+                return None
 
-            score = self.conditions_scorer.calculate_score(
-                wave_height, wave_period, wind_speed, wind_dir, metadata
-            )
-            scores.append((row['timestamp'], score))
+            # Analyze wave heights over the period
+            wave_heights = next_8_hours['wave'].apply(lambda x: x['height'])
+            min_height = wave_heights.min()
+            max_height = wave_heights.max()
+            start_height = wave_heights.iloc[0]
+            end_height = wave_heights.iloc[-1]
+            height_diff = end_height - start_height
+            
+            # Determine wave trend description
+            if max_height - min_height < 0.5:
+                # If very little variation, just use the average
+                avg_height = (max_height + min_height) / 2
+                wave_trend = f"Holding steady at {avg_height:.1f} ft"
+            elif abs(height_diff) < 0.5:
+                # If start and end are similar but variation in between
+                wave_trend = f"Varying between {min_height:.1f}-{max_height:.1f} ft"
+            elif height_diff > 0:
+                wave_trend = f"Building from {start_height:.1f} ft to {end_height:.1f} ft"
+            else:
+                wave_trend = f"Dropping from {start_height:.1f} ft to {end_height:.1f} ft"
 
-        return scores 
+            # Analyze wind trend
+            start_wind = next_8_hours.iloc[0]['wind']
+            end_wind = next_8_hours.iloc[-1]['wind']
+            
+            # Check if wind direction is changing significantly
+            wind_dir_change = abs(end_wind['direction'] - start_wind['direction']) > 45
+            
+            # Get wind descriptions with speeds
+            start_wind_cat = WindCategory.get_category(start_wind['speed'])
+            end_wind_cat = WindCategory.get_category(end_wind['speed'])
+            
+            # Determine wind trend description
+            if wind_dir_change:
+                wind_desc = f"winds shifting from {start_wind_cat} {self._get_cardinal_direction(start_wind['direction'])} " \
+                           f"({start_wind['speed']:.0f} mph) to {end_wind_cat} {self._get_cardinal_direction(end_wind['direction'])} " \
+                           f"({end_wind['speed']:.0f} mph)"
+            elif start_wind_cat != end_wind_cat:
+                wind_desc = f"winds {start_wind_cat.lower()} ({start_wind['speed']:.0f} mph) becoming {end_wind_cat.lower()} ({end_wind['speed']:.0f} mph)"
+            else:
+                # If wind category stays the same, check for speed variation
+                wind_speeds = next_8_hours['wind'].apply(lambda x: x['speed'])
+                if max(wind_speeds) - min(wind_speeds) > 5:
+                    wind_desc = f"with {start_wind_cat.lower()} {self._get_cardinal_direction(start_wind['direction'])} winds " \
+                               f"varying {min(wind_speeds):.0f}-{max(wind_speeds):.0f} mph"
+                else:
+                    wind_desc = f"with {start_wind_cat.lower()} {self._get_cardinal_direction(start_wind['direction'])} winds " \
+                               f"around {start_wind['speed']:.0f} mph"
+
+            # Combine into final summary with better punctuation
+            return f"{wave_trend}, {wind_desc}"
+
+        except (KeyError, AttributeError, IndexError):
+            return None
+
+    def _get_cardinal_direction(self, degrees: float) -> str:
+        """Convert degrees to cardinal direction."""
+        directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+        index = round(degrees / 45) % 8
+        return directions[index] 

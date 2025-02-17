@@ -120,18 +120,9 @@ class OffshoreController:
             if not forecast or not forecast.forecasts:
                 raise HTTPException(status_code=404, detail="No forecast available for station")
 
-            # Get current observations if available
-            current_obs = None
-            try:
-                current_obs = await self.buoy_service.get_observation(station_id)
-            except Exception as e:
-                logger.warning(f"Could not fetch observations for {station_id}: {str(e)}")
-
             # Generate fresh summary
             conditions = self.weather_service.generate_summary(
-                [f.model_dump() for f in forecast.forecasts],
-                forecast.metadata,
-                current_observations=current_obs
+                [f.model_dump() for f in forecast.forecasts]
             )
             
             return StationSummary(

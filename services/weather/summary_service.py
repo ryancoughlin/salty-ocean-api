@@ -24,8 +24,8 @@ class WeatherSummaryService:
             if len(next_8_hours) < 2:
                 return None
 
-            # Analyze wave heights over the period
-            wave_heights = next_8_hours['wave'].apply(lambda x: x['height'])
+            # Analyze wave heights over the period (convert from meters to feet)
+            wave_heights = next_8_hours['wave'].apply(lambda x: x['height'] * 3.28084)
             min_height = wave_heights.min()
             max_height = wave_heights.max()
             start_height = wave_heights.iloc[0]

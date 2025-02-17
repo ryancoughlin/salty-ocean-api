@@ -18,9 +18,14 @@ class WeatherSummaryService:
             df = pd.DataFrame(forecasts)
             df['timestamp'] = pd.to_datetime(df['time'])
             
-            # Get next 8 hours of data
+            # Get next 8 hours of data using a proper rolling window
             now = datetime.now(df['timestamp'].iloc[0].tzinfo)
-            next_8_hours = df[df['timestamp'] <= now + pd.Timedelta(hours=8)].copy()
+            window_end = now + pd.Timedelta(hours=8)
+            next_8_hours = df[
+                (df['timestamp'] >= now) & 
+                (df['timestamp'] <= window_end)
+            ].copy()
+            
             if len(next_8_hours) < 2:
                 return None
 

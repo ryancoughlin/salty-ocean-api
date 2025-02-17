@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict
+from typing import Dict, List
 from fastapi import HTTPException
 from services.weather.gfs_service import GFSForecastManager
 from models.wind_types import WindData, WindForecast
@@ -14,36 +14,45 @@ class WindController:
         self.gfs_manager = gfs_manager
         self.station_service = station_service
 
-    def _load_stations(self):
-        """Load NDBC stations from JSON file."""
+    @cached(namespace="wind_stations", expire=None)
+    async def get_stations(self) -> List[Dict]:
+        """Get all wind stations."""
         try:
-            stations_file = "ndbcStations.json"
-            with open(stations_file) as f:
-                return json.load(f)
+            return self.station_service.get_all_stations()
         except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error loading station data: {str(e)}"
-            )
+            logger.error(f"Error getting stations: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
-    def _get_station(self, station_id: str) -> Dict:
-        """Get station by ID."""
-        stations = self._load_stations()
-        station = next(
-            (s for s in stations if s["id"] == station_id),
-            None
-        )
-        
-        if not station:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Station {station_id} not found"
-            )
-        return station
+    @cached(namespace="wind_stations", expire=None)
+    async def get_stations_geojson(self) -> Dict:
+        """Get stations in GeoJSON format for mapping."""
+        try:
+            stations = self.station_service.get_all_stations()
+            
+            return {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [station["location"]["coordinates"][0], station["location"]["coordinates"][1]]
+                        },
+                        "properties": {
+                            "id": station["id"],
+                            "name": station["name"]
+                        }
+                    }
+                    for station in stations
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Error creating GeoJSON response: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
     @cached(namespace="wind_data")
     async def get_station_wind_data(self, station_id: str) -> WindData:
-        """Get current wind conditions for a specific station."""
+        """Get current wind observations for a specific station."""
         try:
             station = self.station_service.get_station(station_id)
             return self.gfs_manager.get_station_wind_data(station_id, station)

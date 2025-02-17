@@ -6,6 +6,7 @@ from services.wave_data_processor import WaveDataProcessor
 from services.wave_data_downloader import WaveDataDownloader
 from services.prefetch_service import PrefetchService
 from services.weather.gfs_service import GFSForecastManager
+from fastapi_cache import FastAPICache
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,11 @@ class SchedulerService:
         """Update GFS forecast data."""
         try:
             await self.gfs_manager.update_forecast()
+            # Clear GFS-related caches when new data is available
+            await FastAPICache.clear(namespace="gfs_wave_forecast")
+            await FastAPICache.clear(namespace="wind_data")
+            await FastAPICache.clear(namespace="wind_forecast")
+            logger.info("Cleared GFS-related caches after update")
         except Exception as e:
             logger.error(f"Failed to update GFS data: {str(e)}")
 
@@ -38,6 +44,10 @@ class SchedulerService:
                 logger.info(f"New wave model data downloaded for {run_hour}z run")
                 if self.wave_processor.get_dataset() is not None:
                     await self.prefetch_service.prefetch_all()
+                    # Clear wave-related caches when new data is available
+                    await FastAPICache.clear(namespace="wave_forecast")
+                    await FastAPICache.clear(namespace="offshore_data")
+                    logger.info("Cleared wave-related caches after update")
                     logger.info("Wave model data processed and prefetched successfully")
                 else:
                     logger.error("Failed to process wave model data")

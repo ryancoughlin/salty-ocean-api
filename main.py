@@ -8,21 +8,28 @@ from datetime import datetime
 
 from core.config import settings
 from core.logging_config import setup_logging
-from endpoints.tide_stations import router as tide_router
-from endpoints.offshore_stations import router as offshore_router
-from endpoints.wind_data import router as wind_router
-from services.wave_data_processor import WaveDataProcessor
-from services.wave_data_downloader import WaveDataDownloader
 from core.cache import init_cache
-from services.scheduler_service import SchedulerService
-from services.prefetch_service import PrefetchService
-from controllers.offshore_controller import OffshoreController
-from controllers.wind_controller import WindController
-from services.buoy_service import BuoyService
-from services.weather.summary_service import WeatherSummaryService
-from services.weather.gfs_service import GFSForecastManager
-from services.station_service import StationService
-from endpoints import wave_forecast
+
+# Feature routes
+from features.waves.routes.wave_routes import router as wave_router
+from features.tides.routes.tide_routes import router as tide_router
+from features.wind.routes.wind_routes import router as wind_router
+from features.stations.routes.station_routes import router as station_router
+
+# Wave services
+from features.waves.services.wave_data_processor import WaveDataProcessor
+from features.waves.services.wave_data_downloader import WaveDataDownloader
+from features.waves.services.scheduler_service import SchedulerService
+from features.waves.services.prefetch_service import PrefetchService
+from features.waves.services.wave_service import WaveService
+from features.waves.services.buoy_service import BuoyService
+
+# Weather services
+from features.weather.services.summary_service import WeatherSummaryService
+from features.weather.services.gfs_service import GFSForecastManager
+
+# Station services
+from features.stations.services.station_service import StationService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -36,39 +43,34 @@ async def lifespan(app: FastAPI):
         await init_cache()
 
         # Initialize services
-        wave_processor = WaveDataProcessor()
-        wave_downloader = WaveDataDownloader()
+        # wave_processor = WaveDataProcessor()
+        # wave_downloader = WaveDataDownloader()
         buoy_service = BuoyService()
         station_service = StationService()
         prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
         weather_service = WeatherSummaryService()
         gfs_manager = GFSForecastManager()
         scheduler = SchedulerService(
-            wave_processor=wave_processor,
-            wave_downloader=wave_downloader,
+            # wave_processor=wave_processor,
+            # wave_downloader=wave_downloader,
             prefetch_service=prefetch_service,
             gfs_manager=gfs_manager
         )
         
         # Store service instances in app state
-        app.state.wave_processor = wave_processor
-        app.state.wave_downloader = wave_downloader
+        # app.state.wave_processor = wave_processor
+        # app.state.wave_downloader = wave_downloader
         app.state.prefetch_service = prefetch_service
         app.state.weather_service = weather_service
         app.state.gfs_manager = gfs_manager
         app.state.scheduler = scheduler
         app.state.station_service = station_service
         
-        # Initialize controllers with services
-        app.state.offshore_controller = OffshoreController(
+        # Initialize feature services
+        app.state.wave_service = WaveService(
             prefetch_service=prefetch_service,
             weather_service=weather_service,
             buoy_service=buoy_service,
-            station_service=station_service
-        )
-        
-        app.state.wind_controller = WindController(
-            gfs_manager=gfs_manager,
             station_service=station_service
         )
         
@@ -151,11 +153,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(wave_forecast.router)
-app.include_router(tide_router, prefix="/tide-stations", tags=["tide-stations"])
-app.include_router(offshore_router, prefix="/offshore-stations", tags=["offshore-stations"])
-app.include_router(wind_router, prefix="/wind-data", tags=["wind-data"])
+# Include feature routers
+app.include_router(wave_router)
+app.include_router(tide_router)
+app.include_router(wind_router)
+app.include_router(station_router)
 
 @app.get("/health")
 async def health_check():

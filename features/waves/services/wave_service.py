@@ -3,20 +3,20 @@ from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime
 
-from services.buoy_service import BuoyService
-from services.weather.summary_service import WeatherSummaryService
-from models.ndbc_types import (
+from features.stations.models.station_types import (
     NDBCStation,
     NDBCForecastResponse,
-    StationSummary,
+    StationSummary
 )
 from core.cache import cached
-from services.prefetch_service import PrefetchService
-from services.station_service import StationService
+from features.waves.services.prefetch_service import PrefetchService
+from features.waves.services.buoy_service import BuoyService
+from features.weather.services.summary_service import WeatherSummaryService
+from features.stations.services.station_service import StationService
 
 logger = logging.getLogger(__name__)
 
-class WaveController:
+class WaveService:
     def __init__(
         self, 
         prefetch_service: PrefetchService, 

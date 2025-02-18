@@ -3,7 +3,7 @@ from typing import Dict
 from fastapi import HTTPException
 from datetime import datetime
 
-from models.ndbc_types import StationSummary
+from models.ndbc_types import StationSummary, NDBCStation, NDBCLocation
 from core.cache import cached
 from services.station_service import StationService
 from services.buoy_service import BuoyService
@@ -18,6 +18,50 @@ class StationController:
     ):
         self.station_service = station_service
         self.buoy_service = buoy_service
+
+    @cached(namespace="ndbc_observations")
+    async def get_station_observations(self, station_id: str) -> NDBCStation:
+        """Get real-time observations for a specific station.
+        
+        Args:
+            station_id: The station identifier
+            
+        Returns:
+            NDBCStation: Station info with latest observations
+            
+        Raises:
+            HTTPException: If station not found or error fetching data
+        """
+        try:
+            # Get station metadata
+            station = self.station_service.get_station(station_id)
+            if not station:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Station {station_id} not found"
+                )
+            
+            # Fetch latest observations
+            observation = await self.buoy_service.get_observation(station_id)
+            
+            # Return complete station data
+            return NDBCStation(
+                station_id=station_id,
+                name=station["name"],
+                location=NDBCLocation(
+                    type="Point", 
+                    coordinates=station["location"]["coordinates"]
+                ),
+                observations=observation
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching observations: {str(e)}"
+            )
 
     @cached(namespace="station_summary")
     async def get_station_summary(self, station_id: str) -> StationSummary:

@@ -28,6 +28,9 @@ from features.weather.services.gfs_service import GFSForecastManager
 # Station services
 from features.stations.services.station_service import StationService
 
+# Wind services
+from features.wind.services.wind_service import WindService
+
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -44,11 +47,9 @@ async def lifespan(app: FastAPI):
         station_service = StationService()
         gfs_client = NOAAGFSClient()
         weather_service = WeatherSummaryService()
-        gfs_manager = GFSForecastManager()
         
         # Store service instances in app state
         app.state.weather_service = weather_service
-        app.state.gfs_manager = gfs_manager
         app.state.gfs_client = gfs_client
         app.state.station_service = station_service
         
@@ -60,13 +61,12 @@ async def lifespan(app: FastAPI):
             station_service=station_service
         )
         
+        app.state.wind_service = WindService(
+            station_service=station_service
+        )
+        
         # Initial data load
         try:
-            # Initialize GFS data
-            logger.info("Initializing GFS forecast data...")
-            await gfs_manager.initialize()
-            logger.info("GFS forecast data initialized successfully")
-
             logger.info("🚀 App started")
             yield
             

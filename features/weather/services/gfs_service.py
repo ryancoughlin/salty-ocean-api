@@ -7,7 +7,7 @@ from fastapi import HTTPException
 import numpy as np
 import xarray as xr
 
-from features.wind.models.wind_types import WindData, WindForecast
+from features.wind.models.wind_types import WindData, WindForecastResponse
 from features.common.models.station_types import StationInfo
 from core.cache import cached
 
@@ -110,10 +110,6 @@ class GFSForecastManager:
             speed, direction = self._calculate_wind(u, v)
             
             return WindData(
-                station_id=station_id,
-                station_name=station_info["name"],
-                latitude=lat,
-                longitude=lon,
                 timestamp=current_time,
                 wind_speed=speed,
                 wind_gust=gust,
@@ -127,7 +123,7 @@ class GFSForecastManager:
                 detail=f"Error processing wind data: {str(e)}"
             )
 
-    def get_station_wind_forecast(self, station_id: str, station_info: Dict) -> WindForecast:
+    def get_station_wind_forecast(self, station_id: str, station_info: Dict) -> WindForecastResponse:
         """Get 7-day wind forecast for a station."""
         if not self.forecast:
             raise HTTPException(
@@ -143,20 +139,7 @@ class GFSForecastManager:
             # Get the latest forecast run time
             current_time = datetime.now(timezone.utc)
             
-            # Get all forecast data at once with time range
-            result = self.forecast.get(
-                ["ugrd10m", "vgrd10m", "gustsfc"],
-                current_time.strftime("%Y%m%d %H:%M"),
-                str(lat),  # Convert to string as required by the API
-                str(lon),  # Convert to string as required by the API
-            )
-            
-            # Get the time dimension size from the data
-            time_steps = len(result.variables["ugrd10m"].data)
-            logger.info(f"Retrieved {time_steps} time steps from GFS")
-            
             # Get forecast times for next 7 days at 3-hour intervals
-            forecast_times = []
             for i in range(0, 169, 3):  # 0 to 168 hours (7 days) in 3-hour steps
                 forecast_time = current_time + timedelta(hours=i)
                 result = self.forecast.get(
@@ -176,10 +159,6 @@ class GFSForecastManager:
                     speed, direction = self._calculate_wind(u, v)
                     
                     forecasts.append(WindData(
-                        station_id=station_id,
-                        station_name=station_info["name"],
-                        latitude=lat,
-                        longitude=lon,
                         timestamp=forecast_time,
                         wind_speed=speed,
                         wind_gust=gust,
@@ -197,11 +176,16 @@ class GFSForecastManager:
             
             logger.info(f"Processed {len(forecasts)} forecasts for station {station_id}")
             
-            return WindForecast(
-                station_id=station_id,
-                station_name=station_info["name"],
+            # Create station info model
+            station = StationInfo(
+                id=station_id,
+                name=station_info["name"],
                 latitude=lat,
-                longitude=lon,
+                longitude=lon
+            )
+            
+            return WindForecastResponse(
+                station=station,
                 forecasts=forecasts
             )
             

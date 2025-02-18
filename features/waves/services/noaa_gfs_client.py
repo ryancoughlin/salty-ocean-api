@@ -37,7 +37,6 @@ class GFSModelCycle(BaseModel):
 
 class GFSWaveForecast(BaseModel):
     """Complete GFS wave forecast for a station."""
-    station_id: str
     station_info: StationInfo
     cycle: GFSModelCycle
     forecasts: List[GFSForecastPoint]

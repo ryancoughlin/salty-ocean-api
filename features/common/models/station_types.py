@@ -1,8 +1,13 @@
 from pydantic import BaseModel
-from geojson_pydantic import Point
+from typing import List
+
+class Location(BaseModel):
+    """Station location in GeoJSON Point format."""
+    type: str = "Point"
+    coordinates: List[float]
 
 class StationInfo(BaseModel):
-    """Station information used across all endpoints."""
+    """Common station information model."""
+    id: str
     name: str
-    location: Point
-    type: str = "buoy" 
+    location: Location 

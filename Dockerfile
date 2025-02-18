@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required for cfgrib
+# Install system dependencies required for GRIB2 processing
 RUN apt-get update && apt-get install -y \
     libeccodes0 \
     libeccodes-dev \
@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs
+RUN mkdir -p /app/data /app/logs /app/tmp/gfs_wind
 
 # Expose the port the app runs on
 EXPOSE 5010

@@ -1,18 +1,18 @@
-import json
 import logging
 from typing import Dict, List
 from fastapi import HTTPException
 
-from features.wind.models.wind_types import WindData, WindForecast
-from features.weather.services.gfs_service import GFSForecastManager
+from features.wind.models.wind_types import WindData, WindForecastResponse
+from features.wind.services.gfs_wind_client import GFSWindClient
 from features.stations.services.station_service import StationService
+from features.common.models.station_types import StationInfo
 from core.cache import cached
 
 logger = logging.getLogger(__name__)
 
 class WindService:
-    def __init__(self, gfs_manager: GFSForecastManager, station_service: StationService):
-        self.gfs_manager = gfs_manager
+    def __init__(self, station_service: StationService):
+        self.gfs_client = GFSWindClient()
         self.station_service = station_service
 
     @cached(namespace="wind_stations", expire=None)
@@ -55,13 +55,29 @@ class WindService:
     async def get_station_wind_data(self, station_id: str) -> WindData:
         """Get current wind observations for a specific station."""
         try:
-            station = self.station_service.get_station(station_id)
-            if not station:
+            station_data = self.station_service.get_station(station_id)
+            if not station_data:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Station {station_id} not found"
                 )
-            return self.gfs_manager.get_station_wind_data(station_id, station)
+                
+            # Convert station data to StationInfo model
+            station = StationInfo(
+                id=station_id,
+                name=station_data["name"],
+                location=station_data["location"],
+            )
+            
+            wind_data = await self.gfs_client.get_station_wind_data(station)
+            if not wind_data:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Unable to fetch wind data"
+                )
+                
+            return wind_data
+            
         except HTTPException:
             raise
         except Exception as e:
@@ -72,16 +88,32 @@ class WindService:
             )
 
     @cached(namespace="wind_forecast")
-    async def get_station_wind_forecast(self, station_id: str) -> WindForecast:
+    async def get_station_wind_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind forecast for a specific station."""
         try:
-            station = self.station_service.get_station(station_id)
-            if not station:
+            station_data = self.station_service.get_station(station_id)
+            if not station_data:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Station {station_id} not found"
                 )
-            return self.gfs_manager.get_station_wind_forecast(station_id, station)
+                
+            # Convert station data to StationInfo model
+            station = StationInfo(
+                id=station_id,
+                name=station_data["name"],
+                location=station_data["location"],
+            )
+            
+            forecast = await self.gfs_client.get_station_wind_forecast(station)
+            if not forecast:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Unable to fetch wind forecast"
+                )
+                
+            return forecast
+            
         except HTTPException:
             raise
         except Exception as e:

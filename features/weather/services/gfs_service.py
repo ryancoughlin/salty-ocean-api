@@ -8,13 +8,7 @@ import numpy as np
 import xarray as xr
 
 from features.wind.models.wind_types import WindData, WindForecast
-from features.weather.models.gfs_types import (
-    GFSWaveForecast,
-    GFSCycle,
-    StationInfo,
-    WaveForecast,
-    WaveComponent
-)
+from features.common.models.station_types import StationInfo
 from core.cache import cached
 
 logger = logging.getLogger(__name__)

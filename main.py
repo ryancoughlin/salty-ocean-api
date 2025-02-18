@@ -16,13 +16,10 @@ from features.tides.routes.tide_routes import router as tide_router
 from features.wind.routes.wind_routes import router as wind_router
 from features.stations.routes.station_routes import router as station_router
 
-# Wave services
-from features.waves.services.wave_data_processor import WaveDataProcessor
-from features.waves.services.wave_data_downloader import WaveDataDownloader
-from features.waves.services.scheduler_service import SchedulerService
-from features.waves.services.prefetch_service import PrefetchService
-from features.waves.services.wave_service import WaveService
-from features.waves.services.buoy_service import BuoyService
+# Wave services and clients
+from features.waves.services.noaa_gfs_client import NOAAGFSClient
+from features.waves.services.wave_data_service import WaveDataService
+from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 
 # Weather services
 from features.weather.services.summary_service import WeatherSummaryService
@@ -42,35 +39,24 @@ async def lifespan(app: FastAPI):
 
         await init_cache()
 
-        # Initialize services
-        # wave_processor = WaveDataProcessor()
-        # wave_downloader = WaveDataDownloader()
-        buoy_service = BuoyService()
+        # Initialize services and clients
+        buoy_client = NDBCBuoyClient()
         station_service = StationService()
-        prefetch_service = PrefetchService(wave_processor=wave_processor, buoy_service=buoy_service)
+        gfs_client = NOAAGFSClient()
         weather_service = WeatherSummaryService()
         gfs_manager = GFSForecastManager()
-        scheduler = SchedulerService(
-            # wave_processor=wave_processor,
-            # wave_downloader=wave_downloader,
-            prefetch_service=prefetch_service,
-            gfs_manager=gfs_manager
-        )
         
         # Store service instances in app state
-        # app.state.wave_processor = wave_processor
-        # app.state.wave_downloader = wave_downloader
-        app.state.prefetch_service = prefetch_service
         app.state.weather_service = weather_service
         app.state.gfs_manager = gfs_manager
-        app.state.scheduler = scheduler
+        app.state.gfs_client = gfs_client
         app.state.station_service = station_service
         
         # Initialize feature services
-        app.state.wave_service = WaveService(
-            prefetch_service=prefetch_service,
+        app.state.wave_service = WaveDataService(
+            gfs_client=gfs_client,
             weather_service=weather_service,
-            buoy_service=buoy_service,
+            buoy_client=buoy_client,
             station_service=station_service
         )
         
@@ -80,31 +66,7 @@ async def lifespan(app: FastAPI):
             logger.info("Initializing GFS forecast data...")
             await gfs_manager.initialize()
             logger.info("GFS forecast data initialized successfully")
-            
-            # Initialize wave model data
-            logger.info("Checking wave model data...")
-            if await wave_downloader.download_latest():
-                logger.info("New wave model data downloaded")
-            else:
-                logger.info("Using existing wave model data")
-        
-            # Load the data
-            logger.info("Loading wave model data...")
-            if wave_processor.get_dataset() is not None:
-                logger.info("Wave model data loaded successfully")
-                
-                # Prefetch forecast data
-                logger.info("Prefetching forecast data...")
-                await prefetch_service.prefetch_all()
-                logger.info("Forecast data prefetched successfully")
-            else:
-                logger.error("Failed to load wave model data")
-                raise HTTPException(status_code=500, detail="Failed to load wave model data")
-        
-            # Start scheduler for future updates
-            logger.info("Starting scheduler...")
-            await scheduler.start()
-        
+
             logger.info("🚀 App started")
             yield
             
@@ -128,11 +90,10 @@ async def lifespan(app: FastAPI):
             app.state.gfs_manager.last_update = None
             logger.info("GFS forecast data cleared")
             
-        # Clear wave model data
-        if hasattr(app.state, "wave_processor"):
-            app.state.wave_processor.close_dataset()
-        if hasattr(app.state, 'wave_downloader'):
-            await app.state.wave_downloader.close()
+        # Close GFS wave service
+        if hasattr(app.state, "gfs_wave_service"):
+            await app.state.gfs_wave_service.close()
+            
         logger.info("App shutdown")
 
 app = FastAPI(

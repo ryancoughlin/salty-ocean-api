@@ -15,7 +15,7 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class BuoyService:
+class NDBCBuoyClient:
     def __init__(self):
         self._session: Optional[aiohttp.ClientSession] = None
         

@@ -9,22 +9,42 @@ from functools import partial
 import numpy as np
 import xarray as xr
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 
-from features.weather.models.gfs_types import (
-    GFSWaveForecast,
-    GFSCycle,
-    StationInfo,
-    WaveForecast,
-    WaveComponent
-)
+from features.common.models.station_types import StationInfo
 from core.config import settings
 from core.cache import cached
 
 logger = logging.getLogger(__name__)
 
-def create_wave_component(height_m: float, period: float, direction: float) -> WaveComponent:
+# Internal GFS types - not exposed in API
+class GFSWaveComponent(BaseModel):
+    """Individual wave component in GFS forecast."""
+    height_m: float = Field(..., description="Wave height in meters")
+    height_ft: float = Field(..., description="Wave height in feet")
+    period: float = Field(..., description="Wave period in seconds")
+    direction: float = Field(..., description="Wave direction in degrees")
+
+class GFSForecastPoint(BaseModel):
+    """Single point in GFS wave forecast."""
+    timestamp: datetime = Field(..., description="Forecast timestamp in UTC")
+    waves: List[GFSWaveComponent] = Field(..., description="Wave components sorted by height")
+
+class GFSModelCycle(BaseModel):
+    """GFS model run information."""
+    date: str = Field(..., description="Model run date in YYYYMMDD format")
+    hour: str = Field(..., description="Model run hour in HH format (UTC)")
+
+class GFSWaveForecast(BaseModel):
+    """Complete GFS wave forecast for a station."""
+    station_id: str
+    station_info: StationInfo
+    cycle: GFSModelCycle
+    forecasts: List[GFSForecastPoint]
+
+def create_wave_component(height_m: float, period: float, direction: float) -> GFSWaveComponent:
     """Create a wave component with height conversion."""
-    return WaveComponent(
+    return GFSWaveComponent(
         height_m=height_m,
         height_ft=height_m * 3.28084,
         period=period,
@@ -62,11 +82,11 @@ def parse_wave_values(component: str) -> Optional[Tuple[float, float, float]]:
     except (ValueError, IndexError):
         return None
 
-def create_forecast(timestamp: datetime, wave_components: List[WaveComponent]) -> Optional[WaveForecast]:
+def create_forecast(timestamp: datetime, wave_components: List[GFSWaveComponent]) -> Optional[GFSForecastPoint]:
     """Create a forecast with sorted wave components."""
     if not wave_components:
         return None
-    return WaveForecast(
+    return GFSForecastPoint(
         timestamp=timestamp,
         waves=sorted(wave_components, key=lambda x: x.height_m, reverse=True)
     )
@@ -78,7 +98,7 @@ def is_header_line(line: str) -> bool:
             line.startswith("|") and ("day" in line.lower() or "hour" in line.lower()) or
             any(x in line for x in ["Location", "Model", "Cycle"]))
 
-def parse_bulletin_line(line: str, cycle_dt: datetime) -> Optional[WaveForecast]:
+def parse_bulletin_line(line: str, cycle_dt: datetime) -> Optional[GFSForecastPoint]:
     """Parse a single bulletin line into a forecast."""
     try:
         # Clean and split line
@@ -113,17 +133,17 @@ def parse_bulletin_line(line: str, cycle_dt: datetime) -> Optional[WaveForecast]
         return None
 
 def filter_forecasts_by_date_range(
-    forecasts: List[WaveForecast],
+    forecasts: List[GFSForecastPoint],
     start_date: datetime,
     end_date: datetime
-) -> List[WaveForecast]:
+) -> List[GFSForecastPoint]:
     """Filter forecasts within date range and sort by timestamp."""
     return sorted(
         [f for f in forecasts if start_date <= f.timestamp < end_date],
         key=lambda x: x.timestamp
     )
 
-class GFSWaveService:
+class NOAAGFSClient:
     def __init__(self):
         self._session: Optional[aiohttp.ClientSession] = None
         
@@ -190,7 +210,7 @@ class GFSWaveService:
             logger.error(f"Error fetching bulletin for station {station_id}: {str(e)}")
             return None
 
-    def _parse_bulletin(self, bulletin_text: str, cycle_date: str, cycle_hour: str) -> List[WaveForecast]:
+    def _parse_bulletin(self, bulletin_text: str, cycle_date: str, cycle_hour: str) -> List[GFSForecastPoint]:
         """Parse a GFS wave bulletin into a list of forecasts."""
         cycle_dt = datetime.strptime(f"{cycle_date} {cycle_hour}", "%Y%m%d %H")
         cycle_dt = cycle_dt.replace(tzinfo=timezone.utc)
@@ -216,6 +236,13 @@ class GFSWaveService:
     async def get_station_forecast(self, station_id: str, station_info: Dict) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
+            # Convert station dictionary to StationInfo model
+            station = StationInfo(
+                name=station_info["name"],
+                location=station_info["location"],
+                type="buoy"
+            )
+            
             # Get current cycle
             date, hour = self._find_latest_cycle()
             logger.info(f"Using forecast cycle: {date} {hour}Z")
@@ -248,27 +275,18 @@ class GFSWaveService:
                 if prev_bulletin:
                     prev_forecasts = self._parse_bulletin(prev_bulletin, prev_date, prev_hour)
                     if prev_forecasts:
-                        prev_forecasts = sorted(prev_forecasts, key=lambda x: x.timestamp)
-                        logger.info(f"Previous cycle has {len(prev_forecasts)} forecasts from {prev_forecasts[0].timestamp} to {prev_forecasts[-1].timestamp}")
-                        
-                        todays_forecasts = [f for f in prev_forecasts 
-                                          if f.timestamp.date() == today.date() 
-                                          and f.timestamp < current_forecasts[0].timestamp]
-                        if todays_forecasts:
-                            logger.info(f"Adding {len(todays_forecasts)} forecasts from previous cycle for today")
-                            current_forecasts = todays_forecasts + current_forecasts
+                        prev_forecasts = filter_forecasts_by_date_range(
+                            prev_forecasts,
+                            today,
+                            current_forecasts[0].timestamp
+                        )
+                        logger.info(f"Adding {len(prev_forecasts)} forecasts from previous cycle for today")
+                        current_forecasts = prev_forecasts + current_forecasts
             
             return GFSWaveForecast(
                 station_id=station_id,
-                station_info=StationInfo(
-                    name=station_info["name"],
-                    location=station_info["location"],
-                    type=station_info.get("type", "buoy")
-                ),
-                cycle=GFSCycle(
-                    date=date,
-                    hour=hour
-                ),
+                station_info=station,
+                cycle=GFSModelCycle(date=date, hour=hour),
                 forecasts=current_forecasts
             )
             

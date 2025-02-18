@@ -1,23 +1,18 @@
 import logging
 import asyncio
-from datetime import datetime, timedelta
-from features.waves.services.wave_data_processor import WaveDataProcessor
-from features.waves.services.wave_data_downloader import WaveDataDownloader
+from datetime import datetime, timedelta, timezone
 from features.waves.services.prefetch_service import PrefetchService
 from features.weather.services.gfs_service import GFSForecastManager
+from fastapi_cache import FastAPICache
 
 logger = logging.getLogger(__name__)
 
 class SchedulerService:
     def __init__(
         self,
-        wave_processor: WaveDataProcessor,
-        wave_downloader: WaveDataDownloader,
         prefetch_service: PrefetchService,
         gfs_manager: GFSForecastManager
     ):
-        self.wave_processor = wave_processor
-        self.wave_downloader = wave_downloader
         self.prefetch_service = prefetch_service
         self.gfs_manager = gfs_manager
         self._task = None
@@ -51,23 +46,17 @@ class SchedulerService:
         try:
             while self._running:
                 try:
-                    # Check for new wave model data
-                    download_success = await self.wave_downloader.download_latest()
-                    
-                    if download_success:
-                        logger.info("New wave model data downloaded")
-                        # Reload wave processor dataset
-                        if await self.wave_processor.preload_dataset() is None:
-                            logger.error("Failed to load new wave model data")
+                    # Update GFS data
+                    if await self.gfs_manager.update_forecast():
+                        logger.info("New GFS data downloaded")
+                        # Prefetch new forecasts
+                        await self.prefetch_service.prefetch_all()
+                        # Clear caches
+                        await FastAPICache.clear(namespace="wave_forecast")
+                        await FastAPICache.clear(namespace="gfs_wave_forecast")
+                        logger.info("Wave forecasts updated and caches cleared")
                     else:
-                        # If download failed, check if it was due to 403
-                        if self.wave_downloader._download_state.get("error_type") == "forbidden":
-                            logger.warning("NOAA API access denied - continuing with existing data if available")
-                            # Don't try to reload data, just keep using existing
-                            await asyncio.sleep(self.wave_downloader._download_state["retry_after"])
-                            continue
-                            
-                        logger.warning("No new wave model data available, using existing data")
+                        logger.info("No new GFS data available")
                         
                     # Wait before next check (10 minutes)
                     await asyncio.sleep(600)
@@ -78,7 +67,4 @@ class SchedulerService:
                     
         except asyncio.CancelledError:
             logger.info("Scheduler cancelled")
-            raise
-        finally:
-            # Ensure resources are cleaned up
-            self.wave_processor.close_dataset() 
+            raise 

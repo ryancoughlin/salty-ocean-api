@@ -1,9 +1,10 @@
 import logging
 from typing import Dict, List, Optional
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+import numpy as np
 
-from features.weather.models.weather_types import WindCategory, TrendType
+from features.wind.models.wind_categories import WindCategory, TrendType
 from features.weather.services.conditions_scorer import ConditionsScorer
 from features.weather.services.trend_analyzer import TrendAnalyzer
 

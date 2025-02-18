@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from fastapi import HTTPException
 from pathlib import Path
 
@@ -11,7 +11,7 @@ class StationService:
         self.stations_file = stations_file
         self._stations: Optional[Dict] = None
         
-    def _load_stations(self) -> Dict:
+    def _load_stations(self) -> List[Dict]:
         """Load NDBC stations from JSON file."""
         if self._stations is not None:
             return self._stations
@@ -39,4 +39,8 @@ class StationService:
                 status_code=404,
                 detail=f"Station {station_id} not found"
             )
-        return station 
+        return station
+        
+    def get_stations(self) -> List[Dict]:
+        """Get all stations."""
+        return self._load_stations() 

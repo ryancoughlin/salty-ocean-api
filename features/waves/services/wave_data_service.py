@@ -5,7 +5,6 @@ from datetime import datetime
 
 from features.stations.models.summary_types import StationSummary
 from features.waves.models.wave_types import (
-    WaveData,
     WaveForecastPoint,
     WaveForecastResponse
 )
@@ -58,11 +57,9 @@ class WaveDataService:
                 primary_wave = point.waves[0] if point.waves else None
                 forecast_points.append(WaveForecastPoint(
                     time=point.timestamp,
-                    wave=WaveData(
-                        height=primary_wave.height_ft if primary_wave else None,
-                        period=primary_wave.period if primary_wave else None,
-                        direction=primary_wave.direction if primary_wave else None
-                    )
+                    height=primary_wave.height_ft if primary_wave else None,
+                    period=primary_wave.period if primary_wave else None,
+                    direction=primary_wave.direction if primary_wave else None
                 ))
             
             return WaveForecastResponse(
@@ -90,11 +87,9 @@ class WaveDataService:
             forecast_points = [
                 {
                     "time": point.time,
-                    "wave": {
-                        "height": point.wave.height if point.wave else None,
-                        "period": point.wave.period if point.wave else None,
-                        "direction": point.wave.direction if point.wave else None
-                    }
+                    "height": point.height,
+                    "period": point.period,
+                    "direction": point.direction
                 }
                 for point in forecast.forecasts
             ]

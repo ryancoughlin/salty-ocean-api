@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
+import asyncio
 
 from core.config import settings
 from core.logging_config import setup_logging
@@ -25,6 +26,7 @@ from features.stations.services.station_service import StationService
 from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
+from features.common.services.model_run_task import run_model_task
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -67,20 +69,30 @@ async def lifespan(app: FastAPI):
             station_service=station_service
         )
         
-        # Initial data load
-        try:
-            logger.info("🚀 App started")
-            yield
-            
-        except Exception as e:
-            logger.error(f"Error during data initialization: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+        # Initialize model run task
+        model_run_task = asyncio.create_task(
+            run_model_task(
+                model_run_service=model_run_service,
+                wave_client=gfs_wave_client,
+                wind_client=gfs_wind_client
+            )
+        )
+        app.state.model_run_task = model_run_task
+        
+        logger.info("🚀 App started")
+        yield
             
     except Exception as e:
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
-        logger.info("Shutting down application...")
+        # Cancel model run task
+        if hasattr(app.state, "model_run_task"):
+            app.state.model_run_task.cancel()
+            try:
+                await app.state.model_run_task
+            except asyncio.CancelledError:
+                pass
         logger.info("App shutdown")
 
 app = FastAPI(
@@ -112,7 +124,6 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "scheduler_running": app.state.scheduler._task is not None and not app.state.scheduler._task.done(),
         "time": datetime.now().isoformat()
     }
 

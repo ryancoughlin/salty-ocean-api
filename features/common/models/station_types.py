@@ -15,8 +15,8 @@ class Station(BaseModel):
     type: str = "buoy"  # Default to buoy type if not specified
     
     class Config:
-        populate_by_name = True  # Allow both alias and field name to be used
-        from_attributes = True  # Support attribute access for ORM models
+        populate_by_name = True
+        from_attributes = True
 
 class WindData(BaseModel):
     """Wind measurements from model data."""

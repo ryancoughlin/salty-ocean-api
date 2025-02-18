@@ -1,7 +1,32 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Tuple
+
+class ModelRunStatus(str, Enum):
+    """Status of a model run cycle."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+class ModelRunAttempt(BaseModel):
+    """Record of an attempt to process a model run."""
+    cycle_id: str = Field(..., description="Unique identifier for the cycle (YYYYMMDD_HH)")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: ModelRunStatus
+    error: Optional[str] = None
+
+class ModelRunConfig(BaseModel):
+    """Configuration for model run processing."""
+    check_interval_seconds: int = Field(default=300, description="Interval between cycle checks")
+    retry_interval_seconds: int = Field(default=60, description="Interval between retries")
+    max_retries: int = Field(default=3, description="Maximum number of retry attempts")
+    test_station_id: str = Field(default="44098", description="Station ID used for testing")
+    test_location: Tuple[float, float] = Field(
+        default=(40.0, -70.0),
+        description="Test location (lat, lon) for wind data"
+    )
 
 class ModelCycle(str, Enum):
     """GFS model cycle hours."""
@@ -35,19 +60,6 @@ class CycleAttempt(BaseModel):
     last_attempt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: CycleStatus = Field(default=CycleStatus.PENDING)
     error: Optional[str] = Field(default=None)
-    
-    class Config:
-        from_attributes = True
-
-class ModelRunConfig(BaseModel):
-    """Configuration for model run service."""
-    cycles: list[ModelCycle] = Field(
-        default=[ModelCycle.CYCLE_00Z, ModelCycle.CYCLE_06Z, 
-                ModelCycle.CYCLE_12Z, ModelCycle.CYCLE_18Z]
-    )
-    processing_delay_hours: int = Field(default=6)
-    max_attempts: int = Field(default=5)
-    min_retry_delay_minutes: int = Field(default=15)
     
     class Config:
         from_attributes = True

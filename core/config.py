@@ -19,7 +19,17 @@ class Settings(BaseSettings):
         "prefix": "salty_ocean"
     }
     
+    # NDBC settings
     ndbc_base_url: str = "https://www.ndbc.noaa.gov/data/realtime2/"
+    ndbc_data_types: Dict[str, str] = {
+        "std": "txt",           # Standard meteorological data
+        "spec": "spec",         # Spectral wave summary
+        "data_spec": "data_spec", # Raw spectral wave data
+        "swdir": "swdir",       # Spectral wave direction (alpha1)
+        "swdir2": "swdir2",     # Spectral wave direction (alpha2)
+        "swr1": "swr1",         # Spectral wave data (r1)
+        "swr2": "swr2"          # Spectral wave data (r2)
+    }
 
     coops_metadata_url: str = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi"
     coops_base_url: str = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
@@ -86,6 +96,8 @@ class Settings(BaseSettings):
         """Get cache TTL values. Cache is flushed when new model data is available."""
         return {
             "wave_forecast": 14400,     # 4 hours (max time between model runs)
+            "wind_forecast": 14400,     # 4 hours (max time between model runs)
+            "wind_data": 14400,         # 4 hours (max time between model runs)
             "station_summary": 1800,    # 30 minutes (match NDBC observation frequency)
             "ndbc_observations": 1800,  # 30 minutes (NDBC updates at :26 and :56)
             "tide_stations": None,      # No expiration for static station lists

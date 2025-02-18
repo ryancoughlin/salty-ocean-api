@@ -1,19 +1,13 @@
 import logging
 import aiohttp
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Dict, Tuple, Callable
-from pathlib import Path
-from itertools import groupby
-from operator import attrgetter
-from functools import partial
-import numpy as np
-import xarray as xr
-from fastapi import HTTPException
+from typing import Optional, List, Tuple
 from pydantic import BaseModel, Field
 
-from features.common.models.station_types import StationInfo
+from features.common.models.station_types import Station
 from core.config import settings
 from core.cache import cached
+from features.common.services.model_run_service import ModelRunService
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +31,7 @@ class GFSModelCycle(BaseModel):
 
 class GFSWaveForecast(BaseModel):
     """Complete GFS wave forecast for a station."""
-    station_info: StationInfo
+    station_info: Station
     cycle: GFSModelCycle
     forecasts: List[GFSForecastPoint]
 
@@ -143,8 +137,9 @@ def filter_forecasts_by_date_range(
     )
 
 class NOAAGFSClient:
-    def __init__(self):
+    def __init__(self, model_run_service: ModelRunService):
         self._session: Optional[aiohttp.ClientSession] = None
+        self.model_run_service = model_run_service
         
     async def _init_session(self) -> aiohttp.ClientSession:
         if not self._session:
@@ -155,32 +150,6 @@ class NOAAGFSClient:
         if self._session:
             await self._session.close()
             self._session = None
-
-    def _find_latest_cycle(self) -> Tuple[str, str]:
-        """Find the latest available GFS cycle.
-        
-        Returns:
-            Tuple[str, str]: (date in YYYYMMDD format, hour in HH format)
-        """
-        current_time = datetime.now(timezone.utc)
-        current_hour = current_time.hour
-        
-        # Find most recent cycle (00/06/12/18Z)
-        cycle_hour = (current_hour // 6) * 6
-        cycle_date = current_time
-        
-        # GFS data is typically available ~5-6 hours after cycle start
-        hours_since_cycle = current_hour - cycle_hour
-        if hours_since_cycle < 6:
-            # Go back to previous cycle
-            if cycle_hour == 0:
-                cycle_date = current_time - timedelta(days=1)
-                cycle_hour = 18
-            else:
-                cycle_hour -= 6
-                
-        logger.info(f"Current time: {current_time}, Selected cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour:02d}Z")
-        return cycle_date.strftime("%Y%m%d"), f"{cycle_hour:02d}"
 
     async def _check_cycle_availability(self, date: str, hour: str) -> bool:
         """Check if a GFS cycle is available by attempting to access a test file."""
@@ -214,61 +183,49 @@ class NOAAGFSClient:
         cycle_dt = datetime.strptime(f"{cycle_date} {cycle_hour}", "%Y%m%d %H")
         cycle_dt = cycle_dt.replace(tzinfo=timezone.utc)
         
-        logger.info(f"Parsing bulletin for cycle {cycle_dt}")
-        logger.info(f"First 5 lines of bulletin:\n" + "\n".join(bulletin_text.splitlines()[:5]))
-        
         # Filter out headers and parse valid lines
         valid_lines = [line for line in bulletin_text.splitlines() if not is_header_line(line)]
-        logger.info(f"First valid line: {valid_lines[0] if valid_lines else 'No valid lines'}")
         
         forecasts = []
         for line in valid_lines:
             forecast = parse_bulletin_line(line, cycle_dt)
             if forecast:
                 forecasts.append(forecast)
-                if len(forecasts) <= 2:  # Log first two forecasts for debugging
-                    logger.info(f"Parsed forecast: {forecast.timestamp}")
         
         return forecasts
 
     @cached(namespace="gfs_wave_forecast")
-    async def get_station_forecast(self, station_id: str, station_info: Dict) -> GFSWaveForecast:
+    async def get_station_forecast(self, station_id: str, station: Station) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
-            # Convert station dictionary to StationInfo model
-            station = StationInfo(
-                name=station_info["name"],
-                location=station_info["location"],
-                type="buoy"
-            )
-            
             # Get current cycle
-            date, hour = self._find_latest_cycle()
-            logger.info(f"Using forecast cycle: {date} {hour}Z")
+            cycle_date, cycle_hour = await self.model_run_service.get_latest_available_cycle()
+            date = cycle_date.strftime("%Y%m%d")
+            logger.debug(f"Using forecast cycle: {date} {cycle_hour}Z")
             
             # Get bulletin and parse forecasts from current cycle
-            if not await self._check_cycle_availability(date, hour):
-                raise Exception(f"Latest GFS cycle not yet available: {date} {hour}Z")
+            if not await self._check_cycle_availability(date, cycle_hour):
+                raise Exception(f"Latest GFS cycle not yet available: {date} {cycle_hour}Z")
                 
-            bulletin = await self._get_station_bulletin(station_id, date, hour)
+            bulletin = await self._get_station_bulletin(station_id, date, cycle_hour)
             if not bulletin:
                 raise Exception(f"No forecast data found for station {station_id}")
                 
-            current_forecasts = self._parse_bulletin(bulletin, date, hour)
+            current_forecasts = self._parse_bulletin(bulletin, date, cycle_hour)
             if not current_forecasts:
                 raise Exception(f"Failed to parse forecast data for station {station_id}")
             
             # Sort current forecasts by timestamp
             current_forecasts = sorted(current_forecasts, key=lambda x: x.timestamp)
-            logger.info(f"Current cycle has {len(current_forecasts)} forecasts from {current_forecasts[0].timestamp} to {current_forecasts[-1].timestamp}")
+            logger.debug(f"Current cycle has {len(current_forecasts)} forecasts")
             
             # If current cycle starts tomorrow, get today's data from previous cycle
             now = datetime.now(timezone.utc)
             today = now.replace(hour=0, minute=0, second=0, microsecond=0)
             if current_forecasts[0].timestamp.date() > today.date():
-                logger.info("Current cycle starts tomorrow, getting today's data from previous cycle")
+                logger.debug("Getting today's data from previous cycle")
                 prev_date = (datetime.strptime(date, "%Y%m%d") - timedelta(days=1)).strftime("%Y%m%d")
-                prev_hour = "18" if hour == "00" else f"{int(hour)-6:02d}"
+                prev_hour = "18" if cycle_hour == "00" else f"{int(cycle_hour)-6:02d}"
                 
                 prev_bulletin = await self._get_station_bulletin(station_id, prev_date, prev_hour)
                 if prev_bulletin:
@@ -279,13 +236,12 @@ class NOAAGFSClient:
                             today,
                             current_forecasts[0].timestamp
                         )
-                        logger.info(f"Adding {len(prev_forecasts)} forecasts from previous cycle for today")
+                        logger.debug(f"Added {len(prev_forecasts)} forecasts from previous cycle")
                         current_forecasts = prev_forecasts + current_forecasts
             
             return GFSWaveForecast(
-                station_id=station_id,
                 station_info=station,
-                cycle=GFSModelCycle(date=date, hour=hour),
+                cycle=GFSModelCycle(date=date, hour=cycle_hour),
                 forecasts=current_forecasts
             )
             

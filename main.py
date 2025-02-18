@@ -16,20 +16,15 @@ from features.tides.routes.tide_routes import router as tide_router
 from features.wind.routes.wind_routes import router as wind_router
 from features.stations.routes.station_routes import router as station_router
 
-# Wave services and clients
+# Services and clients
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.waves.services.wave_data_service import WaveDataService
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
-
-# Weather services
 from features.weather.services.summary_service import WeatherSummaryService
-from features.weather.services.gfs_service import GFSForecastManager
-
-# Station services
 from features.stations.services.station_service import StationService
-
-# Wind services
 from features.wind.services.wind_service import WindService
+from features.wind.services.gfs_wind_client import GFSWindClient
+from features.common.services.model_run_service import ModelRunService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -39,29 +34,36 @@ async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     try:
         Path("data").mkdir(exist_ok=True)
+        Path("downloaded_data").mkdir(exist_ok=True)
 
         await init_cache()
 
         # Initialize services and clients
-        buoy_client = NDBCBuoyClient()
+        model_run_service = ModelRunService()
         station_service = StationService()
-        gfs_client = NOAAGFSClient()
+        buoy_client = NDBCBuoyClient()
+        gfs_wave_client = NOAAGFSClient(model_run_service=model_run_service)
+        gfs_wind_client = GFSWindClient(model_run_service=model_run_service)
         weather_service = WeatherSummaryService()
+        
+        # Clean up old downloaded files
+        gfs_wind_client.file_storage.cleanup_old_files(max_age_hours=24)
         
         # Store service instances in app state
         app.state.weather_service = weather_service
-        app.state.gfs_client = gfs_client
+        app.state.gfs_client = gfs_wave_client
         app.state.station_service = station_service
         
         # Initialize feature services
         app.state.wave_service = WaveDataService(
-            gfs_client=gfs_client,
+            gfs_client=gfs_wave_client,
             weather_service=weather_service,
             buoy_client=buoy_client,
             station_service=station_service
         )
         
         app.state.wind_service = WindService(
+            gfs_client=gfs_wind_client,
             station_service=station_service
         )
         
@@ -79,21 +81,6 @@ async def lifespan(app: FastAPI):
         raise
     finally:
         logger.info("Shutting down application...")
-        
-        # Stop the scheduler
-        if hasattr(app.state, "scheduler"):
-            await app.state.scheduler.stop()
-            
-        # Clear GFS forecast data
-        if hasattr(app.state, "gfs_manager"):
-            app.state.gfs_manager.forecast = None
-            app.state.gfs_manager.last_update = None
-            logger.info("GFS forecast data cleared")
-            
-        # Close GFS wave service
-        if hasattr(app.state, "gfs_wave_service"):
-            await app.state.gfs_wave_service.close()
-            
         logger.info("App shutdown")
 
 app = FastAPI(
@@ -134,13 +121,12 @@ if __name__ == "__main__":
     
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", 5010))
-    
-    # Development mode uses Uvicorn with reload
+
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
-        reload=True,  # Always reload in direct execution
+        reload=True,
         log_level="info",
-        workers=1  # Single worker for development
+        workers=1 
     ) 

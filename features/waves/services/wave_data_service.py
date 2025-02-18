@@ -3,11 +3,12 @@ from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime
 
-from features.stations.models.station_types import (
-    NDBCStation,
-    StationSummary
+from features.stations.models.summary_types import StationSummary
+from features.waves.models.wave_types import (
+    WaveData,
+    WaveForecastPoint,
+    WaveForecastResponse
 )
-from features.waves.models.wave_types import WaveForecastResponse, ForecastPoint, WaveData
 from core.cache import cached
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
@@ -55,7 +56,7 @@ class WaveDataService:
             for point in gfs_forecast.forecasts:
                 # Get primary wave component (highest)
                 primary_wave = point.waves[0] if point.waves else None
-                forecast_points.append(ForecastPoint(
+                forecast_points.append(WaveForecastPoint(
                     time=point.timestamp,
                     wave=WaveData(
                         height=primary_wave.height_ft if primary_wave else None,
@@ -65,11 +66,9 @@ class WaveDataService:
                 ))
             
             return WaveForecastResponse(
-                station_id=gfs_forecast.station_id,
-                name=gfs_forecast.station_info.name,
-                location=gfs_forecast.station_info.location.dict(),
-                model_run=f"{gfs_forecast.cycle.date} {gfs_forecast.cycle.hour}z",
-                forecasts=forecast_points
+                station=station,
+                forecasts=forecast_points,
+                model_run=f"{gfs_forecast.cycle.date} {gfs_forecast.cycle.hour}z"
             )
             
         except HTTPException:
@@ -90,11 +89,11 @@ class WaveDataService:
             # Convert GFS forecast points to format expected by summary service
             forecast_points = [
                 {
-                    "time": point.timestamp,
+                    "time": point.time,
                     "wave": {
-                        "height": point.waves[0].height_ft if point.waves else None,
-                        "period": point.waves[0].period if point.waves else None,
-                        "direction": point.waves[0].direction if point.waves else None
+                        "height": point.wave.height if point.wave else None,
+                        "period": point.wave.period if point.wave else None,
+                        "direction": point.wave.direction if point.wave else None
                     }
                 }
                 for point in forecast.forecasts
@@ -103,9 +102,17 @@ class WaveDataService:
             # Generate fresh summary
             conditions = self.weather_service.generate_summary(forecast_points)
             
+            # Create metadata from forecast
+            metadata = {
+                "id": forecast.station.station_id,
+                "name": forecast.station.name,
+                "location": forecast.station.location.dict(),
+                "type": forecast.station.type
+            }
+            
             return StationSummary(
                 station_id=station_id,
-                metadata=forecast.metadata,
+                metadata=metadata,
                 summary=conditions,
                 last_updated=datetime.now()
             )
@@ -126,10 +133,10 @@ class WaveDataService:
             for station in stations:
                 feature = {
                     "type": "Feature",
-                    "geometry": station["location"],
+                    "geometry": station.location.dict(),
                     "properties": {
-                        "id": station["id"],
-                        "name": station["name"],
+                        "id": station.station_id,
+                        "name": station.name,
                     }
                 }
                 features.append(feature)

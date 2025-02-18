@@ -1,0 +1,10 @@
+---
+description: when naming, looking up keys, variables from data or types
+globs: 
+---
+# do not make up keys or variables. or check for `AB` and `ab` 
+- never guess types or add conditions to checkl for `station_id` or `id`
+- pick one the app uses or ask to clarify.
+- NEVER guess or add in many ways to do this. 
+
+- when naming variables, keys or objects. be semantic, primitive while clear. Avoid `DataType` and `DDAta` – prefer `StationForecast` or `WindForecastHour`

@@ -12,31 +12,7 @@ def get_service(request: Request) -> WindService:
     return request.app.state.wind_service
 
 @router.get(
-    "/stations",
-    response_model=list[dict],
-    summary="Get all wind stations",
-    description="Returns a list of all available wind stations"
-)
-async def get_stations(
-    service: WindService = Depends(get_service)
-):
-    """Get all wind stations."""
-    return await service.get_stations()
-
-@router.get(
-    "/stations/geojson",
-    response_model=dict,
-    summary="Get all wind stations in GeoJSON format",
-    description="Returns all wind stations in GeoJSON format for mapping"
-)
-async def get_stations_geojson(
-    service: WindService = Depends(get_service)
-):
-    """Get all wind stations in GeoJSON format."""
-    return await service.get_stations_geojson()
-
-@router.get(
-    "/stations/{station_id}/current",
+    "/{station_id}/current",
     response_model=WindData,
     summary="Get current wind data for a station",
     description="Returns the current wind conditions from GFS for the specified station"
@@ -49,7 +25,7 @@ async def get_station_wind(
     return await service.get_station_wind_data(station_id)
 
 @router.get(
-    "/stations/{station_id}/forecast",
+    "/{station_id}/forecast",
     response_model=WindForecastResponse,
     summary="Get wind forecast for a station",
     description="Returns a 7-day wind forecast at 3-hour intervals from GFS for the specified station"

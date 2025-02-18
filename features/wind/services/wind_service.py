@@ -5,51 +5,38 @@ from fastapi import HTTPException
 from features.wind.models.wind_types import WindData, WindForecastResponse
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.stations.services.station_service import StationService
-from features.common.models.station_types import StationInfo
+from features.common.models.station_types import Station, Location
 from core.cache import cached
 
 logger = logging.getLogger(__name__)
 
 class WindService:
-    def __init__(self, station_service: StationService):
-        self.gfs_client = GFSWindClient()
+    def __init__(
+        self,
+        gfs_client: GFSWindClient,
+        station_service: StationService
+    ):
+        self.gfs_client = gfs_client
         self.station_service = station_service
 
-    @cached(namespace="wind_stations", expire=None)
-    async def get_stations(self) -> List[Dict]:
-        """Get all wind stations."""
+    def _create_station_info(self, station_data: Dict) -> Station:
+        """Create Station model from station data."""
         try:
-            return self.station_service.get_all_stations()
-        except Exception as e:
-            logger.error(f"Error getting stations: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-
-    @cached(namespace="wind_stations", expire=None)
-    async def get_stations_geojson(self) -> Dict:
-        """Get stations in GeoJSON format for mapping."""
-        try:
-            stations = self.station_service.get_all_stations()
-            
-            return {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [station["location"]["coordinates"][0], station["location"]["coordinates"][1]]
-                        },
-                        "properties": {
-                            "id": station["id"],
-                            "name": station["name"]
-                        }
-                    }
-                    for station in stations
-                ]
-            }
-        except Exception as e:
-            logger.error(f"Error creating GeoJSON response: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            location_data = station_data.get("location", {})
+            return Station(
+                station_id=station_data["id"],
+                name=station_data["name"],
+                location=Location(
+                    type="Point",
+                    coordinates=list(location_data["coordinates"])  # Ensure coordinates is a list
+                )
+            )
+        except KeyError as e:
+            logger.error(f"Missing required field in station data: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Invalid station data structure: missing {e}"
+            )
 
     @cached(namespace="wind_data")
     async def get_station_wind_data(self, station_id: str) -> WindData:
@@ -62,12 +49,7 @@ class WindService:
                     detail=f"Station {station_id} not found"
                 )
                 
-            # Convert station data to StationInfo model
-            station = StationInfo(
-                id=station_id,
-                name=station_data["name"],
-                location=station_data["location"],
-            )
+            station = self._create_station_info(station_data)
             
             wind_data = await self.gfs_client.get_station_wind_data(station)
             if not wind_data:
@@ -91,19 +73,12 @@ class WindService:
     async def get_station_wind_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind forecast for a specific station."""
         try:
-            station_data = self.station_service.get_station(station_id)
-            if not station_data:
+            station = self.station_service.get_station(station_id)
+            if not station:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Station {station_id} not found"
                 )
-                
-            # Convert station data to StationInfo model
-            station = StationInfo(
-                id=station_id,
-                name=station_data["name"],
-                location=station_data["location"],
-            )
             
             forecast = await self.gfs_client.get_station_wind_forecast(station)
             if not forecast:

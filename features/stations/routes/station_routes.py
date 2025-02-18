@@ -1,6 +1,7 @@
 from typing import Dict
 from fastapi import APIRouter, Depends, Request
-from features.stations.models.station_types import NDBCStation, StationSummary
+from features.stations.models.summary_types import Station, StationSummary
+from features.waves.models.ndbc_types import NDBCStation
 from features.stations.services.station_service import StationService
 import logging
 

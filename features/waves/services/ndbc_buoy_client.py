@@ -1,15 +1,16 @@
 import logging
 import aiohttp
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Union, Dict
 from fastapi import HTTPException
 
-from features.stations.models.station_types import (
+from features.waves.models.ndbc_types import (
     NDBCWindData,
     NDBCWaveData,
     NDBCMetData,
     NDBCDataAge,
-    NDBCObservation
+    NDBCObservation,
+    NDBCStation
 )
 from core.config import settings
 
@@ -29,66 +30,89 @@ class NDBCBuoyClient:
             await self._session.close()
             self._session = None
 
-    async def get_observation(self, station_id: str) -> Optional[NDBCObservation]:
+    def _parse_value(self, value: str) -> Optional[float]:
+        """Parse NDBC value, handling missing value indicators."""
+        if value in ['MM', 'missing']:
+            return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
+
+    async def get_observation(self, station_id: str, station_info: Dict) -> Optional[NDBCStation]:
         """Get latest observation data for a station."""
         try:
             session = await self._init_session()
             
-            params = {
-                "station": station_id,
-                "time_zone": "0",  # UTC
-                "units": "metric",
-                "format": "json"
-            }
+            # Construct URL for standard meteorological data
+            url = f"{settings.ndbc_base_url}{station_id}.{settings.ndbc_data_types['std']}"
             
             async with session.get(
-                settings.ndbc_realtime_url,
-                params=params,
-                headers={"Accept": "application/json"},
+                url,
                 timeout=30,
                 verify_ssl=False  # Disable SSL verification
             ) as response:
                 response.raise_for_status()
-                data = await response.json()
+                text = await response.text()
                 
-                if not data:
+                if not text:
                     return None
                     
-                # Get latest observation
-                latest = data[0]
+                # Parse the text data (NDBC standard format)
+                lines = text.strip().split('\n')
+                if len(lines) < 2:  # Need at least header and one data line
+                    return None
+                    
+                # Get latest observation (first data line after header)
+                headers = lines[0].strip().split()
+                data = lines[2].strip().split()  # Skip units line
+                data_dict = dict(zip(headers, data))
                 
-                # Calculate data age
-                obs_time = datetime.strptime(latest["time"], "%Y-%m-%d %H:%M:%S")
+                # Parse time
+                obs_time = datetime.strptime(
+                    f"{data_dict['#YY']}-{data_dict['MM']}-{data_dict['DD']} {data_dict['hh']}:{data_dict['mm']}",
+                    "%Y-%m-%d %H:%M"
+                )
                 obs_time = obs_time.replace(tzinfo=timezone.utc)
                 age_minutes = (datetime.now(timezone.utc) - obs_time).total_seconds() / 60
                 
-                return NDBCObservation(
+                observation = NDBCObservation(
                     time=obs_time,
                     wind=NDBCWindData(
-                        speed=latest.get("wspd"),
-                        direction=latest.get("wdir"),
-                        gust=latest.get("gst")
+                        speed=self._parse_value(data_dict.get('WSPD')),
+                        direction=self._parse_value(data_dict.get('WDIR')),
+                        gust=self._parse_value(data_dict.get('GST'))
                     ),
                     wave=NDBCWaveData(
-                        height=latest.get("wvht"),
-                        period=latest.get("dpd"),
-                        direction=latest.get("mwd"),
-                        average_period=latest.get("apd"),
-                        steepness=latest.get("steepness")
+                        height=self._parse_value(data_dict.get('WVHT')),
+                        period=self._parse_value(data_dict.get('DPD')),
+                        direction=self._parse_value(data_dict.get('MWD')),
+                        average_period=self._parse_value(data_dict.get('APD')),
+                        steepness=data_dict.get('STEEPNESS', '')
                     ),
                     met=NDBCMetData(
-                        pressure=latest.get("pres"),
-                        air_temp=latest.get("atmp"),
-                        water_temp=latest.get("wtmp"),
-                        dewpoint=latest.get("dewp"),
-                        visibility=latest.get("vis"),
-                        pressure_tendency=latest.get("ptdy"),
-                        water_level=latest.get("tide")
+                        pressure=self._parse_value(data_dict.get('PRES')),
+                        air_temp=self._parse_value(data_dict.get('ATMP')),
+                        water_temp=self._parse_value(data_dict.get('WTMP')),
+                        dewpoint=self._parse_value(data_dict.get('DEWP')),
+                        visibility=self._parse_value(data_dict.get('VIS')),
+                        pressure_tendency=self._parse_value(data_dict.get('PTDY')),
+                        water_level=self._parse_value(data_dict.get('TIDE'))
                     ),
                     data_age=NDBCDataAge(
                         minutes=age_minutes,
                         isStale=age_minutes > 45
                     )
+                )
+
+                return NDBCStation(
+                    station_id=station_id,
+                    name=station_info["name"],
+                    location={
+                        "type": "Point",
+                        "coordinates": station_info["location"]["coordinates"]
+                    },
+                    observations=observation
                 )
                 
         except aiohttp.ClientError as e:

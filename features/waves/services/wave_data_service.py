@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, List
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from features.stations.models.summary_types import StationSummary
 from features.waves.models.wave_types import (
@@ -50,17 +50,26 @@ class WaveDataService:
                     detail="Forecast data not available. Please try again later."
                 )
             
+            # Set time range for exactly 7 days
+            now = datetime.now(timezone.utc)
+            end_time = now + timedelta(days=7)
+            
             # Convert to API response format
             forecast_points = []
             for point in gfs_forecast.forecasts:
-                # Get primary wave component (highest)
-                primary_wave = point.waves[0] if point.waves else None
-                forecast_points.append(WaveForecastPoint(
-                    time=point.timestamp,
-                    height=primary_wave.height_ft if primary_wave else None,
-                    period=primary_wave.period if primary_wave else None,
-                    direction=primary_wave.direction if primary_wave else None
-                ))
+                # Only include points within 7 day range
+                if point.timestamp >= now and point.timestamp <= end_time:
+                    # Get primary wave component (highest)
+                    primary_wave = point.waves[0] if point.waves else None
+                    forecast_points.append(WaveForecastPoint(
+                        time=point.timestamp,
+                        height=primary_wave.height_ft if primary_wave else None,
+                        period=primary_wave.period if primary_wave else None,
+                        direction=primary_wave.direction if primary_wave else None
+                    ))
+            
+            # Sort forecasts by time to ensure order
+            forecast_points.sort(key=lambda x: x.time)
             
             return WaveForecastResponse(
                 station=station,

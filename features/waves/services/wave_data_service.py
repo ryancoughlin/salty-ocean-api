@@ -25,7 +25,10 @@ class WaveDataService:
         self.buoy_client = buoy_client
         self.station_service = station_service
 
-    @cached(namespace="wave_forecast")
+    @cached(
+        namespace="wave_forecast",
+        expire=14400  # 4 hours (max time between model runs)
+    )
     async def get_station_forecast(self, station_id: str) -> WaveForecastResponse:
         """Get wave model forecast for a specific station."""
         try:

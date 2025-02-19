@@ -45,6 +45,17 @@ def create_wave_component(height_m: float, period: float, direction: float) -> G
         direction=direction
     )
 
+def is_header_line(line: str) -> bool:
+    """Check if line is a header or separator."""
+    line = line.lower().strip()
+    return (
+        not line or 
+        line.startswith("+") or 
+        "day" in line or 
+        "hour" in line or
+        any(x in line for x in ["location", "model", "cycle", "time"])
+    )
+
 def parse_time_parts(parts: List[str], cycle_dt: datetime) -> Optional[datetime]:
     """Parse forecast time parts into datetime.
     
@@ -56,6 +67,10 @@ def parse_time_parts(parts: List[str], cycle_dt: datetime) -> Optional[datetime]
         datetime: The forecast timestamp, or None if parsing fails
     """
     try:
+        # Skip if parts contain non-numeric values
+        if not all(part.strip().isdigit() for part in parts):
+            return None
+            
         days, hours = map(int, parts)
         # Calculate total hours from cycle start, but ensure we start from cycle time
         total_hours = (days * 24) + hours
@@ -63,7 +78,9 @@ def parse_time_parts(parts: List[str], cycle_dt: datetime) -> Optional[datetime]
         logger.debug(f"Parsed time parts: days={days}, hours={hours}, cycle={cycle_dt}, forecast={forecast_time}")
         return forecast_time
     except (ValueError, TypeError) as e:
-        logger.warning(f"Error parsing time parts {parts}: {str(e)}")
+        # Only log if parts look like they should be valid numbers
+        if any(part.strip().isdigit() for part in parts):
+            logger.warning(f"Error parsing time parts {parts}: {str(e)}")
         return None
 
 def parse_wave_values(component: str) -> Optional[Tuple[float, float, float]]:
@@ -85,16 +102,13 @@ def create_forecast(timestamp: datetime, wave_components: List[GFSWaveComponent]
         waves=sorted(wave_components, key=lambda x: x.height_m, reverse=True)
     )
 
-def is_header_line(line: str) -> bool:
-    """Check if line is a header or separator."""
-    return (not line or 
-            line.startswith("+") or 
-            line.startswith("|") and ("day" in line.lower() or "hour" in line.lower()) or
-            any(x in line for x in ["Location", "Model", "Cycle"]))
-
 def parse_bulletin_line(line: str, cycle_dt: datetime) -> Optional[GFSForecastPoint]:
     """Parse a single bulletin line into a forecast."""
     try:
+        # Skip header lines early
+        if is_header_line(line):
+            return None
+            
         # Clean and split line
         parts = [p.strip() for p in line.strip().strip("|").split("|")]
         if len(parts) < 3:

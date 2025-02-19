@@ -27,6 +27,7 @@ from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
 from features.common.services.model_run_task import run_model_task
+from features.common.services.prefetch_service import PrefetchService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -35,9 +36,11 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     try:
+        # Create required directories
         Path("data").mkdir(exist_ok=True)
         Path("downloaded_data").mkdir(exist_ok=True)
 
+        # Initialize cache
         await init_cache()
 
         # Initialize services and clients
@@ -72,15 +75,30 @@ async def lifespan(app: FastAPI):
             station_service=station_service
         )
         
-        # Initialize model run task
+        # Initialize prefetch service
+        prefetch_service = PrefetchService(
+            station_service=station_service,
+            wave_service=app.state.wave_service,
+            wind_service=app.state.wind_service,
+            batch_size=5,  # Process 5 stations at a time
+            requests_per_minute=15  # Conservative rate limit (1 request every 4 seconds)
+        )
+        app.state.prefetch_service = prefetch_service
+        
+        # Initialize model run task with prefetch service
         model_run_task = asyncio.create_task(
             run_model_task(
                 model_run_service=model_run_service,
+                prefetch_service=prefetch_service,
                 wave_client=gfs_wave_client,
                 wind_client=gfs_wind_client
             )
         )
         app.state.model_run_task = model_run_task
+        
+        # Start initial pre-fetch in background
+        prefetch_task = prefetch_service.start_background_prefetch()
+        app.state.prefetch_task = prefetch_task
         
         logger.info("🚀 App started")
         yield
@@ -89,13 +107,17 @@ async def lifespan(app: FastAPI):
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
-        # Cancel model run task
+        # Cancel and cleanup background tasks
         if hasattr(app.state, "model_run_task"):
             app.state.model_run_task.cancel()
             try:
                 await app.state.model_run_task
             except asyncio.CancelledError:
                 pass
+                
+        if hasattr(app.state, "prefetch_service"):
+            await app.state.prefetch_service.cleanup()
+            
         logger.info("App shutdown")
 
 app = FastAPI(

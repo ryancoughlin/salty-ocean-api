@@ -19,7 +19,10 @@ class WindService:
         self.gfs_client = gfs_client
         self.station_service = station_service
 
-    @cached(namespace="wind_data")
+    @cached(
+        namespace="wind_data",
+        expire=14400  # 4 hours (max time between model runs)
+    )
     async def get_station_wind_data(self, station_id: str) -> WindData:
         """Get current wind observations for a specific station."""
         try:
@@ -48,7 +51,10 @@ class WindService:
                 detail=f"Error processing wind data: {str(e)}"
             )
 
-    @cached(namespace="wind_forecast")
+    @cached(
+        namespace="wind_forecast",
+        expire=14400  # 4 hours (max time between model runs)
+    )
     async def get_station_wind_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind forecast for a specific station."""
         try:

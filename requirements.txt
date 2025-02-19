@@ -1,6 +1,6 @@
-fastapi>=0.68.0
+fastapi>=0.100.0
 uvicorn>=0.15.0
-pydantic>=1.8.2
+pydantic>=2.0.0
 pydantic-settings>=2.0.0
 xarray>=2023.1.0
 cfgrib>=0.9.10

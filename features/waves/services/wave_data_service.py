@@ -3,7 +3,6 @@ from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 
-from features.stations.models.summary_types import StationSummary
 from features.waves.models.wave_types import (
     WaveForecastPoint,
     WaveForecastResponse
@@ -11,7 +10,6 @@ from features.waves.models.wave_types import (
 from core.cache import cached
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
-from features.weather.services.summary_service import WeatherSummaryService
 from features.stations.services.station_service import StationService
 
 logger = logging.getLogger(__name__)
@@ -20,12 +18,10 @@ class WaveDataService:
     def __init__(
         self, 
         gfs_client: NOAAGFSClient,
-        weather_service: WeatherSummaryService, 
         buoy_client: NDBCBuoyClient,
         station_service: StationService
     ):
         self.gfs_client = gfs_client
-        self.weather_service = weather_service
         self.buoy_client = buoy_client
         self.station_service = station_service
 
@@ -90,49 +86,6 @@ class WaveDataService:
             logger.error(f"Error getting forecast for station {station_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    @cached(namespace="wave_summary")
-    async def get_station_wave_summary(self, station_id: str) -> StationSummary:
-        """Get a wave conditions summary for a specific station."""
-        try:
-            # Get fresh forecast
-            forecast = await self.get_station_forecast(station_id)
-            if not forecast or not forecast.forecasts:
-                raise HTTPException(status_code=404, detail="No forecast available for station")
-
-            # Convert GFS forecast points to format expected by summary service
-            forecast_points = [
-                {
-                    "time": point.time,
-                    "height": point.height,
-                    "period": point.period,
-                    "direction": point.direction
-                }
-                for point in forecast.forecasts
-            ]
-
-            # Generate fresh summary
-            conditions = self.weather_service.generate_summary(forecast_points)
-            
-            # Create metadata from forecast
-            metadata = {
-                "id": forecast.station.station_id,
-                "name": forecast.station.name,
-                "location": forecast.station.location.dict(),
-                "type": forecast.station.type
-            }
-            
-            return StationSummary(
-                station_id=station_id,
-                metadata=metadata,
-                summary=conditions,
-                last_updated=datetime.now()
-            )
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error generating summary for station {station_id}: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
 
     @cached(namespace="wave_stations_geojson")
     async def get_stations_geojson(self) -> Dict:

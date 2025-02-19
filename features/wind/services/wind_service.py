@@ -19,37 +19,16 @@ class WindService:
         self.gfs_client = gfs_client
         self.station_service = station_service
 
-    def _create_station_info(self, station_data: Dict) -> Station:
-        """Create Station model from station data."""
-        try:
-            location_data = station_data.get("location", {})
-            return Station(
-                station_id=station_data["id"],
-                name=station_data["name"],
-                location=Location(
-                    type="Point",
-                    coordinates=list(location_data["coordinates"])  # Ensure coordinates is a list
-                )
-            )
-        except KeyError as e:
-            logger.error(f"Missing required field in station data: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Invalid station data structure: missing {e}"
-            )
-
     @cached(namespace="wind_data")
     async def get_station_wind_data(self, station_id: str) -> WindData:
         """Get current wind observations for a specific station."""
         try:
-            station_data = self.station_service.get_station(station_id)
-            if not station_data:
+            station = self.station_service.get_station(station_id)
+            if not station:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Station {station_id} not found"
                 )
-                
-            station = self._create_station_info(station_data)
             
             wind_data = await self.gfs_client.get_station_wind_data(station)
             if not wind_data:

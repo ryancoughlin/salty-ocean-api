@@ -21,8 +21,8 @@ from features.stations.routes.station_routes import router as station_router
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.waves.services.wave_data_service import WaveDataService
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
-from features.weather.services.summary_service import WeatherSummaryService
 from features.stations.services.station_service import StationService
+from features.stations.services.condition_summary_service import ConditionSummaryService
 from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
@@ -46,26 +46,29 @@ async def lifespan(app: FastAPI):
         buoy_client = NDBCBuoyClient()
         gfs_wave_client = NOAAGFSClient(model_run_service=model_run_service)
         gfs_wind_client = GFSWindClient(model_run_service=model_run_service)
-        weather_service = WeatherSummaryService()
         
         # Clean up old downloaded files
         gfs_wind_client.file_storage.cleanup_old_files(max_age_hours=24)
         
-        # Store service instances in app state
-        app.state.weather_service = weather_service
         app.state.gfs_client = gfs_wave_client
         app.state.station_service = station_service
         
         # Initialize feature services
         app.state.wave_service = WaveDataService(
             gfs_client=gfs_wave_client,
-            weather_service=weather_service,
             buoy_client=buoy_client,
             station_service=station_service
         )
         
         app.state.wind_service = WindService(
             gfs_client=gfs_wind_client,
+            station_service=station_service
+        )
+
+        # Initialize condition summary service
+        app.state.condition_summary_service = ConditionSummaryService(
+            wind_service=app.state.wind_service,
+            wave_service=app.state.wave_service,
             station_service=station_service
         )
         

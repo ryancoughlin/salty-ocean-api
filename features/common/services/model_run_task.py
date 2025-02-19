@@ -8,13 +8,11 @@ from features.common.services.model_run_utils import process_model_cycle
 from features.common.services.model_run_service import ModelRunService
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.wind.services.gfs_wind_client import GFSWindClient
-from features.common.services.prefetch_service import PrefetchService
 
 logger = logging.getLogger(__name__)
 
 async def run_model_task(
     model_run_service: ModelRunService,
-    prefetch_service: PrefetchService,
     wave_client: NOAAGFSClient,
     wind_client: GFSWindClient,
     config: Optional[ModelRunConfig] = None
@@ -56,10 +54,9 @@ async def run_model_task(
                 attempt.error
             )
 
-            # Update last processed cycle if complete and trigger pre-fetch
+            # Update last processed cycle if complete
             if attempt.status == ModelRunStatus.COMPLETE:
-                logger.info(f"New model cycle {cycle_id} available, starting pre-fetch")
-                prefetch_service.start_background_prefetch()
+                logger.info(f"New model cycle {cycle_id} available")
                 last_processed_cycle = cycle_id
                 await asyncio.sleep(config.check_interval_seconds)
             else:

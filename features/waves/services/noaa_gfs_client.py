@@ -3,6 +3,7 @@ import aiohttp
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple
 from pydantic import BaseModel, Field
+from fastapi import HTTPException
 
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
@@ -185,10 +186,18 @@ class NOAAGFSClient:
         
         try:
             async with session.get(url) as response:
+                if response.status == 404:
+                    logger.info(f"No wave bulletin available for station {station_id}")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Station {station_id} does not have GFS wave forecasts available"
+                    )
                 if response.status == 200:
                     return await response.text()
                 logger.warning(f"Failed to fetch bulletin for station {station_id}: HTTP {response.status}")
                 return None
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error fetching bulletin for station {station_id}: {str(e)}")
             return None
@@ -224,7 +233,10 @@ class NOAAGFSClient:
                 
             bulletin = await self._get_station_bulletin(station_id, date, cycle_hour)
             if not bulletin:
-                raise Exception(f"No forecast data found for station {station_id}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Station {station_id} does not have GFS wave forecasts available"
+                )
                 
             current_forecasts = self._parse_bulletin(bulletin, date, cycle_hour)
             if not current_forecasts:

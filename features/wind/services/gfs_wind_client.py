@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import asyncio
 from fastapi import HTTPException
 
-from features.wind.models.wind_types import WindData, WindForecastResponse, WindForecastPoint
+from features.wind.models.wind_types import WindForecastResponse, WindForecastPoint
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
@@ -146,54 +146,6 @@ class GFSWindClient:
         except Exception as e:
             logger.error(f"Error processing GRIB2 file: {str(e)}")
             return None
-    
-    async def get_station_wind_data(self, station: Station) -> WindData:
-        """Get current wind conditions for a station."""
-        try:
-            cycle_date, cycle_hour = await self.model_run_service.get_latest_available_cycle()
-            
-            # Get lat/lon from GeoJSON coordinates [lon, lat]
-            lat = station.location.coordinates[1]
-            lon = station.location.coordinates[0]
-            
-            # Get current analysis file
-            url = self._build_grib_filter_url(
-                cycle_date, cycle_hour, 0,
-                lat, lon
-            )
-            
-            grib_path = await self._get_grib_file(url, station.station_id, cycle_date, cycle_hour, 0)
-            if not grib_path:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Unable to download wind data"
-                )
-                
-            # Process GRIB data
-            wind_data = self._process_grib_data(grib_path, lat, lon)
-            if not wind_data:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Unable to process wind data"
-                )
-                
-            valid_time, u, v, gust = wind_data
-            speed, direction = self._calculate_wind(u, v)
-            
-            return WindData(
-                speed=UnitConversions.ms_to_mph(speed),
-                direction=direction,
-                gust=UnitConversions.ms_to_mph(gust)
-            )
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error getting wind data for station {station.station_id}: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error processing wind data: {str(e)}"
-            )
     
     async def get_station_wind_forecast(self, station: Station) -> WindForecastResponse:
         """Get 7-day wind forecast for a station."""

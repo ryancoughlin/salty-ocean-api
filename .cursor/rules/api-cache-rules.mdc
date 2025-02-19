@@ -1,0 +1,49 @@
+---
+description: caching api endpoint responses, immediate load time for forecasts and summaries
+globs: *.py
+---
+# Cache Management Rules
+
+## Key Structure
+- Cache keys MUST follow format: `{feature}_{type}:{station_id}`
+  - Example: `wind_forecast:44098`, `wave_forecast:44098`
+  - Never use generic feature names like "data" or "info"
+
+## Expiration Times
+- Model forecasts: 14400s (4 hours) - matches GFS model run frequency
+- Current conditions: 900s (15 minutes) - real-time data
+- Static data (geojson): No expiration
+- Never use arbitrary expiration times
+
+## Key Builder Functions
+```python
+def feature_cache_key_builder(
+    func,
+    namespace: Optional[str] = "",
+    *args, 
+    **kwargs,
+) -> str:
+    """Standard cache key builder for station-specific endpoints."""
+    station_id = kwargs.get("station_id", "")
+    return f"{namespace}:{station_id}"
+```
+
+## Decorator Usage
+```python
+@cached(
+    namespace="feature_type",  # e.g. wind_forecast, wave_forecast
+    expire=STANDARD_EXPIRE,    # Use constants from above
+    key_builder=feature_cache_key_builder
+)
+```
+
+## Cache Namespaces
+- Forecasts: `{feature}_forecast`
+- Current data: `{feature}_current`
+- Static data: `{feature}_static`
+
+## Cache Invalidation
+- Cache invalidates automatically on expiration
+- No manual invalidation except during deployments
+- Each station must have its own cache entry
+- Each endpoint type must have its own namespace 

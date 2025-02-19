@@ -19,11 +19,11 @@ def get_service(request: Request) -> WaveDataService:
 def wave_cache_key_builder(
     func,
     namespace: Optional[str] = "",
-    station_id: str = "",
     *args,
     **kwargs,
-):
+) -> str:
     """Build a cache key that includes the station ID."""
+    station_id = kwargs.get("station_id", "")
     return f"{namespace}:{station_id}"
 
 @router.get(

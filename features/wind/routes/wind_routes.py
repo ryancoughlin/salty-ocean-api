@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, Request
-from features.wind.models.wind_types import WindData, WindForecastResponse
+from features.wind.models.wind_types import WindForecastResponse
 from features.wind.services.wind_service import WindService
 from core.cache import cached
-from datetime import timedelta
 from typing import Optional
 
 router = APIRouter(
@@ -17,30 +16,12 @@ def get_service(request: Request) -> WindService:
 def wind_cache_key_builder(
     func,
     namespace: Optional[str] = "",
-    station_id: str = "",
     *args,
     **kwargs,
-):
+) -> str:
     """Build a cache key that includes the station ID."""
+    station_id = kwargs.get("station_id", "")
     return f"{namespace}:{station_id}"
-
-@router.get(
-    "/{station_id}/current",
-    response_model=WindData,
-    summary="Get current wind data for a station",
-    description="Returns the current wind conditions from GFS for the specified station"
-)
-@cached(
-    namespace="wind_data",
-    expire=14400,  # 4 hours (max time between model runs)
-    key_builder=wind_cache_key_builder
-)
-async def get_station_wind(
-    station_id: str,
-    service: WindService = Depends(get_service)
-):
-    """Get current wind data for a specific station."""
-    return await service.get_station_wind_data(station_id)
 
 @router.get(
     "/{station_id}/forecast",

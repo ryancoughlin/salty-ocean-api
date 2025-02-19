@@ -2,8 +2,9 @@ from datetime import datetime, timedelta
 from typing import Tuple
 from fastapi import HTTPException
 import asyncio
+import logging
 
-from features.wind.models.wind_types import WindData, WindForecastResponse
+from features.wind.models.wind_types import WindForecastResponse
 from features.waves.models.wave_types import WaveForecastPoint, WaveForecastResponse
 from features.wind.models.wind_categories import BeaufortScale, WindDirection, TrendType
 from features.waves.models.wave_categories import WaveHeight, WavePeriod, Conditions
@@ -13,6 +14,13 @@ from features.stations.services.station_service import StationService
 from features.common.models.station_types import Station
 from features.stations.models.summary_types import ConditionSummaryResponse
 from core.cache import cached
+
+logger = logging.getLogger(__name__)
+
+def build_summary_cache_key(func, namespace: str = "", **kwargs) -> str:
+    """Build cache key for station summaries."""
+    station_id = kwargs.get("station_id", "")
+    return f"{namespace}:{station_id}"
 
 class ConditionSummaryService:
     def __init__(
@@ -50,28 +58,53 @@ class ConditionSummaryService:
             favorable = {WindDirection.E, WindDirection.SE, WindDirection.NE}
             return "favorable" if wind_dir in favorable else "unfavorable"
 
-    async def _get_forecast_data(self, station_id: str) -> Tuple[WindData, WindForecastResponse, WaveForecastResponse]:
+    async def _get_forecast_data(self, station_id: str) -> Tuple[WindForecastResponse, WaveForecastResponse]:
         """Fetch all forecast data in parallel."""
-        wind_data, wind_forecast, wave_forecast = await asyncio.gather(
-            self.wind_service.get_station_wind_data(station_id),
+        wind_forecast, wave_forecast = await asyncio.gather(
             self.wind_service.get_station_wind_forecast(station_id),
             self.wave_service.get_station_forecast(station_id),
             return_exceptions=True
         )
 
-        # Check for errors in parallel fetches
-        for result in (wind_data, wind_forecast, wave_forecast):
-            if isinstance(result, Exception):
-                raise HTTPException(status_code=503, detail="Unable to fetch conditions")
+        # Check each result individually for better error reporting
+        if isinstance(wind_forecast, Exception):
+            logger.error(f"Wind forecast error for {station_id}: {str(wind_forecast)}")
+            raise HTTPException(
+                status_code=503, 
+                detail=f"Unable to fetch wind conditions: {str(wind_forecast)}"
+            )
+            
+        if isinstance(wave_forecast, Exception):
+            if isinstance(wave_forecast, HTTPException) and wave_forecast.status_code == 404:
+                # This is an expected case - station doesn't have wave forecasts
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Station {station_id} does not have wave forecasts available"
+                )
+            logger.error(f"Wave forecast error for {station_id}: {str(wave_forecast)}")
+            raise HTTPException(
+                status_code=503, 
+                detail=f"Unable to fetch wave conditions: {str(wave_forecast)}"
+            )
 
-        if not all((wind_data, wind_forecast, wave_forecast)):
-            raise HTTPException(status_code=503, detail="Unable to fetch conditions")
+        if not wind_forecast:
+            raise HTTPException(status_code=503, detail="No wind forecast data available")
+            
+        if not wave_forecast:
+            raise HTTPException(status_code=404, detail=f"Station {station_id} does not have wave forecasts available")
 
-        return wind_data, wind_forecast, wave_forecast
+        if not wind_forecast.forecasts:
+            raise HTTPException(status_code=503, detail="Wind forecast contains no data points")
+            
+        if not wave_forecast.forecasts:
+            raise HTTPException(status_code=503, detail="Wave forecast contains no data points")
+
+        return wind_forecast, wave_forecast
 
     @cached(
-        namespace="condition_summary",
-        expire=900  # 15 minutes in seconds
+        namespace="station_summary",
+        expire=900,  # 15 minutes in seconds
+        key_builder=build_summary_cache_key
     )
     async def get_station_condition_summary(self, station_id: str) -> ConditionSummaryResponse:
         """Generate a human-readable summary of current conditions and trends."""
@@ -80,12 +113,17 @@ class ConditionSummaryService:
             if not station:
                 raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
 
-            wind_data, wind_forecast, wave_forecast = await self._get_forecast_data(station_id)
+            wind_forecast, wave_forecast = await self._get_forecast_data(station_id)
 
             # Get current wave data
             current_wave = wave_forecast.forecasts[0]
             if not current_wave:
                 raise HTTPException(status_code=503, detail="No wave data available")
+
+            # Get current wind data (first forecast point)
+            current_wind = wind_forecast.forecasts[0]
+            if not current_wind:
+                raise HTTPException(status_code=503, detail="No wind data available")
 
             # Get conditions in 6 hours
             future_time = datetime.now(current_wave.time.tzinfo) + timedelta(hours=6)
@@ -99,18 +137,18 @@ class ConditionSummaryService:
             )
 
             # Calculate categories
-            wind_category = BeaufortScale.from_speed(wind_data.speed)
-            wind_dir = WindDirection.from_degrees(wind_data.direction)
+            wind_category = BeaufortScale.from_speed(current_wind.speed)
+            wind_dir = WindDirection.from_degrees(current_wind.direction)
             wave_height = WaveHeight.from_height(current_wave.height)
             wave_period = WavePeriod.from_period(current_wave.period or 0)
             conditions = Conditions.from_wind_wave(
-                wind_data.speed,
-                wind_data.direction,
+                current_wind.speed,
+                current_wind.direction,
                 current_wave.direction
             )
 
             # Get trends
-            wind_trend = self._get_trend_description(wind_data.speed, future_wind.speed)
+            wind_trend = self._get_trend_description(current_wind.speed, future_wind.speed)
             wave_trend = self._get_trend_description(current_wave.height, future_wave.height)
             wind_quality = self._get_coast_wind_quality(wind_dir, station)
 
@@ -125,7 +163,7 @@ class ConditionSummaryService:
             summary_parts.extend([
                 f"{wave_trend.value}",
                 f"with {wind_category.description.lower()}",
-                f"{wind_data.speed:.0f}mph {wind_dir.description.lower()} winds ({wind_quality})",
+                f"{current_wind.speed:.0f}mph {wind_dir.description.lower()} winds ({wind_quality})",
                 f"{wind_trend.value}",
                 f"Conditions are {conditions.value.lower()}"
             ])

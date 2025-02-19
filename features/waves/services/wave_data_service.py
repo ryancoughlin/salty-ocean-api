@@ -54,15 +54,22 @@ class WaveDataService:
             now = datetime.now(timezone.utc)
             end_time = now + timedelta(days=7)
             
+            # Round current time down to nearest 3-hour interval
+            now = now.replace(minute=0, second=0, microsecond=0)
+            now = now.replace(hour=(now.hour // 3) * 3)
+            
             # Convert to API response format
             forecast_points = []
             for point in gfs_forecast.forecasts:
-                # Only include points within 7 day range
-                if point.timestamp >= now and point.timestamp <= end_time:
+                # Only include points within 7 day range and at 3-hour intervals
+                point_hour = point.timestamp.replace(minute=0, second=0, microsecond=0)
+                if (point_hour >= now and 
+                    point_hour <= end_time and 
+                    point_hour.hour % 3 == 0):
                     # Get primary wave component (highest)
                     primary_wave = point.waves[0] if point.waves else None
                     forecast_points.append(WaveForecastPoint(
-                        time=point.timestamp,
+                        time=point_hour,
                         height=primary_wave.height_ft if primary_wave else None,
                         period=primary_wave.period if primary_wave else None,
                         direction=primary_wave.direction if primary_wave else None

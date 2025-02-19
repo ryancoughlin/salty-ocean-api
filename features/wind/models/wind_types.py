@@ -6,16 +6,16 @@ from features.common.models.station_types import Location
 
 class WindData(BaseModel):
     """Wind data model."""
-    speed: float
-    direction: float
-    gust: Optional[float] = None
+    speed: float  # mph
+    direction: float  # degrees clockwise from true N
+    gust: Optional[float] = None  # mph
 
 class WindForecastPoint(BaseModel):
     """Single point in wind forecast."""
     time: datetime
-    speed: float
-    direction: float
-    gust: Optional[float] = None
+    speed: float  # mph
+    direction: float  # degrees clockwise from true N
+    gust: Optional[float] = None  # mph
 
 class WindForecastResponse(BaseModel):
     """Complete wind forecast response."""

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from features.wind.models.wind_types import WindData, WindForecastResponse, WindForecastPoint
 from features.common.models.station_types import Station
+from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
 from features.common.services.model_run_service import ModelRunService
 from features.common.exceptions.model_run_exceptions import (
@@ -180,9 +181,9 @@ class GFSWindClient:
             speed, direction = self._calculate_wind(u, v)
             
             return WindData(
-                speed=speed,
+                speed=UnitConversions.ms_to_mph(speed),
                 direction=direction,
-                gust=round(float(gust), 2)
+                gust=UnitConversions.ms_to_mph(gust)
             )
             
         except HTTPException:
@@ -223,9 +224,9 @@ class GFSWindClient:
                     
                     forecasts.append(WindForecastPoint(
                         time=valid_time,
-                        speed=speed,
+                        speed=UnitConversions.ms_to_mph(speed),
                         direction=direction,
-                        gust=round(float(gust), 2)
+                        gust=UnitConversions.ms_to_mph(gust)
                     ))
             
             if not forecasts:

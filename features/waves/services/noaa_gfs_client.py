@@ -5,6 +5,7 @@ from typing import Optional, List, Tuple
 from pydantic import BaseModel, Field
 
 from features.common.models.station_types import Station
+from features.common.utils.conversions import UnitConversions
 from core.config import settings
 from core.cache import cached
 from features.common.services.model_run_service import ModelRunService
@@ -39,7 +40,7 @@ def create_wave_component(height_m: float, period: float, direction: float) -> G
     """Create a wave component with height conversion."""
     return GFSWaveComponent(
         height_m=height_m,
-        height_ft=height_m * 3.28084,
+        height_ft=UnitConversions.meters_to_feet(height_m),
         period=period,
         direction=direction
     )

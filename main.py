@@ -11,8 +11,7 @@ from core.config import settings
 from core.logging_config import setup_logging
 from core.cache import init_cache
 from fastapi_cache import FastAPICache
-from fastapi_cache.backends.in_memory import InMemoryBackend
-from redis import asyncio as aioredis
+from fastapi_cache.backends.inmemory import InMemoryBackend
 
 # Feature routes
 from features.waves.routes.wave_routes import router as wave_router
@@ -60,8 +59,8 @@ async def lifespan(app: FastAPI):
         
         gfs_wind_client = GFSWindClient(model_run_service=model_run_service)
         
-        # Get current model run and clean up old files
-        current_run = await model_run_service.get_latest_available_cycle()
+        # Clean up old files using the already fetched model run
+        current_run = model_run_service.get_current_cycle()
         if current_run:
             gfs_wind_client.file_storage.cleanup_old_files(current_run)
         else:

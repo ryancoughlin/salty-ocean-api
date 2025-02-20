@@ -40,6 +40,14 @@ class ModelRunService:
     def __init__(self):
         self.current_cycle: Optional[ModelRun] = None
         
+    def _print_model_run_info(self, model_run: ModelRun, check_date: date, cycle: int):
+        """Print model run information with both UTC and EST times."""
+        utc_time = model_run.available_time
+        est_time = utc_time.astimezone(timezone(timedelta(hours=-5)))
+        print(f"\n✨ Using GFS model run: {check_date.strftime('%Y%m%d')} {cycle:02d}Z")
+        print(f"⏰ Available since: {utc_time.strftime('%H:%M:%S')} UTC ({est_time.strftime('%H:%M:%S')} EST)")
+        print(f"⌛ Delay: {model_run.delay_minutes} minutes\n")
+
     async def check_grib_file_for_cycle(
         self,
         target_date: date,
@@ -99,10 +107,13 @@ class ModelRunService:
             for cycle in sorted(available_cycles, reverse=True):
                 model_run = await self.check_grib_file_for_cycle(check_date, cycle)
                 if model_run:
+                    # Only print info if this is a new cycle or first run
+                    if not self.current_cycle or (
+                        model_run.run_date != self.current_cycle.run_date or 
+                        model_run.cycle_hour != self.current_cycle.cycle_hour
+                    ):
+                        self._print_model_run_info(model_run, check_date, cycle)
                     self.current_cycle = model_run
-                    print(f"\n✨ Using GFS model run: {check_date.strftime('%Y%m%d')} {cycle:02d}Z")
-                    print(f"⏰ Available since: {model_run.available_time.strftime('%H:%M:%S')} UTC")
-                    print(f"⌛ Delay: {model_run.delay_minutes} minutes\n")
                     return model_run
         
         # If we get here, use yesterday's last successful cycle

@@ -14,4 +14,5 @@ fastapi-cache2>=0.2.1
 APScheduler>=3.10.0 
 gunicorn>=21.2.0
 geojson-pydantic>=1.0.1
+redis>=4.6.0
 

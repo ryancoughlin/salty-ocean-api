@@ -5,6 +5,9 @@ from datetime import datetime, timedelta, timezone
 class Settings(BaseSettings):
     """Application settings."""
     
+    # Redis settings
+    redis_url: str = "redis://localhost:6379"
+    
     # GFS Wave Bulletin settings
     gfs_wave_base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
     gfs_wave_filter_url: str = "https://nomads.ncep.noaa.gov/cgi-bin"

@@ -45,8 +45,8 @@ async def lifespan(app: FastAPI):
         Path("downloaded_data").mkdir(exist_ok=True)
         Path(settings.cache_dir).mkdir(exist_ok=True)
 
-        # Initialize cache
-        redis = aioredis.from_url("redis://localhost")
+        # Initialize cache with Redis from settings
+        redis = aioredis.from_url(settings.redis_url)
         FastAPICache.init(RedisBackend(redis), prefix="salty-ocean")
         await init_cache()
 

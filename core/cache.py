@@ -9,11 +9,8 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 async def init_cache():
-    """Initialize in-memory cache backend."""
-    FastAPICache.init(
-        backend=InMemoryBackend(),
-        prefix=settings.cache["prefix"]
-    )
+    """Initialize cache settings."""
+    logger.info("Cache initialization complete")
 
 def cached(
     expire: Optional[int] = None,

@@ -11,7 +11,7 @@ from core.config import settings
 from core.logging_config import setup_logging
 from core.cache import init_cache
 from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.backends.in_memory import InMemoryBackend
 from redis import asyncio as aioredis
 
 # Feature routes
@@ -45,9 +45,8 @@ async def lifespan(app: FastAPI):
         Path("downloaded_data").mkdir(exist_ok=True)
         Path(settings.cache_dir).mkdir(exist_ok=True)
 
-        # Initialize cache with Redis from settings
-        redis = aioredis.from_url(settings.redis_url)
-        FastAPICache.init(RedisBackend(redis), prefix="salty-ocean")
+        # Initialize in-memory cache
+        FastAPICache.init(InMemoryBackend(), prefix="salty-ocean")
         await init_cache()
 
         # Initialize services and clients

@@ -1,19 +1,4 @@
 services:
-  redis:
-    image: redis:7.2-alpine
-    container_name: salty-ocean-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - salty_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   salty-ocean-api:
     container_name: salty-ocean-api
     build: .
@@ -26,7 +11,6 @@ services:
       - ENVIRONMENT=production
       - HOST=0.0.0.0
       - PORT=5010
-      - REDIS_URL=redis://redis:6379
       # Gunicorn specific settings
       - WORKERS_PER_CORE=1
       - WEB_CONCURRENCY=4  # Override default workers calculation
@@ -36,19 +20,12 @@ services:
     networks:
       - salty_network
     restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5010/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-volumes:
-  redis_data:
-    name: salty-ocean-redis-data
 
 networks:
   salty_network:

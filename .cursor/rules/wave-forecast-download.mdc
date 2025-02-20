@@ -1,11 +1,15 @@
 ---
-description: fetching, downloading, and processing noaa wave forecast model data 
+description: fetching, downloading, and processing noaa wave forecast model data
 globs: *.py
 ---
 # Wave Forecast Processing Rules
 
 - endpoint in [wave_routes_v2.py](mdc:features/waves/routes/wave_routes_v2.py) 
 - service is [wave_data_service_v2.py](mdc:features/waves/services/wave_data_service_v2.py)
+
+## example url with parameters to download variables
+
+```https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?file=gfswave.t18z.atlocn.0p16.f000.grib2&lev_surface=on&var_DIRPW=on&var_HTSGW=on&var_PERPW=on```
 
 ## Data Structure
 

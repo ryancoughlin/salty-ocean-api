@@ -185,22 +185,18 @@ class GFSWaveClient:
         # Get region config
         region_config = settings.models[region]
         product = region_config["name"]
-        grid = region_config["grid"]
         
-        params = {
-            "dir": f"/gfs.{cycle_date.strftime('%Y%m%d')}/{cycle_hour}/wave/gridded",
-            "file": f"gfswave.t{cycle_hour}z.{product}.f{forecast_hour:03d}.grib2",
-            "lev_surface": "on",
-            "var_HTSGW": "on",  # Significant wave height
-            "var_PERPW": "on",  # Peak wave period
-            "var_DIRPW": "on",  # Primary wave direction
-            "subregion": "",
-            "leftlon": str(grid["lon"]["start"]),
-            "rightlon": str(grid["lon"]["end"]),
-            "toplat": str(grid["lat"]["end"]),
-            "bottomlat": str(grid["lat"]["start"])
-        }
-        query = "&".join(f"{k}={v}" for k, v in params.items())
+        # Build params in the exact order expected by NOAA
+        params = [
+            ("file", f"gfswave.t{cycle_hour}z.{product}.f{forecast_hour:03d}.grib2"),
+            ("lev_surface", "on"),
+            ("var_DIRPW", "on"),
+            ("var_HTSGW", "on"),
+            ("var_PERPW", "on"),
+            ("dir", f"/gfs.{cycle_date.strftime('%Y%m%d')}/{cycle_hour}/wave/gridded")
+        ]
+        
+        query = "&".join(f"{k}={v}" for k, v in params)
         url = f"{settings.gfs_wave_filter_url}/filter_gfswave.pl?{query}"
         logger.debug(f"Built URL for {region} f{forecast_hour:03d}: {url}")
         return url

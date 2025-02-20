@@ -155,7 +155,7 @@ def filter_forecasts_by_date_range(
 class NOAAGFSClient:
     def __init__(self, model_run_service: ModelRunService):
         self._session: Optional[aiohttp.ClientSession] = None
-        self.model_run_service = model_run_service
+        self.model_run_service = model_run_service  
         
     async def _init_session(self) -> aiohttp.ClientSession:
         if not self._session:

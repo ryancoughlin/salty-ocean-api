@@ -18,17 +18,11 @@ logger = logging.getLogger(__name__)
 def wave_forecast_key_builder(
     func,
     namespace: str = "",
+    station_id: str = "",
     *args,
     **kwargs
 ) -> str:
     """Build cache key for wave forecast endpoint."""
-    # Get station_id from args since it's the first positional argument
-    if not args:
-        logger.warning("No arguments provided to key builder")
-        return None
-        
-    station_id = args[0]
-    logger.debug(f"Building cache key for station {station_id}")
     return f"{namespace}:{station_id}"
 
 class WaveDataServiceV2:

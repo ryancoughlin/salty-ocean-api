@@ -61,8 +61,12 @@ async def lifespan(app: FastAPI):
         
         gfs_wind_client = GFSWindClient(model_run_service=model_run_service)
         
-        # Clean up old downloaded files
-        gfs_wind_client.file_storage.cleanup_old_files(max_age_hours=24)
+        # Get current model run and clean up old files
+        current_run = await model_run_service.get_latest_available_cycle()
+        if current_run:
+            gfs_wind_client.file_storage.cleanup_old_files(current_run)
+        else:
+            logger.warning("No current model run available, skipping file cleanup")
         
         # Store services in app state
         app.state.gfs_client = gfs_wave_client

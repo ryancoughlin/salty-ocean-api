@@ -1,14 +1,14 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import logging
 from features.common.services.model_run_service import ModelRun
 
 logger = logging.getLogger(__name__)
 
-class GFSFileStorage:
-    """Handles storage and retrieval of GFS GRIB files."""
+class GFSWaveFileStorage:
+    """Handles storage and retrieval of GFS Wave GRIB files."""
     
-    def __init__(self, base_dir: str = "downloaded_data/gfs"):
+    def __init__(self, base_dir: str = "cache/gfs_wave"):
         """Initialize the file storage with a base directory."""
         self.base_dir = Path(base_dir)
         self._ensure_storage_dir()
@@ -17,14 +17,12 @@ class GFSFileStorage:
         """Ensure the storage directory exists."""
         self.base_dir.mkdir(parents=True, exist_ok=True)
     
-    def get_file_path(self, station_id: str, model_run: ModelRun, forecast_hour: int) -> Path:
-        """Generate the path for a GFS file."""
-        date_str = model_run.run_date.strftime('%Y%m%d')
-        cycle_str = f"{model_run.cycle_hour:02d}"
-        return self.base_dir / f"gfs_wind_{station_id}_{date_str}_{cycle_str}z_f{forecast_hour:03d}.grib2"
+    def get_file_path(self, region: str, cycle_date: datetime, cycle_hour: str, forecast_hour: int) -> Path:
+        """Generate the path for a GFS wave file."""
+        return self.base_dir / f"{region}_gfs_{cycle_date.strftime('%Y%m%d')}_{cycle_hour}z_f{forecast_hour:03d}.grib2"
     
     def is_file_valid(self, file_path: Path) -> bool:
-        """Check if a file exists."""
+        """Check if a file exists and matches current model run pattern."""
         return file_path.exists()
     
     async def save_file(self, file_path: Path, content: bytes) -> bool:
@@ -37,6 +35,37 @@ class GFSFileStorage:
         except Exception as e:
             logger.error(f"Error saving file {file_path}: {str(e)}")
             return False
+    
+    def get_missing_files(
+        self,
+        region: str,
+        cycle_date: datetime,
+        cycle_hour: str,
+        forecast_hours: list[int]
+    ) -> list[tuple[int, Path]]:
+        """Get list of forecast hours and paths for missing or invalid files."""
+        missing = []
+        for fh in forecast_hours:
+            file_path = self.get_file_path(region, cycle_date, cycle_hour, fh)
+            if not self.is_file_valid(file_path):
+                missing.append((fh, file_path))
+        return missing
+    
+    def get_valid_files(
+        self,
+        region: str,
+        cycle_date: datetime,
+        cycle_hour: str,
+        forecast_hours: list[int]
+    ) -> list[Path]:
+        """Get list of all valid files for a cycle."""
+        return [
+            self.get_file_path(region, cycle_date, cycle_hour, fh)
+            for fh in forecast_hours
+            if self.is_file_valid(
+                self.get_file_path(region, cycle_date, cycle_hour, fh)
+            )
+        ]
     
     def cleanup_old_files(self, current_run: ModelRun) -> None:
         """Delete files from older model runs."""
@@ -51,6 +80,6 @@ class GFSFileStorage:
                     deleted_count += 1
                     
             if deleted_count > 0:
-                logger.info(f"Cleaned up {deleted_count} files from previous model runs")
+                logger.info(f"Cleaned up {deleted_count} wave files from previous model runs")
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}") 

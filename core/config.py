@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # GFS Wave Bulletin settings
-    gfs_wave_base_url: str = "https://nomads.ncep.noaa.gov"
+    gfs_wave_base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+    gfs_wave_filter_url: str = "https://nomads.ncep.noaa.gov/cgi-bin"
     gfs_wave_cycles: List[str] = ["00", "06", "12", "18"]
     gfs_wave_bulletin_path: str = "wave/station/bulls.t{hour}z/gfswave.{station_id}.bull"
     

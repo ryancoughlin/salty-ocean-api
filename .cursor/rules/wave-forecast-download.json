@@ -1,0 +1,36 @@
+{
+    "name": "wave-forecast-download",
+    "description": "Rules for downloading and managing wave forecast files",
+    "glob": [
+        "features/waves/services/gfs_wave_client.py",
+        "features/waves/services/file_storage.py"
+    ],
+    "rules": [
+        {
+            "title": "File Storage Structure",
+            "description": "Wave forecast files should be stored in cache/gfs_wave directory with naming pattern: {region}_gfs_{YYYYMMDD}_{HH}z_f{FFF}.grib2",
+            "examples": [
+                "atlantic_gfs_20240220_06z_f000.grib2",
+                "pacific_gfs_20240220_06z_f003.grib2"
+            ]
+        },
+        {
+            "title": "File Management",
+            "description": "Files are managed based on model run cycles",
+            "rules": [
+                "Files must match current model run pattern: *_{YYYYMMDD}_{HH}z_*.grib2",
+                "Old files from previous model runs are automatically cleaned up",
+                "Missing files for current run are downloaded as needed"
+            ]
+        },
+        {
+            "title": "URL Construction",
+            "description": "Use correct URLs for different operations:",
+            "urls": {
+                "base_url": "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod",
+                "filter_url": "https://nomads.ncep.noaa.gov/cgi-bin",
+                "filter_endpoint": "filter_gfswave.pl"
+            }
+        }
+    ]
+}

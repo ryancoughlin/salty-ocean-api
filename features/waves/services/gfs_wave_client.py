@@ -14,6 +14,7 @@ from features.common.utils.conversions import UnitConversions
 from core.config import settings
 from core.cache import cached
 from features.common.services.model_run_service import ModelRunService
+from features.waves.services.file_storage import GFSWaveFileStorage
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class GFSWaveClient:
         self._regional_datasets: Dict[str, xr.Dataset] = {}
         self._initialization_lock = asyncio.Lock()
         self._is_initialized = False
+        self.file_storage = GFSWaveFileStorage()
         # Get regions from config
         self.regions = list(settings.models.keys())
         # Get forecast hours from config and create list
@@ -115,7 +117,10 @@ class GFSWaveClient:
     async def _init_session(self) -> aiohttp.ClientSession:
         """Initialize or return existing aiohttp session."""
         if not self._session or self._session.closed:
+            # Create cookie jar and session with redirect handling
+            cookie_jar = aiohttp.CookieJar(unsafe=True)
             self._session = aiohttp.ClientSession(
+                cookie_jar=cookie_jar,
                 timeout=aiohttp.ClientTimeout(total=300),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -197,7 +202,7 @@ class GFSWaveClient:
             "bottomlat": str(grid["lat"]["start"])
         }
         query = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{settings.gfs_wave_base_url}/cgi-bin/filter_gfswave.pl?{query}"
+        url = f"{settings.gfs_wave_filter_url}/filter_gfswave.pl?{query}"
         logger.debug(f"Built URL for {region} f{forecast_hour:03d}: {url}")
         return url
 
@@ -210,9 +215,12 @@ class GFSWaveClient:
         try:
             session = await self._init_session()
             
-            async with session.get(url) as response:
+            async with session.get(url, allow_redirects=True) as response:
                 if response.status != 200:
                     logger.error(f"Download failed with status {response.status}")
+                    if response.status == 302:
+                        location = response.headers.get('Location')
+                        logger.error(f"Redirect location: {location}")
                     return None
                     
                 content = await response.read()
@@ -222,8 +230,9 @@ class GFSWaveClient:
                     logger.error(f"Downloaded file too small: {content_size} bytes")
                     return None
                     
-                file_path.write_bytes(content)
-                return file_path
+                if await self.file_storage.save_file(file_path, content):
+                    return file_path
+                return None
                 
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")
@@ -235,34 +244,57 @@ class GFSWaveClient:
         cycle_hour: str,
         region: str
     ) -> List[Path]:
-        """Download all forecast files for a region."""
-        file_paths = []
-        
+        """Download missing forecast files for a region."""
         try:
-            logger.info(f"Starting downloads for {region} region (cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour}Z)")
-            total_files = len(self.forecast_hours)
+            # Get list of missing files
+            missing_files = self.file_storage.get_missing_files(
+                region,
+                cycle_date,
+                cycle_hour,
+                self.forecast_hours
+            )
+            
+            if not missing_files:
+                logger.info(f"All files already available for {region}")
+                return self.file_storage.get_valid_files(
+                    region,
+                    cycle_date,
+                    cycle_hour,
+                    self.forecast_hours
+                )
+            
+            logger.info(
+                f"Starting downloads for {region} region "
+                f"(cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour}Z) - "
+                f"{len(missing_files)} files missing"
+            )
+            
             downloaded = 0
             failed = 0
             
-            for fh in self.forecast_hours:
-                url = self._build_grib_filter_url(cycle_date, cycle_hour, fh, region)
-                file_path = self._get_grib_file_path(region, cycle_date, cycle_hour, fh)
-                
-                # Download file
+            for forecast_hour, file_path in missing_files:
+                url = self._build_grib_filter_url(cycle_date, cycle_hour, forecast_hour, region)
                 result = await self._download_grib_file(url, file_path)
                 if result:
-                    file_paths.append(result)
                     downloaded += 1
                 else:
                     failed += 1
                     
-            logger.info(
-                f"Region {region} download summary:\n"
-                f"  - Total files needed: {total_files}\n"
-                f"  - Downloaded: {downloaded}\n"
-                f"  - Failed: {failed}"
+            if downloaded > 0:
+                logger.info(
+                    f"Region {region} download summary:\n"
+                    f"  - Files needed: {len(missing_files)}\n"
+                    f"  - Downloaded: {downloaded}\n"
+                    f"  - Failed: {failed}"
+                )
+            
+            # Return all valid files including previously downloaded ones
+            return self.file_storage.get_valid_files(
+                region,
+                cycle_date,
+                cycle_hour,
+                self.forecast_hours
             )
-            return file_paths
             
         except Exception as e:
             logger.error(f"Error downloading files for {region}: {str(e)}")

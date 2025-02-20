@@ -310,11 +310,20 @@ class GFSWaveClient:
                     logger.error(f"File not found: {fp}")
                     continue
                     
-                # Load GRIB file
-                ds = xr.open_dataset(fp, engine="cfgrib", backend_kwargs={'indexpath': ''})
+                # Load GRIB file with explicit datetime decoding settings
+                ds = xr.open_dataset(
+                    fp,
+                    engine="cfgrib",
+                    backend_kwargs={
+                        'indexpath': '',
+                        'use_cftime': False,
+                        'decode_times': True,
+                        'decode_timedelta': False
+                    }
+                )
                 
                 # Use valid_time as the time coordinate
-                valid_time = ds.valid_time
+                valid_time = pd.to_datetime(ds.valid_time.values)
                 ds = ds.assign_coords(time=valid_time)
                 
                 datasets.append(ds)

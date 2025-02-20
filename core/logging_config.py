@@ -32,7 +32,3 @@ def setup_logging() -> None:
     # Remove existing handlers and add our custom handler
     root_logger.handlers.clear()
     root_logger.addHandler(console_handler)
-    
-    # Set specific log levels for noisy libraries
-    logging.getLogger("apscheduler").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING) 

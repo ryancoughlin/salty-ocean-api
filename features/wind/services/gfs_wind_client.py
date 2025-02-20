@@ -26,7 +26,6 @@ class GFSWindClient:
     def __init__(self, model_run_service: Optional[ModelRunService] = None):
         self.model_run_service = model_run_service or ModelRunService()
         self.file_storage = GFSFileStorage()
-        logger.info("GFS Wind Client initialized")
         
     def _build_grib_filter_url(
         self,

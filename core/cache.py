@@ -14,7 +14,6 @@ async def init_cache():
         backend=InMemoryBackend(),
         prefix=settings.cache["prefix"]
     )
-    logger.info("Initialized in-memory cache backend")
 
 def cached(
     expire: Optional[int] = None,

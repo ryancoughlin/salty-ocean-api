@@ -65,7 +65,6 @@ class GFSWaveClient:
         
     async def initialize(self):
         """Initialize the wave client by loading the latest model run data."""
-        logger.info("Starting GFS Wave initialization...")
         
         # Get latest available cycle
         model_run = await self.model_run_service.get_latest_available_cycle()
@@ -262,13 +261,7 @@ class GFSWaveClient:
                     cycle_hour,
                     self.forecast_hours
                 )
-            
-            logger.info(
-                f"Starting downloads for {region} region "
-                f"(cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour}Z) - "
-                f"{len(missing_files)} files missing"
-            )
-            
+
             downloaded = 0
             failed = 0
             

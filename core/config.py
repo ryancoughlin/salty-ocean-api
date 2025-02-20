@@ -6,12 +6,13 @@ class Settings(BaseSettings):
     """Application settings."""
     
     # GFS Wave Bulletin settings
-    gfs_wave_base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
+    gfs_wave_base_url: str = "https://nomads.ncep.noaa.gov"
     gfs_wave_cycles: List[str] = ["00", "06", "12", "18"]
     gfs_wave_bulletin_path: str = "wave/station/bulls.t{hour}z/gfswave.{station_id}.bull"
     
     # Data directory
     data_dir: str = "data"
+    cache_dir: str = "cache"  # Directory for GRIB file caching
 
     cache: Dict[str, Any] = {
         "enabled": True,
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     model_runs: List[str] = ["00", "06", "12", "18"]
     # Download files every hour from f000 to f120
     forecast_files: List[int] = list(range(0, 121, 1))  # Files to download: f000, f001, f002, ..., f120
-    forecast_hours: List[int] = list(range(0, 121, 1))  # Process hourly data points
+    forecast_hours: int = 120  # Maximum forecast hours to process
     
     models: Dict = {
         "atlantic": {
@@ -55,16 +56,49 @@ class Settings(BaseSettings):
             "grid": {
                 "lat": {
                     "start": 0,
-                    "end": 55,
-                    "resolution": 0.16,
-                    "size": 331
+                    "end": 55.00011,
+                    "resolution": 0.167,
+                    "points": 331
                 },
                 "lon": {
-                    "start": -100,
-                    "end": -50,
-                    "resolution": 0.16,
-                    "size": 301
+                    "start": 260,  # -100 degrees in 360-notation
+                    "end": 310.00010,  # -50 degrees in 360-notation
+                    "resolution": 0.167,
+                    "points": 301
                 }
+            },
+            "variables": {
+                "wave": {
+                    "dirpw": "surface primary wave direction [deg]",
+                    "htsgw": "surface significant height of combined wind waves and swell [m]",
+                    "perpw": "surface primary wave mean period [s]"
+                },
+                "swell": {
+                    "swdir_1": "1 in sequence direction of swell waves [deg]",
+                    "swdir_2": "2 in sequence direction of swell waves [deg]",
+                    "swdir_3": "3 in sequence direction of swell waves [deg]",
+                    "swell_1": "1 in sequence significant height of swell waves [m]",
+                    "swell_2": "2 in sequence significant height of swell waves [m]",
+                    "swell_3": "3 in sequence significant height of swell waves [m]",
+                    "swper_1": "1 in sequence mean period of swell waves [s]",
+                    "swper_2": "2 in sequence mean period of swell waves [s]",
+                    "swper_3": "3 in sequence mean period of swell waves [s]"
+                },
+                "wind": {
+                    "ugrd": "surface u-component of wind [m/s]",
+                    "vgrd": "surface v-component of wind [m/s]",
+                    "wdir": "surface wind direction (from which blowing) [degtrue]",
+                    "wind": "surface wind speed [m/s]"
+                },
+                "wind_waves": {
+                    "wvdir": "surface direction of wind waves [deg]",
+                    "wvhgt": "surface significant height of wind waves [m]",
+                    "wvper": "surface mean period of wind waves [s]"
+                }
+            },
+            "forecast": {
+                "steps": 129,  # Number of forecast time steps
+                "interval": 0.125  # Time step interval in days (3 hours)
             }
         },
         # "pacific": {

@@ -57,10 +57,6 @@ class StationService:
                 detail=f"Station {station_id} not found"
             )
         return station
-        
-    def get_stations(self) -> List[Station]:
-        """Get all stations."""
-        return self._load_stations()
 
     async def get_station_observations(self, station_id: str) -> NDBCObservation:
         """Get current observations for a station."""

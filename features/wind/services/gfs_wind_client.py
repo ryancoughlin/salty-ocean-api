@@ -15,10 +15,6 @@ from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
 from features.common.services.model_run_service import ModelRunService
-from features.common.exceptions.model_run_exceptions import (
-    CycleDownloadError,
-    CycleValidationError
-)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +26,16 @@ class GFSWindClient:
     def __init__(self, model_run_service: Optional[ModelRunService] = None):
         self.file_storage = GFSFileStorage()
         self.model_run_service = model_run_service or ModelRunService()
+        logger.info("GFS Wind Client initialized")
         
-    def _build_grib_filter_url(self, date: datetime, cycle: str, forecast_hour: int,
-                              lat: float, lon: float) -> str:
+    def _build_grib_filter_url(
+        self,
+        date: datetime,
+        cycle: str,
+        forecast_hour: int,
+        lat: float,
+        lon: float
+    ) -> str:
         """Build URL for NOMADS GRIB filter service."""
         # Convert longitude to 0-360 range if needed
         if lon < 0:
@@ -60,14 +63,19 @@ class GFSWindClient:
         query = "&".join(f"{k}={v}" for k, v in params.items())
         return f"{self.BASE_URL}?{query}"
     
-    async def _get_grib_file(self, url: str, station_id: str, date: datetime, 
-                            cycle: str, forecast_hour: int) -> Optional[Path]:
+    async def _get_grib_file(
+        self,
+        url: str,
+        station_id: str,
+        date: datetime,
+        cycle: str,
+        forecast_hour: int
+    ) -> Optional[Path]:
         """Get GRIB file from storage or download if needed."""
         file_path = self.file_storage.get_file_path(station_id, date, cycle, forecast_hour)
         
         # Check if we have a valid cached file
         if self.file_storage.is_file_valid(file_path):
-            logger.debug(f"Using cached GRIB file for station {station_id}")
             return file_path
             
         # Download if no valid file exists
@@ -75,27 +83,27 @@ class GFSWindClient:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, allow_redirects=True, timeout=300) as response:
                     if response.status == 404:
-                        logger.error("GRIB2 file not found")
-                        raise CycleDownloadError("GRIB2 file not found")
+                        logger.warning(f"GRIB file not found for hour {forecast_hour:03d}")
+                        return None
                     elif response.status != 200:
-                        logger.error(f"Failed to download GRIB2 file: {response.status}")
-                        raise CycleDownloadError(f"Failed to download GRIB2 file: {response.status}")
+                        logger.error(f"Failed to download GRIB file: {response.status}")
+                        return None
                         
                     content = await response.read()
                     if len(content) < 100:
-                        logger.error("Downloaded file too small to be valid GRIB2")
-                        raise CycleValidationError("Downloaded file too small to be valid GRIB2")
+                        logger.error(f"Downloaded file too small for hour {forecast_hour:03d}")
+                        return None
                         
                     if await self.file_storage.save_file(file_path, content):
                         return file_path
                     return None
             
         except asyncio.TimeoutError:
-            logger.error("Timeout while downloading GRIB2 file")
-            raise CycleDownloadError("Timeout while downloading GRIB2 file")
+            logger.error(f"Timeout downloading GRIB file for hour {forecast_hour:03d}")
+            return None
         except Exception as e:
-            logger.error(f"Error downloading GRIB2 file: {str(e)}")
-            raise CycleDownloadError(f"Error downloading GRIB2 file: {str(e)}")
+            logger.error(f"Error downloading GRIB file: {str(e)}")
+            return None
     
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:
         """Calculate wind speed and direction from U and V components."""
@@ -110,7 +118,12 @@ class GFSWindClient:
                 detail=f"Error calculating wind data: {str(e)}"
             )
             
-    def _process_grib_data(self, grib_path: Path, lat: float, lon: float) -> Optional[Tuple[datetime, float, float, float]]:
+    def _process_grib_data(
+        self,
+        grib_path: Path,
+        lat: float,
+        lon: float
+    ) -> Optional[Tuple[datetime, float, float, float]]:
         """Process GRIB2 file and extract wind data for location."""
         try:
             ds = xr.open_dataset(
@@ -144,13 +157,24 @@ class GFSWindClient:
                 ds.close()
                 
         except Exception as e:
-            logger.error(f"Error processing GRIB2 file: {str(e)}")
+            logger.error(f"Error processing GRIB file: {str(e)}")
             return None
     
     async def get_station_wind_forecast(self, station: Station) -> WindForecastResponse:
         """Get 7-day wind forecast for a station."""
         try:
+            logger.info(f"Getting wind forecast for station {station.station_id}")
+            
+            # Get latest available model cycle using ModelRunService
             cycle_date, cycle_hour = await self.model_run_service.get_latest_available_cycle()
+            if not cycle_date or not cycle_hour:
+                logger.error("No model cycle available")
+                raise HTTPException(
+                    status_code=503,
+                    detail="No model cycle currently available"
+                )
+                
+            logger.info(f"Using model cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour}Z")
             forecasts: List[WindForecastPoint] = []
             
             # Get lat/lon from GeoJSON coordinates [lon, lat]
@@ -158,30 +182,46 @@ class GFSWindClient:
             lon = station.location.coordinates[0]
             
             # Get forecasts at 3-hour intervals up to 168 hours (7 days)
+            total_hours = 0
             for hour in range(0, 169, 3):  # 0 to 168 inclusive
                 url = self._build_grib_filter_url(
-                    cycle_date, cycle_hour, hour,
-                    lat, lon
+                    cycle_date,
+                    cycle_hour,
+                    hour,
+                    lat,
+                    lon
                 )
                 
-                grib_path = await self._get_grib_file(url, station.station_id, cycle_date, cycle_hour, hour)
-                if not grib_path:
-                    logger.debug(f"Missing forecast for hour {hour}")
+                try:
+                    grib_path = await self._get_grib_file(
+                        url,
+                        station.station_id,
+                        cycle_date,
+                        cycle_hour,
+                        hour
+                    )
+                    if not grib_path:
+                        logger.warning(f"Missing forecast for hour {hour}")
+                        continue
+                        
+                    wind_data = self._process_grib_data(grib_path, lat, lon)
+                    if wind_data:
+                        valid_time, u, v, gust = wind_data
+                        speed, direction = self._calculate_wind(u, v)
+                        
+                        forecasts.append(WindForecastPoint(
+                            time=valid_time,
+                            speed=UnitConversions.ms_to_mph(speed),
+                            direction=direction,
+                            gust=UnitConversions.ms_to_mph(gust)
+                        ))
+                        total_hours += 1
+                except Exception as e:
+                    logger.error(f"Error processing hour {hour}: {str(e)}")
                     continue
-                    
-                wind_data = self._process_grib_data(grib_path, lat, lon)
-                if wind_data:
-                    valid_time, u, v, gust = wind_data
-                    speed, direction = self._calculate_wind(u, v)
-                    
-                    forecasts.append(WindForecastPoint(
-                        time=valid_time,
-                        speed=UnitConversions.ms_to_mph(speed),
-                        direction=direction,
-                        gust=UnitConversions.ms_to_mph(gust)
-                    ))
             
             if not forecasts:
+                logger.error("No forecast points available")
                 raise HTTPException(
                     status_code=503,
                     detail="No forecast data available"
@@ -189,6 +229,7 @@ class GFSWindClient:
                 
             # Sort forecasts by time
             forecasts.sort(key=lambda x: x.time)
+            logger.info(f"Generated forecast with {total_hours} time points")
             
             return WindForecastResponse(
                 station_id=station.station_id,

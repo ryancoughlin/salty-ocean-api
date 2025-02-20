@@ -1,0 +1,146 @@
+# Wave Forecast Processing Rules
+
+## Data Structure
+
+### GRIB Variables
+- `swh`: Significant wave height [meters, ≥ 0]
+- `perpw`: Peak wave period [seconds, ≥ 0]
+- `dirpw`: Primary wave direction [degrees true, 0-360]
+
+### Coordinate System
+- Longitude: 0-360° system (convert from -180/180)
+- Latitude: -90° to 90° (unchanged)
+- Time: UTC timestamps from valid_time field
+
+### Regional Boundaries
+Atlantic Region:
+- Longitude: 260° to 310° (convert from -100° to -50°)
+- Latitude: 0° to 55°
+- Grid Resolution: 0.167° (~18.5km)
+
+Pacific Region:
+- Longitude: 180° to 245°
+- Latitude: 0° to 60°
+- Grid Resolution: 0.167° (~18.5km)
+
+## Processing Pipeline
+
+1. **Data Loading**
+   - Use Dask-enabled xarray for parallel processing
+   - Chunk by time dimension for memory efficiency
+   - Load only required variables (swh, perpw, dirpw)
+
+```python
+ds = xr.open_dataset(
+    grib_file,
+    engine="cfgrib",
+    chunks={'time': -1},
+    backend_kwargs={'indexpath': ''}
+)
+```
+
+2. **Coordinate Processing**
+   - Always use valid_time as time coordinate
+   - Convert longitudes to 0-360° system
+   - Use nearest-neighbor interpolation for station points
+
+3. **Data Validation**
+   - Validate ranges:
+     - Heights ≥ 0
+     - Periods ≥ 0
+     - Directions 0-360°
+   - Skip invalid points (don't interpolate)
+   - Log but don't fail on individual point errors
+
+4. **Time Handling**
+   - All times in UTC
+   - Sort forecasts chronologically
+   - 3-hour intervals (0.125 days)
+   - 168-hour forecast range (7 days)
+
+## Caching Strategy
+
+1. **GRIB File Cache**
+   - Cache Location: `cache/gfs_wave/`
+   - Naming: `{region}_gfs_{YYYYMMDD}_{HH}z_f{FFF}.grib2`
+   - Expire after 4 hours (matches model run frequency)
+
+2. **Dataset Cache**
+   - Cache processed regional datasets in memory
+   - Key format: `{region}_{YYYYMMDD}_{HH}`
+   - Clear on new model run
+
+3. **Forecast Cache**
+   - Cache station forecasts
+   - Key format: `gfs_wave_forecast:{station_id}`
+   - Expire after 4 hours
+
+## Error Handling
+
+1. **Download Errors**
+   - Retry with exponential backoff
+   - Maximum 3 retries
+   - Log failed downloads but continue processing
+
+2. **Processing Errors**
+   - Log invalid data points
+   - Skip bad time points
+   - Continue processing valid points
+   - Return empty forecast only if no valid points
+
+3. **Validation Errors**
+   - Log out of range values
+   - Skip invalid points
+   - Include grid coordinates in error logs
+
+## Performance Guidelines
+
+1. **Memory Management**
+   - Use Dask for large datasets
+   - Process in chunks by time
+   - Clear memory after processing
+   - Close datasets when done
+
+2. **Concurrency**
+   - Download files concurrently (max 5)
+   - Process regions independently
+   - Use asyncio for I/O operations
+   - Maintain connection pool
+
+## Response Format
+
+```python
+GFSWaveForecast:
+    station_info: Station
+    cycle: GFSModelCycle(date: YYYYMMDD, hour: HH)
+    forecasts: List[
+        GFSForecastPoint:
+            timestamp: datetime (UTC)
+            waves: List[
+                GFSWaveComponent:
+                    height_m: float  # meters
+                    height_ft: float # feet
+                    period: float    # seconds
+                    direction: float # degrees
+            ]
+    ]
+```
+
+## Logging Requirements
+
+1. **Download Logs**
+   - File sizes
+   - Download times
+   - Success/failure counts
+
+2. **Processing Logs**
+   - Grid point mapping
+   - Invalid data points
+   - Processing times
+   - Memory usage
+
+3. **Forecast Logs**
+   - Station coordinates
+   - Region selection
+   - Number of valid points
+   - Cache hits/misses 

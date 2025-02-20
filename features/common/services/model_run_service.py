@@ -1,188 +1,120 @@
-from datetime import datetime, time, timedelta, timezone
-from typing import Dict, Optional, Tuple
+import asyncio
 import logging
-import aiohttp
+from datetime import datetime, date, time, timedelta, timezone
+from typing import Optional, Tuple
+from email.utils import parsedate_to_datetime
+from pydantic import BaseModel, validator
 
-from features.common.models.model_run_types import (
-    CycleStatus,
-    CycleAttempt,
-    ModelRunConfig,
-    ModelRunMetrics
-)
-from features.common.exceptions.model_run_exceptions import (
-    CycleNotAvailableError,
-    CycleDownloadError
-)
-from core.config import settings
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
+class ModelRun(BaseModel):
+    """Model run information with availability details."""
+    run_date: date
+    cycle_hour: int
+    available_time: datetime
+    delay_minutes: Optional[int] = None
+
+    @validator('delay_minutes', always=True)
+    def compute_delay(cls, v, values):
+        if 'available_time' in values and 'run_date' in values and 'cycle_hour' in values:
+            # Create timezone-aware datetime for the scheduled time
+            scheduled_dt = datetime.combine(
+                values['run_date'],
+                time(hour=values['cycle_hour'])
+            ).replace(tzinfo=timezone.utc)
+            
+            # available_time is already UTC from parsedate_to_datetime
+            delay = (values['available_time'] - scheduled_dt).total_seconds() / 60.0
+            return int(delay)
+        return v
+
+    def __str__(self):
+        return (f"ModelRun(run_date={self.run_date}, cycle_hour={self.cycle_hour}Z, "
+                f"available_time={self.available_time}, delay_minutes={self.delay_minutes})")
+
 class ModelRunService:
-    """Service for managing GFS model run calculations and status.
+    """Service to check for available GFS model runs."""
     
-    The GFS (Global Forecast System) runs 4 times daily at:
-    - 00Z
-    - 06Z
-    - 12Z
-    - 18Z
-    
-    Each cycle's availability is checked dynamically by verifying
-    the existence of required files on NOAA's servers.
-    """
-    
-    def __init__(self, config: Optional[ModelRunConfig] = None) -> None:
-        """Initialize the model run service.
+    def __init__(self):
+        self.current_cycle: Optional[ModelRun] = None
         
-        Args:
-            config: Optional configuration for the service
-        """
-        self.config = config or ModelRunConfig()
-        self.metrics = ModelRunMetrics()
-        self._cycle_attempts: Dict[str, CycleAttempt] = {}
-        self._session: Optional[aiohttp.ClientSession] = None
-        self._current_cycle: Optional[Tuple[datetime, str]] = None
-    
-    async def _init_session(self) -> aiohttp.ClientSession:
-        """Initialize or return existing HTTP session."""
-        if not self._session or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-    
-    async def close(self):
-        """Close the HTTP session."""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
-    
-    def _calculate_current_cycle(self) -> tuple[datetime, str]:
-        """Calculate the current GFS cycle based on time.
+    async def check_grib_file_for_cycle(
+        self,
+        target_date: date,
+        cycle_hour: int,
+        min_size: int = 100
+    ) -> Optional[ModelRun]:
+        """Check if a specific model cycle is available."""
+        date_str = target_date.strftime("%Y%m%d")
+        cycle_str = f"{cycle_hour:02d}"
         
-        The GFS runs every 6 hours at 00Z, 06Z, 12Z, and 18Z.
-        Files are typically available 4 hours after the cycle starts.
-        So we look back one cycle to ensure we have data.
+        # Check for the first GRIB file directly
+        url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod/gfs.{date_str}/{cycle_str}/wave/gridded/gfswave.t{cycle_str}z.atlocn.0p16.f000.grib2"
         
-        Returns:
-            tuple[datetime, str]: (cycle_date, cycle_hour)
-        """
-        current_time = datetime.now(timezone.utc)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url, timeout=30) as response:
+                    if response.status != 200:
+                        return None
+                        
+                    content_length = response.headers.get("Content-Length")
+                    if content_length and int(content_length) < min_size:
+                        return None
+                        
+                    last_modified = response.headers.get("Last-Modified")
+                    if not last_modified:
+                        return None
+                        
+                    # parsedate_to_datetime returns UTC time
+                    available_time = parsedate_to_datetime(last_modified)
+                    model_run = ModelRun(
+                        run_date=target_date,
+                        cycle_hour=cycle_hour,
+                        available_time=available_time
+                    )
+                    return model_run
+                    
+        except Exception as e:
+            logger.error(f"Error checking cycle {cycle_str}Z: {e}")
+            return None
+
+    async def get_latest_available_cycle(self) -> Optional[ModelRun]:
+        """Get the latest available model cycle."""
+        # Ensure we're working with UTC time
+        now = datetime.now(timezone.utc)
+        target_date = now.date()
+        cycles = [0, 6, 12, 18]
         
-        # Calculate current cycle hour (00, 06, 12, 18)
-        cycle_hour = (current_time.hour // 6) * 6
-        
-        # Look back one cycle to ensure data is ready
-        cycle_hour -= 6
-        cycle_date = current_time.date()
-        
-        # Handle previous day if needed
-        if cycle_hour < 0:
-            cycle_hour = 18
-            cycle_date -= timedelta(days=1)
+        # Check today and yesterday only - no need to go back further
+        for delta in [0, -1]:
+            check_date = target_date + timedelta(days=delta)
             
-        return cycle_date, f"{cycle_hour:02d}"
-    
-    async def get_latest_available_cycle(self) -> tuple[datetime, str]:
-        """Get the latest GFS cycle that should have data available.
-        
-        Returns:
-            tuple[datetime, str]: (cycle_date, cycle_hour)
-        """
-        if self._current_cycle:
-            return self._current_cycle
+            # Check cycles in reverse order (latest first)
+            # But only check cycles that should be ready based on current time
+            current_hour = now.hour
+            available_cycles = [c for c in cycles if c <= current_hour - 3 or delta < 0]
             
-        # Calculate cycle based on current time
-        cycle_date, cycle_hour = self._calculate_current_cycle()
-        logger.info(f"Using GFS cycle: {cycle_date.strftime('%Y%m%d')} {cycle_hour}Z")
+            for cycle in sorted(available_cycles, reverse=True):
+                model_run = await self.check_grib_file_for_cycle(check_date, cycle)
+                if model_run:
+                    self.current_cycle = model_run
+                    print(f"\n✨ Using GFS model run: {check_date.strftime('%Y%m%d')} {cycle:02d}Z")
+                    print(f"⏰ Available since: {model_run.available_time.strftime('%H:%M:%S')} UTC")
+                    print(f"⌛ Delay: {model_run.delay_minutes} minutes\n")
+                    return model_run
         
-        self._current_cycle = (cycle_date, cycle_hour)
-        return self._current_cycle
-    
-    def track_attempt(self, 
-                     cycle_date: datetime,
-                     cycle_hour: str,
-                     status: CycleStatus,
-                     error: Optional[str] = None) -> None:
-        """Track an attempt to download a cycle.
-        
-        Args:
-            cycle_date: Date of the cycle
-            cycle_hour: Hour of the cycle (00, 06, 12, 18)
-            status: Status of the attempt
-            error: Optional error message
-        """
-        cycle_id = f"{cycle_date.strftime('%Y%m%d')}_{cycle_hour}"
-        attempt = self._cycle_attempts.get(cycle_id)
-        
-        if attempt is None:
-            attempt = CycleAttempt(cycle_id=cycle_id)
-            self._cycle_attempts[cycle_id] = attempt
-        
-        attempt.attempts += 1
-        attempt.last_attempt = datetime.now(timezone.utc)
-        attempt.status = status
-        attempt.error = error
-        
-        # Update metrics
-        self.metrics.total_attempts += 1
-        if status == CycleStatus.COMPLETE:
-            self.metrics.successful_attempts += 1
-            self.metrics.last_successful_cycle = cycle_id
-        elif status == CycleStatus.FAILED:
-            self.metrics.failed_attempts += 1
-            
-        logger.info(
-            f"Cycle {cycle_id} attempt {attempt.attempts}: {status.value}"
-            + (f" - {error}" if error else "")
+        # If we get here, use yesterday's last successful cycle
+        yesterday = target_date - timedelta(days=1)
+        last_cycle = max(c for c in cycles if c <= current_hour)
+        logger.warning(f"No recent cycles found, falling back to yesterday's {last_cycle:02d}Z cycle")
+        return ModelRun(
+            run_date=yesterday,
+            cycle_hour=last_cycle,
+            available_time=datetime.now(timezone.utc)
         )
-    
-    def should_retry(self, cycle_date: datetime, cycle_hour: str) -> bool:
-        """Determine if we should retry downloading a cycle.
-        
-        Args:
-            cycle_date: Date of the cycle
-            cycle_hour: Hour of the cycle (00, 06, 12, 18)
-            
-        Returns:
-            bool indicating if we should retry
-        """
-        cycle_id = f"{cycle_date.strftime('%Y%m%d')}_{cycle_hour}"
-        attempt = self._cycle_attempts.get(cycle_id)
-        
-        if not attempt:
-            return True
-        
-        # Check max attempts
-        if attempt.attempts >= self.config.max_attempts:
-            logger.warning(
-                f"Cycle {cycle_id} has reached max attempts ({self.config.max_attempts})"
-            )
-            return False
-        
-        # Check if enough time has passed since last attempt
-        time_since_last = datetime.now(timezone.utc) - attempt.last_attempt
-        required_delay = timedelta(
-            minutes=self.config.min_retry_delay_minutes * (2 ** (attempt.attempts - 1))
-        )
-        
-        return time_since_last >= required_delay
-    
-    def get_cycle_status(self, cycle_date: datetime, cycle_hour: str) -> CycleStatus:
-        """Get the status of a cycle.
-        
-        Args:
-            cycle_date: Date of the cycle
-            cycle_hour: Hour of the cycle (00, 06, 12, 18)
-            
-        Returns:
-            CycleStatus indicating current status
-        """
-        cycle_id = f"{cycle_date.strftime('%Y%m%d')}_{cycle_hour}"
-        attempt = self._cycle_attempts.get(cycle_id)
-        return attempt.status if attempt else CycleStatus.PENDING
-    
-    def get_metrics(self) -> ModelRunMetrics:
-        """Get current metrics.
-        
-        Returns:
-            Current metrics for the service
-        """
-        return self.metrics 
+
+    def get_current_cycle(self) -> Optional[ModelRun]:
+        """Get the currently loaded model run."""
+        return self.current_cycle 

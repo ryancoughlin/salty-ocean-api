@@ -1,0 +1,195 @@
+"""
+Dynamic Model Run Checker
+
+Overview:
+    This script periodically (every 15 minutes) checks whether new model run data is available.
+    Instead of parsing HTML directory listings, it performs a lightweight HEAD request on a known GRIB file URL.
+    The representative URL is dynamically constructed based on a target date and cycle hour. If a HEAD request returns HTTP 200,
+    it means the data is available. The HTTP header "Last-Modified" is used to determine when the file was updated,
+    and from that a ModelRun instance is created (which also computes the delay between the scheduled cycle and availability).
+    
+    The ModelRunService class then compares the currently loaded cycle with the latest available cycle.
+    If a new cycle is detected, the service triggers a placeholder routine to download and process the new GRIB files.
+
+Usage:
+    Deploy this service in your Docker container. The service will log its actions and periodically check
+    for new model run data using HEAD requests—avoiding a full download.
+    
+Dependencies:
+    - aiohttp, asyncio, logging, datetime, re
+    - pydantic, email.utils (for parsing HTTP date strings)
+"""
+
+import asyncio
+import logging
+from datetime import datetime, date, time, timedelta
+from typing import Optional, List
+
+import aiohttp
+from email.utils import parsedate_to_datetime
+from pydantic import BaseModel, validator
+
+# ------------------- Pydantic Model for Model Run -------------------
+
+class ModelRun(BaseModel):
+    run_date: date              # Scheduled model run date (e.g., 2025-02-19)
+    cycle_hour: int             # Cycle hour (one of 0, 6, 12, 18) in UTC
+    available_time: datetime    # Timestamp (UTC) when data became available (from HTTP Last-Modified)
+    delay_minutes: Optional[int] = None  # Computed delay (in minutes) between scheduled cycle time and availability
+
+    @validator('delay_minutes', always=True)
+    def compute_delay(cls, v, values):
+        """
+        Compute delay (in minutes) between the scheduled cycle time and the available time.
+        For example, if the 00Z run (scheduled at 00:00 UTC) is available at 03:31 UTC,
+        the delay will be about 211 minutes.
+        """
+        if 'available_time' in values and 'run_date' in values and 'cycle_hour' in values:
+            scheduled_dt = datetime.combine(values['run_date'], time(hour=values['cycle_hour']))
+            delay = (values['available_time'] - scheduled_dt).total_seconds() / 60.0
+            return int(delay)
+        return v
+
+    def __str__(self):
+        return (f"ModelRun(run_date={self.run_date}, cycle_hour={self.cycle_hour}Z, "
+                f"available_time={self.available_time}, delay_minutes={self.delay_minutes})")
+
+# ------------------- Function to Dynamically Check for Data -------------------
+
+async def check_grib_file_for_cycle(target_date: date, cycle_hour: int, min_size: int = 100) -> Optional[ModelRun]:
+    """
+    For a given target_date and candidate cycle_hour, construct a representative GRIB file URL
+    (using forecast hour f000 on the "global.0p25" grid) and perform a HEAD request.
+    
+    If the file exists (HTTP 200) and has a valid Content-Length, use the Last-Modified header
+    to create a ModelRun instance.
+    
+    Args:
+        target_date: The date (YYYYMMDD) that is used in the URL.
+        cycle_hour: The candidate cycle hour (0, 6, 12, or 18).
+        min_size: Minimum acceptable file size in bytes.
+        
+    Returns:
+        A ModelRun instance if data is available; otherwise, None.
+    """
+    date_str = target_date.strftime("%Y%m%d")
+    cycle_str = f"{cycle_hour:02d}"
+    # Build a representative URL. Note: URL-encode the directory parameter.
+    url = (f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?"
+           f"file=gfswave.t{cycle_str}z.global.0p25.f000.grib2&lev_surface=on&all_var=on&"
+           f"leftlon=0&rightlon=360&toplat=90&bottomlat=-90&"
+           f"dir=%2Fgfs.{date_str}%2F{cycle_str}%2Fwave%2Fgridded")
+    logging.info(f"Checking URL for cycle {cycle_str}Z: {url}")
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url, timeout=30) as response:
+                if response.status != 200:
+                    logging.info(f"Cycle {cycle_str}Z not available (HTTP {response.status}).")
+                    return None
+                # Check Content-Length if available.
+                content_length = response.headers.get("Content-Length")
+                if content_length and int(content_length) < min_size:
+                    logging.info(f"Cycle {cycle_str}Z file size {content_length} bytes is too small.")
+                    return None
+                # Parse Last-Modified header to get the available time.
+                last_modified = response.headers.get("Last-Modified")
+                if not last_modified:
+                    logging.info(f"Cycle {cycle_str}Z missing Last-Modified header.")
+                    return None
+                available_time = parsedate_to_datetime(last_modified)
+                model_run = ModelRun(
+                    run_date=target_date,
+                    cycle_hour=cycle_hour,
+                    available_time=available_time
+                )
+                logging.info(f"Data available for cycle {cycle_str}Z: {model_run}")
+                return model_run
+    except Exception as e:
+        logging.error(f"Error checking cycle {cycle_str}Z: {e}")
+        return None
+
+async def fetch_latest_model_run_dynamic(target_date: Optional[date] = None,
+                                         cycles: List[int] = [0, 6, 12, 18]) -> Optional[ModelRun]:
+    """
+    Dynamically check each candidate cycle (e.g., 00, 06, 12, 18 UTC) for the target_date
+    by performing HEAD requests. Return the ModelRun instance corresponding to the latest available cycle.
+    
+    If no cycles are available for the target_date, returns None.
+    """
+    if target_date is None:
+        # Use yesterday's date by default (this may vary based on your update schedule)
+        target_date = (datetime.utcnow() - timedelta(days=1)).date()
+    
+    tasks = [check_grib_file_for_cycle(target_date, cycle) for cycle in cycles]
+    results = await asyncio.gather(*tasks)
+    available_runs = [run for run in results if run is not None]
+    if not available_runs:
+        logging.warning(f"No cycles available for {target_date}")
+        return None
+    
+    # Return the cycle with the highest cycle_hour (assumed to be the latest available)
+    latest_run = max(available_runs, key=lambda r: r.cycle_hour)
+    return latest_run
+
+# ------------------- Model Run Service -------------------
+
+class ModelRunService:
+    def __init__(self):
+        self.current_cycle: Optional[ModelRun] = None
+        self.check_interval = 15 * 60  # 15 minutes in seconds
+
+    async def check_for_new_data(self) -> (bool, Optional[ModelRun]):
+        """
+        Check if a new model run is available by dynamically testing candidate cycle URLs.
+        """
+        latest_run = await fetch_latest_model_run_dynamic()
+        if latest_run is None:
+            return False, self.current_cycle
+        
+        # If no current cycle, or the new one differs, then new data is available.
+        if self.current_cycle is None or latest_run != self.current_cycle:
+            logging.info(f"New model run detected: {latest_run}")
+            return True, latest_run
+        return False, self.current_cycle
+
+    async def download_and_process_new_data(self, new_cycle: ModelRun):
+        """
+        Placeholder: Download and process new GRIB data for the given model run.
+        
+        Actual steps:
+          1. For each forecast hour and region, build the download URL.
+          2. Asynchronously download and cache the GRIB files.
+          3. Process the files (using cfgrib/xarray) into combined datasets.
+          4. Update in-memory caches for fast lookup.
+        """
+        logging.info(f"Starting download and processing for new cycle: {new_cycle}")
+        # TODO: Insert your actual download and processing logic here.
+        await asyncio.sleep(5)  # Simulate processing time
+        logging.info("New model run data processed successfully.")
+
+    async def run(self):
+        """
+        Main loop that periodically checks for new model run data and triggers processing when found.
+        """
+        while True:
+            try:
+                new_data_available, new_cycle = await self.check_for_new_data()
+                if new_data_available and new_cycle:
+                    await self.download_and_process_new_data(new_cycle)
+                    self.current_cycle = new_cycle
+                else:
+                    logging.info("No new model run data available at this time.")
+            except Exception as e:
+                logging.error(f"Error during model run check: {e}")
+            await asyncio.sleep(self.check_interval)
+
+# ------------------- Main Execution -------------------
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    service = ModelRunService()
+    try:
+        asyncio.run(service.run())
+    except KeyboardInterrupt:
+        logging.info("Model run service terminated by user.")

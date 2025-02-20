@@ -88,33 +88,3 @@ class WaveDataService:
         except Exception as e:
             logger.error(f"Error getting forecast for station {station_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
-
-
-    @cached(namespace="wave_stations_geojson")
-    async def get_stations_geojson(self) -> Dict:
-        """Get all wave monitoring stations in GeoJSON format."""
-        try:
-            stations = self.station_service.get_stations()
-            
-            features = []
-            for station in stations:
-                feature = {
-                    "type": "Feature",
-                    "geometry": station.location.dict(),
-                    "properties": {
-                        "id": station.station_id,
-                        "name": station.name,
-                    }
-                }
-                features.append(feature)
-            
-            return {
-                "type": "FeatureCollection",
-                "features": features
-            }
-            
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error converting stations to GeoJSON: {str(e)}"
-            ) 

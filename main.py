@@ -50,25 +50,28 @@ async def lifespan(app: FastAPI):
 
         # Initialize model run service as single source of truth
         model_run_service = ModelRunService()
-        model_run = await model_run_service.get_latest_available_cycle()
-        if not model_run:
+        current_model_run = await model_run_service.get_latest_available_cycle()
+        if not current_model_run:
             logger.error("Failed to get initial model run")
             raise Exception("Failed to get initial model run")
+            
+        # Store model run service and current model run in app state
+        app.state.model_run_service = model_run_service
+        app.state.current_model_run = current_model_run
             
         # Initialize services and clients
         station_service = StationService()
         buoy_client = NDBCBuoyClient()
         
         # Initialize clients with current model run
-        gfs_wave_client = NOAAGFSClient(model_run=model_run)
-        gfs_wave_client_v2 = GFSWaveClient(model_run=model_run)
-        gfs_wind_client = GFSWindClient(model_run=model_run)
+        gfs_wave_client = NOAAGFSClient(model_run=current_model_run)
+        gfs_wave_client_v2 = GFSWaveClient(model_run=current_model_run)
+        gfs_wind_client = GFSWindClient(model_run=current_model_run)
         
         # Store services and clients in app state
-        app.state.model_run_service = model_run_service
         app.state.gfs_client = gfs_wave_client
-        app.state.gfs_wave_client_v2 = gfs_wave_client_v2  # Store v2 client for updates
-        app.state.gfs_wind_client = gfs_wind_client  # Store wind client for updates
+        app.state.gfs_wave_client_v2 = gfs_wave_client_v2
+        app.state.gfs_wind_client = gfs_wind_client
         app.state.station_service = station_service
         app.state.wave_service = WaveDataService(
             gfs_client=gfs_wave_client,
@@ -99,15 +102,16 @@ async def lifespan(app: FastAPI):
                 try:
                     new_model_run = await model_run_service.get_latest_available_cycle()
                     if new_model_run and (
-                        not model_run or 
-                        new_model_run.run_date != model_run.run_date or 
-                        new_model_run.cycle_hour != model_run.cycle_hour
+                        new_model_run.run_date != app.state.current_model_run.run_date or 
+                        new_model_run.cycle_hour != app.state.current_model_run.cycle_hour
                     ):
                         logger.info("New model run detected, updating clients...")
                         # Update all clients with new model run
                         app.state.gfs_client.update_model_run(new_model_run)
                         app.state.gfs_wave_client_v2.update_model_run(new_model_run)
                         app.state.gfs_wind_client.update_model_run(new_model_run)
+                        # Update our reference to current model run in app state
+                        app.state.current_model_run = new_model_run
                 except Exception as e:
                     logger.error(f"Error checking for new model run: {str(e)}")
                 finally:

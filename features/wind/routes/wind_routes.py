@@ -1,17 +1,17 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from features.wind.models.wind_types import WindForecastResponse
-from features.wind.services.wind_service import WindService
+from features.wind.services.wind_service import get_wind_forecast
 from core.cache import cached
 from typing import Optional
 
 router = APIRouter(
     prefix="/wind",
-    tags=["Wind"]
+    tags=["Wind"],
+    responses={
+        404: {"description": "Station not found"},
+        503: {"description": "Forecast service unavailable"}
+    }
 )
-
-def get_service(request: Request) -> WindService:
-    """Dependency to get the WindService instance."""
-    return request.app.state.wind_service
 
 def wind_cache_key_builder(
     func,
@@ -36,7 +36,7 @@ def wind_cache_key_builder(
 )
 async def get_station_wind_forecast(
     station_id: str,
-    service: WindService = Depends(get_service)
-):
+    forecast: WindForecastResponse = Depends(get_wind_forecast)
+) -> WindForecastResponse:
     """Get wind forecast for a specific station."""
-    return await service.get_station_wind_forecast(station_id) 
+    return forecast 

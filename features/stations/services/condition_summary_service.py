@@ -9,7 +9,7 @@ from features.waves.models.wave_types import WaveForecastPoint, WaveForecastResp
 from features.wind.models.wind_categories import BeaufortScale, WindDirection, TrendType
 from features.waves.models.wave_categories import WaveHeight, WavePeriod, Conditions
 from features.wind.services.wind_service import WindService
-from features.waves.services.wave_data_service import WaveDataService
+from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
 from features.stations.services.station_service import StationService
 from features.common.models.station_types import Station
 from features.stations.models.summary_types import ConditionSummaryResponse
@@ -26,7 +26,7 @@ class ConditionSummaryService:
     def __init__(
         self,
         wind_service: WindService,
-        wave_service: WaveDataService,
+        wave_service: WaveDataServiceV2,
         station_service: StationService
     ):
         self.wind_service = wind_service
@@ -58,49 +58,6 @@ class ConditionSummaryService:
             favorable = {WindDirection.E, WindDirection.SE, WindDirection.NE}
             return "favorable" if wind_dir in favorable else "unfavorable"
 
-    async def _get_forecast_data(self, station_id: str) -> Tuple[WindForecastResponse, WaveForecastResponse]:
-        """Fetch all forecast data in parallel."""
-        wind_forecast, wave_forecast = await asyncio.gather(
-            self.wind_service.get_station_wind_forecast(station_id),
-            self.wave_service.get_station_forecast(station_id),
-            return_exceptions=True
-        )
-
-        # Check each result individually for better error reporting
-        if isinstance(wind_forecast, Exception):
-            logger.error(f"Wind forecast error for {station_id}: {str(wind_forecast)}")
-            raise HTTPException(
-                status_code=503, 
-                detail=f"Unable to fetch wind conditions: {str(wind_forecast)}"
-            )
-            
-        if isinstance(wave_forecast, Exception):
-            if isinstance(wave_forecast, HTTPException) and wave_forecast.status_code == 404:
-                # This is an expected case - station doesn't have wave forecasts
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Station {station_id} does not have wave forecasts available"
-                )
-            logger.error(f"Wave forecast error for {station_id}: {str(wave_forecast)}")
-            raise HTTPException(
-                status_code=503, 
-                detail=f"Unable to fetch wave conditions: {str(wave_forecast)}"
-            )
-
-        if not wind_forecast:
-            raise HTTPException(status_code=503, detail="No wind forecast data available")
-            
-        if not wave_forecast:
-            raise HTTPException(status_code=404, detail=f"Station {station_id} does not have wave forecasts available")
-
-        if not wind_forecast.forecasts:
-            raise HTTPException(status_code=503, detail="Wind forecast contains no data points")
-            
-        if not wave_forecast.forecasts:
-            raise HTTPException(status_code=503, detail="Wave forecast contains no data points")
-
-        return wind_forecast, wave_forecast
-
     @cached(
         namespace="station_summary",
         expire=900,  # 15 minutes in seconds
@@ -113,17 +70,26 @@ class ConditionSummaryService:
             if not station:
                 raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
 
-            wind_forecast, wave_forecast = await self._get_forecast_data(station_id)
+            # Get forecasts in parallel
+            wind_forecast, wave_forecast = await asyncio.gather(
+                self.wind_service.get_station_wind_forecast(station_id),
+                self.wave_service.get_station_forecast(station_id),
+                return_exceptions=True
+            )
 
-            # Get current wave data
+            # Handle wind forecast errors
+            if isinstance(wind_forecast, Exception):
+                logger.error(f"Wind forecast error for {station_id}: {str(wind_forecast)}")
+                raise HTTPException(status_code=503, detail="Unable to fetch wind conditions")
+
+            # Handle wave forecast errors
+            if isinstance(wave_forecast, Exception):
+                logger.error(f"Wave forecast error for {station_id}: {str(wave_forecast)}")
+                raise HTTPException(status_code=503, detail="Unable to fetch wave conditions")
+
+            # Get current conditions
             current_wave = wave_forecast.forecasts[0]
-            if not current_wave:
-                raise HTTPException(status_code=503, detail="No wave data available")
-
-            # Get current wind data (first forecast point)
             current_wind = wind_forecast.forecasts[0]
-            if not current_wind:
-                raise HTTPException(status_code=503, detail="No wind data available")
 
             # Get conditions in 6 hours
             future_time = datetime.now(current_wave.time.tzinfo) + timedelta(hours=6)
@@ -144,7 +110,7 @@ class ConditionSummaryService:
             conditions = Conditions.from_wind_wave(
                 current_wind.speed,
                 current_wind.direction,
-                current_wave.direction
+                current_wave.direction or 0
             )
 
             # Get trends
@@ -179,7 +145,5 @@ class ConditionSummaryService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error generating condition summary: {str(e)}"
-            ) 
+            logger.error(f"Error generating condition summary: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e)) 

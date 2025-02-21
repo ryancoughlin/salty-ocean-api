@@ -129,6 +129,7 @@ class GFSWindClient:
             ds = xr.open_dataset(
                 grib_path,
                 engine='cfgrib',
+                decode_timedelta=False,
                 backend_kwargs={'indexpath': ''}
             )
             

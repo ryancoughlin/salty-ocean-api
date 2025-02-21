@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
         )
         app.state.condition_summary_service = ConditionSummaryService(
             wind_service=app.state.wind_service,
-            wave_service=app.state.wave_service,
+            wave_service=app.state.wave_service_v2,
             station_service=station_service
         )
         

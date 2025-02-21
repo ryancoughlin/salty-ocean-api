@@ -1,14 +1,29 @@
 ---
-description: fetching, downloading, and processing noaa wave forecast model data
+description: downloading grib files, wave forecast wind forecast data
 globs: *.py
 ---
-# Wave Forecast Processing Rules
+# how to download grib files for wind and wave forecasts
 
+## Wave Forecast Processing Rules
+wave forecast is processed through /waves/v2/[station_id]
 - endpoint in [wave_routes_v2.py](mdc:features/waves/routes/wave_routes_v2.py) 
 - service is [wave_data_service_v2.py](mdc:features/waves/services/wave_data_service_v2.py)
+- client to download files is [gfs_wave_client.py](mdc:features/waves/services/gfs_wave_client.py)
+- [wave_routes.py](mdc:features/waves/routes/wave_routes.py) [wave_data_service.py](mdc:features/waves/services/wave_data_service.py) is DEPRECATED
+- refer to [config.py](mdc:core/config.py) – keep this updated
+   -- TO DO: this needs to be organized into wind, wave config
+- use types everywhere [wave_types.py](mdc:features/waves/models/wave_types.py) e.g avoid passing around objects, and dicts.
 
-## example url with parameters to download variables
+## types 
+- wave forecast types are in [wave_types.py](mdc:features/waves/models/wave_types.py)
+- station [station_types.py](mdc:features/common/models/station_types.py), use `Station` everywhere, not objects
 
+## url structure
+
+### base url
+```https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl```
+
+### complete url 
 ```https://nomads.ncep.noaa.gov/cgi-bin/filter_gfswave.pl?file=gfswave.t18z.atlocn.0p16.f000.grib2&lev_surface=on&var_DIRPW=on&var_HTSGW=on&var_PERPW=on```
 
 ## Data Structure
@@ -21,7 +36,7 @@ globs: *.py
 ### Coordinate System
 - Longitude: 0-360° system (convert from -180/180)
 - Latitude: -90° to 90° (unchanged)
-- Time: UTC timestamps from valid_time field
+- Time: UTC timestamps from `valid_time` field
 
 ### Regional Boundaries
 Atlantic Region:
@@ -51,9 +66,9 @@ ds = xr.open_dataset(
 ```
 
 2. **Coordinate Processing**
-   - Always use valid_time as time coordinate
+   - Always use `valid_time` as time coordinate
    - Convert longitudes to 0-360° system
-   - Use nearest-neighbor interpolation for station points
+   - Use nearest-neighbor interpolation to find the nearest station against grib data
 
 3. **Data Validation**
    - Validate ranges:
@@ -117,23 +132,3 @@ ds = xr.open_dataset(
    - Process regions independently
    - Use asyncio for I/O operations
    - Maintain connection pool
-
-## Response Format
-
-[wave_types.py](mdc:features/waves/models/wave_types.py)  
-```python
-GFSWaveForecast:
-    station_info: Station
-    cycle: GFSModelCycle(date: YYYYMMDD, hour: HH)
-    forecasts: List[
-        GFSForecastPoint:
-            timestamp: datetime (UTC)
-            waves: List[
-                GFSWaveComponent:
-                    height_m: float  # meters
-                    height_ft: float # feet
-                    period: float    # seconds
-                    direction: float # degrees
-            ]
-    ]
-```

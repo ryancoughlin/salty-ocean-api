@@ -14,7 +14,7 @@ from features.wind.models.wind_types import WindForecastResponse, WindForecastPo
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
-from features.common.services.model_run_service import ModelRunService, ModelRun
+from features.common.services.model_run_service import ModelRun
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +23,17 @@ class GFSWindClient:
     
     BASE_URL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
     
-    def __init__(self, model_run_service: Optional[ModelRunService] = None):
-        self.model_run_service = model_run_service or ModelRunService()
+    def __init__(self, model_run: Optional[ModelRun] = None):
+        self.model_run = model_run
         self.file_storage = GFSFileStorage()
+        
+    def update_model_run(self, model_run: ModelRun):
+        """Update the current model run and clean up old files."""
+        self.model_run = model_run
+        self.file_storage.cleanup_old_files(model_run)
         
     def _build_grib_filter_url(
         self,
-        date: datetime,
-        cycle: str,
         forecast_hour: int,
         lat: float,
         lon: float
@@ -45,8 +48,8 @@ class GFSWindClient:
         lon_buffer = 0.15
         
         params = {
-            "dir": f"/gfs.{date.strftime('%Y%m%d')}/{cycle}/atmos",
-            "file": f"gfs.t{cycle}z.pgrb2.0p25.f{forecast_hour:03d}",
+            "dir": f"/gfs.{self.model_run.run_date.strftime('%Y%m%d')}/{self.model_run.cycle_hour:02d}/atmos",
+            "file": f"gfs.t{self.model_run.cycle_hour:02d}z.pgrb2.0p25.f{forecast_hour:03d}",
             "var_UGRD": "on",
             "var_VGRD": "on",
             "var_GUST": "on",
@@ -66,11 +69,10 @@ class GFSWindClient:
         self,
         url: str,
         station_id: str,
-        model_run: ModelRun,
         forecast_hour: int
     ) -> Optional[Path]:
         """Get GRIB file from storage or download if needed."""
-        file_path = self.file_storage.get_file_path(station_id, model_run, forecast_hour)
+        file_path = self.file_storage.get_file_path(station_id, self.model_run, forecast_hour)
         
         # Check if we have a valid cached file
         if self.file_storage.is_file_valid(file_path):
@@ -161,45 +163,27 @@ class GFSWindClient:
     async def get_station_wind_forecast(self, station: Station) -> WindForecastResponse:
         """Get 7-day wind forecast for a station."""
         try:
-            logger.info(f"Getting wind forecast for station {station.station_id}")
-            
-            # Get latest available model cycle using ModelRunService
-            model_run = await self.model_run_service.get_latest_available_cycle()
-            if not model_run:
-                logger.error("No model cycle available")
+            if not self.model_run:
                 raise HTTPException(
                     status_code=503,
                     detail="No model cycle currently available"
                 )
                 
-            # Clean up files from previous model runs
-            self.file_storage.cleanup_old_files(model_run)
-                
-            logger.info(f"Using model cycle: {model_run.run_date.strftime('%Y%m%d')} {model_run.cycle_hour}Z")
-            forecasts: List[WindForecastPoint] = []
+            logger.info(f"Getting wind forecast for station {station.station_id} using cycle: {self.model_run.run_date.strftime('%Y%m%d')} {self.model_run.cycle_hour:02d}Z")
             
             # Get lat/lon from GeoJSON coordinates [lon, lat]
             lat = station.location.coordinates[1]
             lon = station.location.coordinates[0]
             
-            # Get forecasts at 3-hour intervals up to 168 hours (7 days)
+            forecasts: List[WindForecastPoint] = []
             total_hours = 0
+            
+            # Get forecasts at 3-hour intervals up to 168 hours (7 days)
             for hour in range(0, 169, 3):  # 0 to 168 inclusive
-                url = self._build_grib_filter_url(
-                    model_run.run_date,
-                    f"{model_run.cycle_hour:02d}",
-                    hour,
-                    lat,
-                    lon
-                )
-                
                 try:
-                    grib_path = await self._get_grib_file(
-                        url,
-                        station.station_id,
-                        model_run,
-                        hour
-                    )
+                    url = self._build_grib_filter_url(hour, lat, lon)
+                    grib_path = await self._get_grib_file(url, station.station_id, hour)
+                    
                     if not grib_path:
                         logger.warning(f"Missing forecast for hour {hour}")
                         continue
@@ -221,7 +205,6 @@ class GFSWindClient:
                     continue
             
             if not forecasts:
-                logger.error("No forecast points available")
                 raise HTTPException(
                     status_code=503,
                     detail="No forecast data available"
@@ -232,10 +215,8 @@ class GFSWindClient:
             logger.info(f"Generated forecast with {total_hours} time points")
             
             return WindForecastResponse(
-                station_id=station.station_id,
-                name=station.name,
-                location=station.location,
-                model_run=f"{model_run.run_date.strftime('%Y%m%d')}_{model_run.cycle_hour}Z",
+                station=station,
+                model_run=f"{self.model_run.run_date.strftime('%Y%m%d')}_{self.model_run.cycle_hour:02d}Z",
                 forecasts=forecasts
             )
             

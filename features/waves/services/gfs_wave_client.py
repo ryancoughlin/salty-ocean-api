@@ -8,12 +8,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
 import asyncio
+from fastapi import HTTPException
 
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from core.config import settings
 from core.cache import cached
-from features.common.services.model_run_service import ModelRunService
+from features.common.model_run import ModelRun
 from features.waves.services.file_storage import GFSWaveFileStorage
 
 logger = logging.getLogger(__name__)
@@ -51,9 +52,9 @@ CACHE_DIR = Path(settings.cache_dir) / "gfs_wave"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 class GFSWaveClient:
-    def __init__(self, model_run_service: ModelRunService):
+    def __init__(self, model_run: Optional[ModelRun] = None):
         self._session: Optional[aiohttp.ClientSession] = None
-        self.model_run_service = model_run_service
+        self.model_run = model_run
         self._regional_datasets: Dict[str, xr.Dataset] = {}
         self._initialization_lock = asyncio.Lock()
         self._is_initialized = False
@@ -63,31 +64,32 @@ class GFSWaveClient:
         # Get forecast hours from config and create list
         self.forecast_hours = list(range(0, settings.forecast_hours + 1, 3))  # 0 to max by 3-hour steps
         
+    def update_model_run(self, model_run: ModelRun):
+        """Update the current model run."""
+        self.model_run = model_run
+        # Clear cached datasets when model run changes
+        self._regional_datasets.clear()
+        
     async def initialize(self):
         """Initialize the wave client by loading the latest model run data."""
-        
-        # Get latest available cycle
-        model_run = await self.model_run_service.get_latest_available_cycle()
-        if not model_run:
-            logger.error("No model run available")
-            return
+        if not self.model_run:
+            raise HTTPException(
+                status_code=503,
+                detail="No model cycle currently available"
+            )
             
-        logger.info(f"Latest cycle: {model_run.run_date.strftime('%Y%m%d')} {model_run.cycle_hour:02d}Z")
-        
         # Initialize each configured region
         for region in self.regions:
             # Check if we have a cached dataset
-            cycle_key = f"{region}_{model_run.run_date.strftime('%Y%m%d')}_{model_run.cycle_hour:02d}"
+            cycle_key = f"{region}_{self.model_run.run_date.strftime('%Y%m%d')}_{self.model_run.cycle_hour:02d}"
             
             if cycle_key in self._regional_datasets:
                 continue
-                
-            # Download all files for this cycle
-            logger.info(f"Downloading files for {region}")
+
             try:
                 file_paths = await self._download_regional_files(
-                    model_run.run_date,
-                    f"{model_run.cycle_hour:02d}",
+                    self.model_run.run_date,
+                    f"{self.model_run.cycle_hour:02d}",
                     region
                 )
                 if not file_paths:
@@ -97,8 +99,8 @@ class GFSWaveClient:
                 # Load the dataset
                 ds = await self._load_grib_files(
                     region,
-                    model_run.run_date,
-                    f"{model_run.cycle_hour:02d}"
+                    self.model_run.run_date,
+                    f"{self.model_run.cycle_hour:02d}"
                 )
                 if ds is not None:
                     self._regional_datasets[cycle_key] = ds
@@ -111,7 +113,6 @@ class GFSWaveClient:
                 continue
         
         self._is_initialized = True
-        logger.info("GFS Wave initialization completed")
 
     async def _init_session(self) -> aiohttp.ClientSession:
         """Initialize or return existing aiohttp session."""
@@ -250,7 +251,7 @@ class GFSWaveClient:
             )
             
             if not missing_files:
-                logger.info(f"All files already available for {region}")
+                logger.info("Files already available for %s", region)
                 return self.file_storage.get_valid_files(
                     region,
                     cycle_date,
@@ -450,10 +451,11 @@ class GFSWaveClient:
             if not self._is_initialized:
                 await self.initialize()
             
-            # Get current cycle
-            model_run = await self.model_run_service.get_latest_available_cycle()
-            if not model_run:
-                raise Exception("No model run available")
+            if not self.model_run:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No model cycle currently available"
+                )
                 
             # Get station coordinates
             lat = station.location.coordinates[1]
@@ -464,8 +466,8 @@ class GFSWaveClient:
             
             dataset = await self._prepare_regional_dataset(
                 region,
-                model_run.run_date,
-                f"{model_run.cycle_hour:02d}"
+                self.model_run.run_date,
+                f"{self.model_run.cycle_hour:02d}"
             )
             
             # Extract forecast
@@ -475,15 +477,20 @@ class GFSWaveClient:
             return GFSWaveForecast(
                 station_info=station,
                 cycle=GFSModelCycle(
-                    date=model_run.run_date.strftime("%Y%m%d"),
-                    hour=f"{model_run.cycle_hour:02d}"
+                    date=self.model_run.run_date.strftime("%Y%m%d"),
+                    hour=f"{self.model_run.cycle_hour:02d}"
                 ),
                 forecasts=forecasts
             )
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error getting forecast for station {station_id}: {str(e)}")
-            raise
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error processing wave forecast: {str(e)}"
+            )
             
         finally:
             await self.close() 

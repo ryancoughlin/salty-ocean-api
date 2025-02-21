@@ -7,9 +7,8 @@ from features.waves.models.wave_types import (
     WaveForecastPoint,
     WaveForecastResponse
 )
-from features.common.models.station_types import Station
 from fastapi_cache.decorator import cache
-from features.waves.services.gfs_wave_client import GFSWaveClient, GFSWaveForecast
+from features.waves.services.gfs_wave_client import GFSWaveClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 from features.stations.services.station_service import StationService
 

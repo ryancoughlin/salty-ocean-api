@@ -1,0 +1,120 @@
+# Error Handling and Model Run Validation Rules
+
+## Key Principles
+1. Check preconditions ONCE at the highest appropriate level
+2. Use consistent error types and status codes
+3. Let errors propagate up to be handled appropriately
+4. Provide informative logging and error messages
+
+## Model Run Validation
+- Check ModelRun availability ONLY in public/entry point methods
+- Do not check in private/helper methods
+- Use consistent HTTP status codes (503 for unavailable model runs)
+
+## Error Handling Patterns
+
+## Core Rules
+1. Check ModelRun ONCE at entry points only
+2. Use HTTPException with correct status codes
+3. Let errors propagate, wrap unknown errors
+4. Clean up resources in finally blocks
+
+## Status Codes
+- 503: No model run / service unavailable
+- 404: Resource not found
+- 500: Unexpected errors
+
+## Entry Point Pattern
+```python
+async def get_forecast(self, station: Station):
+    try:
+        if not self.model_run:
+            raise HTTPException(503, "No model cycle available")
+            
+        # Main logic here
+        result = await self._process_data()
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        raise HTTPException(500, f"Processing error: {str(e)}")
+    finally:
+        await self.cleanup()
+```
+
+## Helper Method Pattern
+```python
+async def _process_data(self):
+    # No model_run checks here
+    # Let TypeError propagate if model_run is None
+    return self.model_run.process()
+```
+
+## Resource Cleanup
+```python
+try:
+    dataset = await self.load()
+finally:
+    await self.close()
+```
+
+## Logging
+- ERROR: Failures needing attention
+- WARNING: Expected issues (missing files)
+- INFO: Normal operations
+- DEBUG: Troubleshooting details
+
+## Logging Guidelines
+1. Log at appropriate levels:
+   - ERROR: For failures that need attention
+   - WARNING: For expected issues (missing files, etc)
+   - INFO: For normal operations
+   - DEBUG: For detailed troubleshooting
+
+2. Include context in logs:
+```python
+logger.info(f"Getting forecast for station {station_id} using cycle: {model_run.run_date.strftime('%Y%m%d')} {model_run.cycle_hour:02d}Z")
+```
+
+## File Operations
+- Handle file operations in try/except blocks
+- Use consistent file validation
+- Clean up resources in finally blocks
+
+```python
+try:
+    ds = xr.open_dataset(...)
+    # Process data
+finally:
+    ds.close()
+```
+
+## Background Tasks
+- Handle task cancellation gracefully
+- Clean up resources on shutdown
+- Log task status changes
+
+```python
+try:
+    await task
+except asyncio.CancelledError:
+    logger.info("Task cancelled")
+    # Cleanup if needed
+    raise
+```
+
+## Model Run Updates
+- Clear cached data when model run changes
+- Validate new model run before updating
+- Log model run changes
+
+```python
+def update_model_run(self, model_run: ModelRun):
+    """Update the current model run."""
+    self.model_run = model_run
+    # Clear any cached data
+    self._cached_data.clear()
+    logger.info(f"Updated to model run: {model_run.run_date} {model_run.cycle_hour:02d}Z")
+``` 

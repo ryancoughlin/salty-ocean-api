@@ -9,7 +9,7 @@ from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from core.config import settings
 from core.cache import cached
-from features.common.services.model_run_service import ModelRunService
+from features.common.model_run import ModelRun
 
 logger = logging.getLogger(__name__)
 
@@ -153,9 +153,13 @@ def filter_forecasts_by_date_range(
     )
 
 class NOAAGFSClient:
-    def __init__(self, model_run_service: ModelRunService):
+    def __init__(self, model_run: Optional[ModelRun] = None):
         self._session: Optional[aiohttp.ClientSession] = None
-        self.model_run_service = model_run_service  
+        self.model_run = model_run
+        
+    def update_model_run(self, model_run: ModelRun):
+        """Update the current model run."""
+        self.model_run = model_run
         
     async def _init_session(self) -> aiohttp.ClientSession:
         if not self._session:
@@ -222,9 +226,12 @@ class NOAAGFSClient:
     async def get_station_forecast(self, station_id: str, station: Station) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
-            # Get current cycle
-            cycle_date, cycle_hour = await self.model_run_service.get_latest_available_cycle()
-            date = cycle_date.strftime("%Y%m%d")
+            if not self.model_run:
+                raise Exception("No model run available")
+                
+            # Use current model run data
+            date = self.model_run.run_date.strftime("%Y%m%d")
+            cycle_hour = f"{self.model_run.cycle_hour:02d}"
             logger.debug(f"Using forecast cycle: {date} {cycle_hour}Z")
             
             # Get bulletin and parse forecasts from current cycle

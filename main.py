@@ -48,26 +48,27 @@ async def lifespan(app: FastAPI):
         FastAPICache.init(InMemoryBackend(), prefix="salty-ocean")
         await init_cache()
 
-        # Initialize services and clients
+        # Initialize model run service as single source of truth
         model_run_service = ModelRunService()
+        model_run = await model_run_service.get_latest_available_cycle()
+        if not model_run:
+            logger.error("Failed to get initial model run")
+            raise Exception("Failed to get initial model run")
+            
+        # Initialize services and clients
         station_service = StationService()
         buoy_client = NDBCBuoyClient()
         
-        # Initialize wave clients with model run service
-        gfs_wave_client = NOAAGFSClient(model_run_service=model_run_service)
-        gfs_wave_client_v2 = GFSWaveClient(model_run_service=model_run_service)
+        # Initialize clients with current model run
+        gfs_wave_client = NOAAGFSClient(model_run=model_run)
+        gfs_wave_client_v2 = GFSWaveClient(model_run=model_run)
+        gfs_wind_client = GFSWindClient(model_run=model_run)
         
-        gfs_wind_client = GFSWindClient(model_run_service=model_run_service)
-        
-        # Clean up old files using the already fetched model run
-        current_run = model_run_service.get_current_cycle()
-        if current_run:
-            gfs_wind_client.file_storage.cleanup_old_files(current_run)
-        else:
-            logger.warning("No current model run available, skipping file cleanup")
-        
-        # Store services in app state
+        # Store services and clients in app state
+        app.state.model_run_service = model_run_service
         app.state.gfs_client = gfs_wave_client
+        app.state.gfs_wave_client_v2 = gfs_wave_client_v2  # Store v2 client for updates
+        app.state.gfs_wind_client = gfs_wind_client  # Store wind client for updates
         app.state.station_service = station_service
         app.state.wave_service = WaveDataService(
             gfs_client=gfs_wave_client,
@@ -89,6 +90,33 @@ async def lifespan(app: FastAPI):
             station_service=station_service
         )
         
+        # Start background tasks
+        logger.info("Starting background tasks...")
+        
+        # Task to check for new model runs
+        async def check_model_runs():
+            while True:
+                try:
+                    new_model_run = await model_run_service.get_latest_available_cycle()
+                    if new_model_run and (
+                        not model_run or 
+                        new_model_run.run_date != model_run.run_date or 
+                        new_model_run.cycle_hour != model_run.cycle_hour
+                    ):
+                        logger.info("New model run detected, updating clients...")
+                        # Update all clients with new model run
+                        app.state.gfs_client.update_model_run(new_model_run)
+                        app.state.gfs_wave_client_v2.update_model_run(new_model_run)
+                        app.state.gfs_wind_client.update_model_run(new_model_run)
+                except Exception as e:
+                    logger.error(f"Error checking for new model run: {str(e)}")
+                finally:
+                    # Check every 15 minutes
+                    await asyncio.sleep(900)
+                    
+        # Start model run check task
+        app.state.model_run_task = asyncio.create_task(check_model_runs())
+        
         # Start GFS Wave V2 initialization in background
         logger.info("Starting GFS Wave V2 dataset initialization...")
         initialization_task = asyncio.create_task(gfs_wave_client_v2.initialize())
@@ -100,8 +128,6 @@ async def lifespan(app: FastAPI):
             logger.info("GFS Wave V2 initialization completed")
         except Exception as e:
             logger.error(f"GFS Wave V2 initialization failed: {str(e)}")
-            # Continue app startup even if initialization fails
-            # The service will retry initialization on first request
         
         logger.info("🚀 App started")
         yield
@@ -110,7 +136,14 @@ async def lifespan(app: FastAPI):
         logger.error(f"Startup error: {str(e)}")
         raise
     finally:
-        # Cancel wave initialization if still running
+        # Cancel all background tasks
+        if hasattr(app.state, "model_run_task"):
+            app.state.model_run_task.cancel()
+            try:
+                await app.state.model_run_task
+            except asyncio.CancelledError:
+                pass
+                
         if hasattr(app.state, "wave_init_task") and not app.state.wave_init_task.done():
             app.state.wave_init_task.cancel()
             try:

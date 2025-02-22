@@ -1,8 +1,15 @@
 ---
-description: caching api endpoint responses, immediate load time for forecasts and summaries
+description: cache api response, times, expiration, reduce loading times, 
 globs: *.py
 ---
 # Cache Management Rules
+
+## cache expiraton times for each endpoint
+- /tides/stations/geojson - forever. does not change
+- /tides/stations/8410834/predictions - 24 hours
+- /waves/44098/forecast - based on model run timing - and expires only when a new model run is available [model_run_service.py](mdc:features/common/services/model_run_service.py)
+- /waves/v2/44098/forecast - based on model run timing - and expires only when a new model run is available @model_run_service.py
+
 
 ## Key Structure
 - Cache keys MUST follow format: `{feature}_{type}:{station_id}`

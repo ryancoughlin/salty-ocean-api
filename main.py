@@ -31,6 +31,7 @@ from features.stations.services.condition_summary_service import ConditionSummar
 from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
+from features.tides.services.tide_service import TideService
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ async def lifespan(app: FastAPI):
         app.state.gfs_wave_client_v2 = gfs_wave_client_v2
         app.state.gfs_wind_client = gfs_wind_client
         app.state.station_service = station_service
+        app.state.tide_service = TideService()
         app.state.wave_service = WaveDataService(
             gfs_client=gfs_wave_client,
             buoy_client=buoy_client,

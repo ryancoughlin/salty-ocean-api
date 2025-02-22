@@ -7,7 +7,7 @@ from features.waves.models.wave_types import (
     WaveForecastPoint,
     WaveForecastResponse
 )
-from fastapi_cache.decorator import cache
+from core.cache import cached
 from features.waves.services.gfs_wave_client import GFSWaveClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 from features.stations.services.station_service import StationService
@@ -35,9 +35,9 @@ class WaveDataServiceV2:
         self.buoy_client = buoy_client
         self.station_service = station_service
 
-    @cache(
-        expire=14400,  # 4 hours (max time between model runs)
+    @cached(
         namespace="wave_forecast",
+        expire=14400,  # 4 hours (max time between model runs)
         key_builder=wave_forecast_key_builder
     )
     async def get_station_forecast(self, station_id: str) -> WaveForecastResponse:

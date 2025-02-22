@@ -41,10 +41,10 @@ class GFSWindClient:
         lon: float
     ) -> str:
         """Build URL for NOMADS GRIB filter service."""
-        print(f"\n📊 Building URL for forecast hour {forecast_hour}")
-        print(f"Current model run: {self.model_run}")
-        print(f"Date: {self.model_run.run_date.strftime('%Y%m%d')}")
-        print(f"Cycle: {self.model_run.cycle_hour:02d}")
+        # print(f"\n📊 Building URL for forecast hour {forecast_hour}")
+        # print(f"Current model run: {self.model_run}")
+        # print(f"Date: {self.model_run.run_date.strftime('%Y%m%d')}")
+        # print(f"Cycle: {self.model_run.cycle_hour:02d}")
         
         # Convert longitude to 0-360 range if needed
         if lon < 0:

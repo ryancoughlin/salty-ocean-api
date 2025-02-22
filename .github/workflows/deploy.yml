@@ -19,12 +19,31 @@ jobs:
             cd ../salty-ocean-api
             git pull origin main
 
-            # Stop services and remove containers
-            docker-compose down
+            # Check if service is running and get container ID
+            OLD_CONTAINER_ID=$(docker ps -qf "name=salty-ocean-api")
 
-            # Prune volumes and images
-            docker volume prune -f
-            docker image prune -af
+            # Stop only our service
+            if [ ! -z "$OLD_CONTAINER_ID" ]; then
+              echo "Stopping existing container: $OLD_CONTAINER_ID"
+              docker stop $OLD_CONTAINER_ID
+              docker rm $OLD_CONTAINER_ID
+            fi
 
-            # Build and start services
-            docker-compose up -d --build --force-recreate
+            # Remove only untagged images related to our service
+            docker images "salty-ocean-api*" -q | xargs -r docker rmi
+
+            # Build and start our service only
+            docker-compose up -d --build --force-recreate salty-ocean-api
+
+            # Wait for health check
+            echo "Waiting for service to be healthy..."
+            timeout 60 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/health)" != "200" ]]; do sleep 5; done' || echo "Health check timeout"
+
+            # Verify only one instance is running
+            RUNNING_COUNT=$(docker ps -qf "name=salty-ocean-api" | wc -l)
+            if [ "$RUNNING_COUNT" -gt 1 ]; then
+              echo "Warning: Multiple instances detected!"
+            fi
+
+            # Show running containers
+            docker ps

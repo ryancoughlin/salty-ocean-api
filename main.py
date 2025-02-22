@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
             logger.error("Failed to get initial model run")
             raise Exception("Failed to get initial model run")
             
+        print(f"\n🚀 Initializing services with model run: {current_model_run}")
+        print(f"Date: {current_model_run.run_date}")
+        print(f"Cycle: {current_model_run.cycle_hour}")
+            
         # Store model run service and current model run in app state
         app.state.model_run_service = model_run_service
         app.state.current_model_run = current_model_run
@@ -65,9 +69,11 @@ async def lifespan(app: FastAPI):
         buoy_client = NDBCBuoyClient()
         
         # Initialize clients with current model run
+        print("\n📡 Creating GFS clients...")
         gfs_wave_client = NOAAGFSClient(model_run=current_model_run)
         gfs_wave_client_v2 = GFSWaveClient(model_run=current_model_run)
         gfs_wind_client = GFSWindClient(model_run=current_model_run)
+        print("✅ GFS clients created")
         
         # Store services and clients in app state
         app.state.gfs_client = gfs_wave_client

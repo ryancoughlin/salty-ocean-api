@@ -75,6 +75,11 @@ async def lifespan(app: FastAPI):
         gfs_wind_client = GFSWindClient(model_run=current_model_run)
         print("✅ GFS clients created")
         
+        # Download initial wave data
+        print("\n📥 Downloading initial wave data...")
+        await gfs_wave_client_v2.initialize()
+        print("✅ Wave data downloaded")
+        
         # Store services and clients in app state
         app.state.gfs_client = gfs_wave_client
         app.state.gfs_wave_client_v2 = gfs_wave_client_v2
@@ -129,18 +134,6 @@ async def lifespan(app: FastAPI):
         # Start model run check task
         app.state.model_run_task = asyncio.create_task(check_model_runs())
         
-        # Start GFS Wave V2 initialization in background
-        logger.info("Starting GFS Wave V2 dataset initialization...")
-        initialization_task = asyncio.create_task(gfs_wave_client_v2.initialize())
-        app.state.wave_init_task = initialization_task
-        
-        # Wait for initialization to complete
-        try:
-            await initialization_task
-            logger.info("GFS Wave V2 initialization completed")
-        except Exception as e:
-            logger.error(f"GFS Wave V2 initialization failed: {str(e)}")
-        
         logger.info("🚀 App started")
         yield
             
@@ -153,13 +146,6 @@ async def lifespan(app: FastAPI):
             app.state.model_run_task.cancel()
             try:
                 await app.state.model_run_task
-            except asyncio.CancelledError:
-                pass
-                
-        if hasattr(app.state, "wave_init_task") and not app.state.wave_init_task.done():
-            app.state.wave_init_task.cancel()
-            try:
-                await app.state.wave_init_task
             except asyncio.CancelledError:
                 pass
             

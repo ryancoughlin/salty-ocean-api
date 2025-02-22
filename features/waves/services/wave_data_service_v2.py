@@ -2,6 +2,7 @@ import logging
 from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
+import asyncio
 
 from features.waves.models.wave_types import (
     WaveForecastPoint,

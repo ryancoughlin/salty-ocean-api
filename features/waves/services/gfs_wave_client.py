@@ -56,7 +56,6 @@ class GFSWaveClient:
         self._session: Optional[aiohttp.ClientSession] = None
         self.model_run = model_run
         self._regional_datasets: Dict[str, xr.Dataset] = {}
-        self._initialization_lock = asyncio.Lock()
         self._is_initialized = False
         self.file_storage = GFSWaveFileStorage()
         # Get regions from config
@@ -364,26 +363,22 @@ class GFSWaveClient:
         cycle_date: datetime,
         cycle_hour: str
     ) -> xr.Dataset:
-        """Prepare or update the regional dataset."""
+        """Get the regional dataset that was prepared at startup."""
         cache_key = f"{region}_{cycle_date.strftime('%Y%m%d')}_{cycle_hour}"
         
-        # Check if we have a valid cached dataset
-        if cache_key in self._regional_datasets:
-            return self._regional_datasets[cache_key]
+        if not self._is_initialized:
+            raise HTTPException(
+                status_code=503,
+                detail="Wave service not initialized"
+            )
+        
+        if cache_key not in self._regional_datasets:
+            raise HTTPException(
+                status_code=503,
+                detail=f"No data available for region {region}"
+            )
             
-        # Download and process files
-        file_paths = await self._download_regional_files(cycle_date, cycle_hour, region)
-        if not file_paths:
-            logger.error(f"No data files available for {region}")
-            raise Exception(f"No data files available for {region}")
-
-        try:
-            combined_ds = self._load_and_combine_dataset(file_paths)
-            self._regional_datasets[cache_key] = combined_ds
-            return combined_ds
-        except Exception as e:
-            logger.error(f"Failed to create dataset for {region}: {str(e)}")
-            raise
+        return self._regional_datasets[cache_key]
 
     def _extract_station_forecast(
         self,
@@ -447,10 +442,6 @@ class GFSWaveClient:
     async def get_station_forecast(self, station_id: str, station: Station) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
-            # Ensure initialization is complete
-            if not self._is_initialized:
-                await self.initialize()
-            
             if not self.model_run:
                 raise HTTPException(
                     status_code=503,
@@ -464,6 +455,7 @@ class GFSWaveClient:
             # Determine region and get dataset
             region = self._get_region_for_station(lat, lon)
             
+            # Prepare dataset for this region if needed
             dataset = await self._prepare_regional_dataset(
                 region,
                 self.model_run.run_date,

@@ -1,0 +1,30 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main # or your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to DigitalOcean droplet
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ../salty-ocean-api
+            git pull origin main
+
+            # Stop services and remove containers
+            docker-compose down
+
+            # Prune volumes and images
+            docker volume prune -f
+            docker image prune -af
+
+            # Build and start services
+            docker-compose up -d --build --force-recreate

@@ -2,13 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies required for GRIB2 processing
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
+    build-essential \
     libeccodes0 \
-    libeccodes-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -16,10 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/logs /app/tmp/gfs_wind
+RUN mkdir -p data downloaded_data
 
-# Expose the port the app runs on
+# Expose port
 EXPOSE 5010
 
-# Command to run the application with Gunicorn in production
-CMD ["gunicorn", "-c", "gunicorn_conf.py", "main:app"] 
+# Run the application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5010"] 

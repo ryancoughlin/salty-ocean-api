@@ -7,25 +7,26 @@ services:
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./cache:/app/cache
     environment:
       - ENVIRONMENT=production
       - HOST=0.0.0.0
       - PORT=5010
       # Gunicorn specific settings
       - WORKERS_PER_CORE=1
-      - WEB_CONCURRENCY=4  # Override default workers calculation
-      - TIMEOUT=120
+      - WEB_CONCURRENCY=1  # Single worker to avoid state conflicts
+      - TIMEOUT=300  # Increased timeout for GFS downloads
       # Resource limits to prevent OOM
-      - MAX_WORKERS=4
+      - MAX_WORKERS=1
     networks:
       - salty_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5010/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5010/health", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 30s  # Reduced since we're just checking basic health
 
 networks:
   salty_network:

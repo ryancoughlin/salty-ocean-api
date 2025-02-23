@@ -35,9 +35,9 @@ jobs:
             # Build and start our service only
             docker-compose up -d --build --force-recreate salty-ocean-api
 
-            # Wait for health check
+            # Wait for container to be healthy using Docker's health check
             echo "Waiting for service to be healthy..."
-            timeout 60 bash -c 'while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/health)" != "200" ]]; do sleep 5; done' || echo "Health check timeout"
+            timeout 120 bash -c 'while [ "$(docker inspect -f {{.State.Health.Status}} salty-ocean-api)" != "healthy" ]; do echo "Health status: $(docker inspect -f {{.State.Health.Status}} salty-ocean-api)"; sleep 5; done' || echo "Health check timeout"
 
             # Verify only one instance is running
             RUNNING_COUNT=$(docker ps -qf "name=salty-ocean-api" | wc -l)

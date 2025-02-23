@@ -9,6 +9,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def wind_forecast_key_builder(
+    func,
+    namespace: str = "",
+    *args,
+    **kwargs
+) -> str:
+    """Build cache key for wind forecast endpoint."""
+    station_id = kwargs.get("station_id", "")
+    return f"{namespace}:{station_id}"
+
 class WindService:
     def __init__(
         self,
@@ -20,7 +30,8 @@ class WindService:
 
     @cached(
         namespace="wind_forecast",
-        expire=14400  # 4 hours (max time between model runs)
+        expire=14400,  # 4 hours (max time between model runs)
+        key_builder=wind_forecast_key_builder
     )
     async def get_station_wind_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind forecast for a specific station."""

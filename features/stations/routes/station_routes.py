@@ -2,8 +2,9 @@ from typing import Dict
 from fastapi import APIRouter, Depends, Request
 from features.stations.models.summary_types import ConditionSummaryResponse
 from features.waves.models.ndbc_types import NDBCStation
-from features.stations.services.station_service import StationService
-from features.stations.services.condition_summary_service import ConditionSummaryService
+from features.stations.services.station_service import StationService, station_observation_key_builder
+from features.stations.services.condition_summary_service import ConditionSummaryService, build_summary_cache_key
+from core.cache import cached
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ def get_condition_service(request: Request) -> ConditionSummaryService:
     summary="Get all stations in GeoJSON format",
     description="Returns all monitoring stations in GeoJSON format for mapping"
 )
+@cached(
+    namespace="stations_geojson",
+    expire=None  # Static data, no expiration needed
+)
 async def get_stations_geojson(
     service: StationService = Depends(get_service)
 ):
@@ -36,6 +41,11 @@ async def get_stations_geojson(
     response_model=NDBCStation,
     summary="Get current station observations",
     description="Returns the latest observations from NDBC for the specified station including waves, wind, and meteorological data"
+)
+@cached(
+    namespace="station_observations",
+    expire=900,  # 15 minutes in seconds
+    key_builder=station_observation_key_builder
 )
 async def get_station_observations(
     station_id: str,
@@ -49,6 +59,11 @@ async def get_station_observations(
     response_model=ConditionSummaryResponse,
     summary="Get station condition summary",
     description="Returns a human-readable summary of current conditions and trends over the next 6 hours"
+)
+@cached(
+    namespace="station_summary",
+    expire=900,  # 15 minutes in seconds
+    key_builder=build_summary_cache_key
 )
 async def get_station_conditions(
     station_id: str,

@@ -30,6 +30,7 @@ from features.stations.services.station_service import StationService
 from features.stations.services.condition_summary_service import ConditionSummaryService
 from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
+from features.wind.services.prefetch_service import WindPrefetchService
 from features.common.services.model_run_service import ModelRunService
 from features.tides.services.tide_service import TideService
 
@@ -56,10 +57,6 @@ async def lifespan(app: FastAPI):
             logger.error("Failed to get initial model run")
             raise Exception("Failed to get initial model run")
             
-        print(f"\n🚀 Initializing services with model run: {current_model_run}")
-        print(f"Date: {current_model_run.run_date}")
-        print(f"Cycle: {current_model_run.cycle_hour}")
-            
         # Store model run service and current model run in app state
         app.state.model_run_service = model_run_service
         app.state.current_model_run = current_model_run
@@ -75,10 +72,26 @@ async def lifespan(app: FastAPI):
         gfs_wind_client = GFSWindClient(model_run=current_model_run)
         print("✅ GFS clients created")
         
+        # Initialize wind prefetch service
+        wind_prefetch_service = WindPrefetchService(gfs_client=gfs_wind_client)
+        app.state.wind_prefetch_service = wind_prefetch_service
+        
         # Download initial wave data
         print("\n📥 Downloading initial wave data...")
         await gfs_wave_client_v2.initialize()
         print("✅ Wave data downloaded")
+        
+        # Start prefetch in background
+        async def run_initial_prefetch():
+            try:
+                print("\n📥 Starting wind data prefetch in background...")
+                await wind_prefetch_service.prefetch_all_stations()
+                print("✅ Wind data prefetch complete")
+            except Exception as e:
+                logger.error(f"Error in initial wind prefetch: {str(e)}")
+        
+        # Start prefetch task
+        app.state.prefetch_task = asyncio.create_task(run_initial_prefetch())
         
         # Store services and clients in app state
         app.state.gfs_client = gfs_wave_client
@@ -123,6 +136,8 @@ async def lifespan(app: FastAPI):
                         app.state.gfs_client.update_model_run(new_model_run)
                         app.state.gfs_wave_client_v2.update_model_run(new_model_run)
                         app.state.gfs_wind_client.update_model_run(new_model_run)
+                        # Update wind prefetch with new model run
+                        await app.state.wind_prefetch_service.handle_model_run_update(new_model_run)
                         # Update our reference to current model run in app state
                         app.state.current_model_run = new_model_run
                 except Exception as e:
@@ -146,6 +161,13 @@ async def lifespan(app: FastAPI):
             app.state.model_run_task.cancel()
             try:
                 await app.state.model_run_task
+            except asyncio.CancelledError:
+                pass
+            
+        if hasattr(app.state, "prefetch_task"):
+            app.state.prefetch_task.cancel()
+            try:
+                await app.state.prefetch_task
             except asyncio.CancelledError:
                 pass
             

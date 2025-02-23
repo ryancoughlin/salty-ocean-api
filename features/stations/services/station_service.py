@@ -7,8 +7,19 @@ from pathlib import Path
 from features.common.models.station_types import Station, Location
 from features.waves.models.ndbc_types import NDBCObservation
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
+from core.cache import cached
 
 logger = logging.getLogger(__name__)
+
+def station_observation_key_builder(
+    func,
+    namespace: str = "",
+    *args,
+    **kwargs
+) -> str:
+    """Build cache key for station observations."""
+    station_id = kwargs.get("station_id", "")
+    return f"{namespace}:{station_id}"
 
 class StationService:
     def __init__(self, stations_file: Path = Path("ndbcStations.json")):
@@ -58,6 +69,11 @@ class StationService:
             )
         return station
 
+    @cached(
+        namespace="station_observations",
+        expire=900,  # 15 minutes in seconds
+        key_builder=station_observation_key_builder
+    )
     async def get_station_observations(self, station_id: str) -> NDBCObservation:
         """Get current observations for a station."""
         # Verify station exists

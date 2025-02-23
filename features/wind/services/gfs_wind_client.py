@@ -24,7 +24,7 @@ class GFSWindClient:
     BASE_URL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
     
     def __init__(self, model_run: Optional[ModelRun] = None):
-        print(f"\n🔍 GFSWindClient initialized with model run: {model_run}")
+        print(f"\n🔍 GFSWindClient initialized with model run: {model_run.cycle_hour}Z")
         self.model_run = model_run
         self.file_storage = GFSFileStorage()
         
@@ -41,10 +41,8 @@ class GFSWindClient:
         lon: float
     ) -> str:
         """Build URL for NOMADS GRIB filter service."""
-        # print(f"\n📊 Building URL for forecast hour {forecast_hour}")
-        # print(f"Current model run: {self.model_run}")
-        # print(f"Date: {self.model_run.run_date.strftime('%Y%m%d')}")
-        # print(f"Cycle: {self.model_run.cycle_hour:02d}")
+        # Use ModelRun's date_str property to get local date
+        local_date = self.model_run.date_str
         
         # Convert longitude to 0-360 range if needed
         if lon < 0:
@@ -55,7 +53,7 @@ class GFSWindClient:
         lon_buffer = 0.15
         
         params = {
-            "dir": f"/gfs.{self.model_run.run_date.strftime('%Y%m%d')}/{self.model_run.cycle_hour:02d}/atmos",
+            "dir": f"/gfs.{local_date}/{self.model_run.cycle_hour:02d}/atmos",
             "file": f"gfs.t{self.model_run.cycle_hour:02d}z.pgrb2.0p25.f{forecast_hour:03d}",
             "var_UGRD": "on",
             "var_VGRD": "on",
@@ -71,7 +69,6 @@ class GFSWindClient:
         
         query = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{self.BASE_URL}?{query}"
-        print(f"🌐 Generated URL: {url}")
         return url
     
     async def _get_grib_file(
@@ -90,7 +87,6 @@ class GFSWindClient:
         # Download if no valid file exists
         try:
             async with aiohttp.ClientSession() as session:
-                logger.info(f"Downloading wind data for hour {forecast_hour:03d} from {url}")
                 async with session.get(url, allow_redirects=True, timeout=300) as response:
                     if response.status == 404:
                         logger.warning(f"GRIB file not found for hour {forecast_hour:03d}: {url}")
@@ -105,7 +101,6 @@ class GFSWindClient:
                         return None
                         
                     if await self.file_storage.save_file(file_path, content):
-                        logger.info(f"Successfully downloaded and saved wind data for hour {forecast_hour:03d}")
                         return file_path
                     return None
             
@@ -175,8 +170,8 @@ class GFSWindClient:
     async def get_station_wind_forecast(self, station: Station) -> WindForecastResponse:
         """Get 7-day wind forecast for a station."""
         try:
-            print(f"\n🌪️ Getting wind forecast for station {station.station_id}")
-            print(f"Model run state: {self.model_run}")
+            # print(f"\n🌪️ Getting wind forecast for station {station.station_id}")
+            # print(f"Model run state: {self.model_run}")
             
             if not self.model_run:
                 logger.error("No model run available for wind forecast")
@@ -184,9 +179,6 @@ class GFSWindClient:
                     status_code=503,
                     detail="No model cycle currently available"
                 )
-                
-            logger.info(f"Getting wind forecast for station {station.station_id} using cycle: {self.model_run.run_date.strftime('%Y%m%d')} {self.model_run.cycle_hour:02d}Z")
-            
             # Get lat/lon from GeoJSON coordinates [lon, lat]
             lat = station.location.coordinates[1]
             lon = station.location.coordinates[0]
@@ -195,8 +187,8 @@ class GFSWindClient:
             total_hours = 0
             failed_hours = 0
             
-            # Get forecasts at 3-hour intervals up to 168 hours (7 days)
-            for hour in range(0, 169, 3):  # 0 to 168 inclusive
+            # Get forecasts at 3-hour intervals up to 384 hours
+            for hour in range(0, 385, 3):  # 0 to 384 inclusive, every 3 hours
                 try:
                     url = self._build_grib_filter_url(hour, lat, lon)
                     grib_path = await self._get_grib_file(url, station.station_id, hour)

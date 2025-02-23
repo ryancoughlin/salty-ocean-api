@@ -214,6 +214,9 @@ class GFSWaveClient:
         region: str
     ) -> str:
         """Build a GRIB filter URL for a region."""
+        # Use ModelRun's date_str property to get local date
+        local_date = self.model_run.date_str
+        
         # Get region config
         region_config = settings.models[region]
         product = region_config["name"]
@@ -225,7 +228,7 @@ class GFSWaveClient:
             ("var_DIRPW", "on"),
             ("var_HTSGW", "on"),
             ("var_PERPW", "on"),
-            ("dir", f"/gfs.{cycle_date.strftime('%Y%m%d')}/{cycle_hour}/wave/gridded")
+            ("dir", f"/gfs.{local_date}/{cycle_hour}/wave/gridded")
         ]
         
         query = "&".join(f"{k}={v}" for k, v in params)
@@ -241,6 +244,8 @@ class GFSWaveClient:
         """Download a GRIB file and save it to the specified path."""
         try:
             session = await self._init_session()
+
+            print(f"Downloading {url} to {file_path}")
             
             async with session.get(url, allow_redirects=True) as response:
                 if response.status != 200:

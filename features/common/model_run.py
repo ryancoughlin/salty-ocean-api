@@ -72,15 +72,16 @@ class ModelRun(BaseModel):
 
     @validator('delay_minutes', always=True)
     def compute_delay(cls, v, values):
-        if 'available_time' in values and 'run_date' in values and 'cycle_hour' in values:
-            # Create timezone-aware datetime for the scheduled time
+        if 'run_date' in values and 'cycle_hour' in values:
+            # Create timezone-aware datetime for the scheduled time in local time
             scheduled_dt = datetime.combine(
                 values['run_date'],
                 time(hour=values['cycle_hour'])
-            ).replace(tzinfo=timezone.utc)
+            )
             
-            # Calculate delay using UTC times
-            delay = (values['available_time'] - scheduled_dt).total_seconds() / 60.0
+            # Calculate delay using local time
+            current_time = datetime.now()
+            delay = (current_time - scheduled_dt).total_seconds() / 60.0
             return int(delay)
         return v
 

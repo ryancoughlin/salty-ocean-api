@@ -159,15 +159,22 @@ class GFSWaveClient:
             )
         return self._session
         
-    async def close(self):
-        """Close the aiohttp session and cleanup datasets."""
+    async def close(self, clear_datasets: bool = False):
+        """Close the aiohttp session and optionally cleanup datasets.
+        
+        Args:
+            clear_datasets: If True, also close and clear all loaded datasets.
+                          Default is False to keep datasets in memory.
+        """
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
-        # Close any open datasets
-        for ds in self._regional_datasets.values():
-            ds.close()
-        self._regional_datasets.clear()
+            
+        if clear_datasets:
+            # Close any open datasets
+            for ds in self._regional_datasets.values():
+                ds.close()
+            self._regional_datasets.clear()
 
     def _get_region_for_station(self, lat: float, lon: float) -> str:
         """Determine region based on station coordinates."""

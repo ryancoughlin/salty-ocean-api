@@ -4,20 +4,9 @@ from fastapi import Depends, HTTPException
 from features.wind.models.wind_types import WindForecastResponse
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.stations.services.station_service import StationService
-from core.cache import cached
 import logging
 
 logger = logging.getLogger(__name__)
-
-def wind_forecast_key_builder(
-    func,
-    namespace: str = "",
-    *args,
-    **kwargs
-) -> str:
-    """Build cache key for wind forecast endpoint."""
-    station_id = kwargs.get("station_id", "")
-    return f"{namespace}:{station_id}"
 
 class WindService:
     def __init__(
@@ -28,11 +17,6 @@ class WindService:
         self.gfs_client = gfs_client
         self.station_service = station_service
 
-    @cached(
-        namespace="wind_forecast",
-        expire=14400,  # 4 hours (max time between model runs)
-        key_builder=wind_forecast_key_builder
-    )
     async def get_station_wind_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind forecast for a specific station."""
         try:
@@ -43,7 +27,7 @@ class WindService:
                     detail=f"Station {station_id} not found"
                 )
             
-            forecast = await self.gfs_client.get_station_wind_forecast(station)
+            forecast = await self.gfs_client.get_station_wind_forecast(station_id, station)
             if not forecast:
                 raise HTTPException(
                     status_code=503,

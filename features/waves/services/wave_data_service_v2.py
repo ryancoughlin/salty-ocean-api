@@ -8,22 +8,11 @@ from features.waves.models.wave_types import (
     WaveForecastPoint,
     WaveForecastResponse
 )
-from core.cache import cached
 from features.waves.services.gfs_wave_client import GFSWaveClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 from features.stations.services.station_service import StationService
 
 logger = logging.getLogger(__name__)
-
-def wave_forecast_key_builder(
-    func,
-    namespace: str = "",
-    *args,
-    **kwargs
-) -> str:
-    """Build cache key for wave forecast endpoint."""
-    station_id = kwargs.get("station_id", "")
-    return f"{namespace}:{station_id}"
 
 class WaveDataServiceV2:
     def __init__(
@@ -36,11 +25,6 @@ class WaveDataServiceV2:
         self.buoy_client = buoy_client
         self.station_service = station_service
 
-    @cached(
-        namespace="wave_forecast",
-        expire=14400,  # 4 hours (max time between model runs)
-        key_builder=wave_forecast_key_builder
-    )
     async def get_station_forecast(self, station_id: str) -> WaveForecastResponse:
         """Get wave model forecast for a specific station."""
         try:
@@ -111,3 +95,7 @@ class WaveDataServiceV2:
         except Exception as e:
             logger.error(f"Error in get_station_forecast for station {station_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+            
+        finally:
+            # Only close the HTTP session, keep datasets loaded
+            await self.gfs_client.close(clear_datasets=False)

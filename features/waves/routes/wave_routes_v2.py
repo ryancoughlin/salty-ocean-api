@@ -2,7 +2,7 @@ from typing import Dict, Optional
 from fastapi import APIRouter, Depends, Request
 
 from features.waves.models.wave_types import WaveForecastResponse
-from features.waves.services.wave_data_service_v2 import WaveDataServiceV2, wave_forecast_key_builder
+from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
 from core.cache import cached
 
 import logging
@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 def get_service(request: Request) -> WaveDataServiceV2:
-    """Dependency to get the WaveServiceV2 instance."""
+    """Dependency to get the WaveService instance."""
     return request.app.state.wave_service_v2
 
 @router.get(
@@ -22,11 +22,6 @@ def get_service(request: Request) -> WaveDataServiceV2:
     response_model=WaveForecastResponse,
     summary="Get wave forecast for a station using GRIB data",
     description="Returns the latest wave model forecast from NOAA GFS GRIB files for the specified station"
-)
-@cached(
-    namespace="wave_forecast",
-    expire=14400,  # 4 hours (max time between model runs)
-    key_builder=wave_forecast_key_builder
 )
 async def get_station_wave_forecast(
     station_id: str,
@@ -37,6 +32,13 @@ async def get_station_wave_forecast(
     response = await service.get_station_forecast(station_id)
     logger.debug(f"Forecast response ready for station {station_id}")
     return response
+
+# Apply caching to the route function after it's defined
+get_station_wave_forecast = cached(
+    namespace="wave_forecast",
+    expire=14400,  # 4 hours (max time between model runs)
+    key_builder=lambda *args, **kwargs: f"wave_forecast:{kwargs['station_id']}"
+)(get_station_wave_forecast)
 
 @router.get(
     "/stations",

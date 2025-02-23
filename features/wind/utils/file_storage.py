@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import logging
 from features.common.services.model_run_service import ModelRun
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +18,25 @@ class GFSFileStorage:
         """Ensure the storage directory exists."""
         self.base_dir.mkdir(parents=True, exist_ok=True)
     
-    def get_file_path(self, station_id: str, model_run: ModelRun, forecast_hour: int) -> Path:
-        """Generate the path for a GFS file."""
-        date_str = model_run.run_date.strftime('%Y%m%d')
-        cycle_str = f"{model_run.cycle_hour:02d}"
-        return self.base_dir / f"gfs_wind_{station_id}_{date_str}_{cycle_str}z_f{forecast_hour:03d}.grib2"
+    def get_regional_file_path(self, region: str, model_run: ModelRun, forecast_hour: int) -> Path:
+        """Generate the path for a regional GFS file."""
+        return self.base_dir / f"{region}_gfs_{model_run.date_str}_{model_run.cycle_hour:02d}z_f{forecast_hour:03d}.grib2"
     
     def is_file_valid(self, file_path: Path) -> bool:
-        """Check if a file exists."""
-        return file_path.exists()
+        """Check if a file exists and is valid."""
+        if not file_path.exists():
+            return False
+            
+        # Check file size
+        if file_path.stat().st_size < 100:  # Minimum size in bytes
+            return False
+            
+        # Check file age (4 hours max)
+        file_age = datetime.now(timezone.utc) - datetime.fromtimestamp(file_path.stat().st_mtime, timezone.utc)
+        if file_age > timedelta(hours=4):
+            return False
+            
+        return True
     
     async def save_file(self, file_path: Path, content: bytes) -> bool:
         """Save file content to storage."""
@@ -38,10 +49,38 @@ class GFSFileStorage:
             logger.error(f"Error saving file {file_path}: {str(e)}")
             return False
     
+    def get_missing_files(
+        self,
+        region: str,
+        model_run: ModelRun,
+        forecast_hours: List[int]
+    ) -> List[Tuple[int, Path]]:
+        """Get list of missing or invalid files for a region."""
+        missing = []
+        for hour in forecast_hours:
+            file_path = self.get_regional_file_path(region, model_run, hour)
+            if not self.is_file_valid(file_path):
+                missing.append((hour, file_path))
+        return missing
+    
+    def get_valid_files(
+        self,
+        region: str,
+        model_run: ModelRun,
+        forecast_hours: List[int]
+    ) -> List[Path]:
+        """Get list of valid files for a region."""
+        valid = []
+        for hour in forecast_hours:
+            file_path = self.get_regional_file_path(region, model_run, hour)
+            if self.is_file_valid(file_path):
+                valid.append(file_path)
+        return valid
+    
     def cleanup_old_files(self, current_run: ModelRun) -> None:
         """Delete files from older model runs."""
         try:
-            current_pattern = f"*_{current_run.run_date.strftime('%Y%m%d')}_{current_run.cycle_hour:02d}z_*.grib2"
+            current_pattern = f"*_{current_run.date_str}_{current_run.cycle_hour:02d}z_*.grib2"
             deleted_count = 0
             
             for file_path in self.base_dir.glob("*.grib2"):

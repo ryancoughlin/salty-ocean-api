@@ -13,10 +13,9 @@ class ModelRunService:
     
     def _log_model_run_info(self, model_run: ModelRun, check_date: date, cycle: int):
         """Log model run information with both UTC and EST times."""
-        logger.info(f"✨ Using GFS model run: {model_run.date_str} {cycle:02d}Z")
-        logger.info(f"⏰ Available since: {model_run.available_time.strftime('%H:%M:%S')} UTC "
-                   f"({model_run.local_time.strftime('%H:%M:%S')} EST)")
-        logger.info(f"⌛ Delay: {model_run.delay_minutes} minutes")
+        logger.info(f"📊 Model Run: {model_run.date_str} {cycle:02d}Z")
+        logger.info(f"   ├─ Available: {model_run.available_time.strftime('%H:%M:%S')} UTC ({model_run.local_time.strftime('%H:%M:%S')} EST)")
+        logger.info(f"   └─ Delay: {model_run.delay_minutes} minutes")
 
     async def check_grib_file_for_cycle(
         self,
@@ -68,7 +67,6 @@ class ModelRunService:
         """Get the latest available model cycle."""
         # Get current time in both UTC and EST
         utc_now, est_now = ModelRun.get_current_time()
-        logger.info(f"Current time: {est_now.strftime('%Y-%m-%d %H:%M:%S')} EST")
         
         target_date = utc_now.date()
         
@@ -96,7 +94,7 @@ class ModelRunService:
         # If we get here, use yesterday's last successful cycle
         yesterday = target_date - timedelta(days=1)
         last_cycle = 18  # Default to last cycle of the day
-        logger.warning(f"No recent cycles found, falling back to yesterday's {last_cycle:02d}Z cycle")
+        logger.warning("⚠️  No recent cycles found, falling back to yesterday's 18Z cycle")
         return ModelRun(
             run_date=yesterday,
             cycle_hour=last_cycle,

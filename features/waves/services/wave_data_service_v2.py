@@ -74,7 +74,7 @@ class WaveDataServiceV2:
                 forecast_points = []
                 for point in gfs_forecast.forecasts:
                     # Only include points within 7 day range and at 3-hour intervals
-                    point_hour = point.timestamp.replace(minute=0, second=0, microsecond=0)
+                    point_hour = point.time.replace(minute=0, second=0, microsecond=0)
                     if (point_hour >= now and 
                         point_hour <= end_time and 
                         point_hour.hour % 3 == 0):

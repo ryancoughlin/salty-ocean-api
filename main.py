@@ -10,9 +10,6 @@ from typing import Dict, Optional
 
 from core.config import settings
 from core.logging_config import setup_logging
-from core.cache import init_cache
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.inmemory import InMemoryBackend
 
 # Feature routes
 from features.waves.routes.wave_routes import router as wave_router
@@ -29,7 +26,7 @@ from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 from features.stations.services.station_service import StationService
 from features.stations.services.condition_summary_service import ConditionSummaryService
-from features.wind.services.wind_service import WindService
+from features.wind.services.wind_data_service import WindDataService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
 from features.tides.services.tide_service import TideService
@@ -71,10 +68,6 @@ async def lifespan(app: FastAPI):
         Path("downloaded_data/gfs_wave").mkdir(exist_ok=True)
         Path("downloaded_data/gfs_wind").mkdir(exist_ok=True)
 
-        # Initialize in-memory cache
-        FastAPICache.init(InMemoryBackend(), prefix="salty-ocean")
-        await init_cache()
-
         # Initialize model run service and get latest cycle
         logger.info("\n📅 Initializing model run service...")
         model_run_service = ModelRunService()
@@ -109,7 +102,7 @@ async def lifespan(app: FastAPI):
             buoy_client=buoy_client,
             station_service=station_service
         )
-        app.state.wind_service = WindService(
+        app.state.wind_service = WindDataService(
             gfs_client=active_state.gfs_wind_client,
             station_service=station_service
         )

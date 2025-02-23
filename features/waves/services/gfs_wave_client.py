@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Dict
+from typing import Optional, List
 from pydantic import BaseModel, Field
 import asyncio
 from fastapi import HTTPException
@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from core.config import settings
-from core.cache import cached
 from features.common.model_run import ModelRun
 from features.waves.services.file_storage import GFSWaveFileStorage
 
@@ -48,9 +47,6 @@ class GFSWaveForecast(BaseModel):
     cycle: GFSModelCycle
     forecasts: List[GFSForecastPoint]
 
-CACHE_DIR = Path(settings.cache_dir) / "gfs_wave"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
 class GFSWaveClient:
     # Rate limiting constants
     REQUESTS_PER_MINUTE = 120
@@ -61,7 +57,6 @@ class GFSWaveClient:
     def __init__(self, model_run: Optional[ModelRun] = None):
         self._session: Optional[aiohttp.ClientSession] = None
         self.model_run = model_run
-        self._regional_datasets: Dict[str, xr.Dataset] = {}
         self._is_initialized = False
         self._initialization_lock = asyncio.Lock()
         self._initialization_error: Optional[str] = None
@@ -76,8 +71,6 @@ class GFSWaveClient:
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run."""
         self.model_run = model_run
-        # Clear cached datasets when model run changes
-        self._regional_datasets.clear()
         self._is_initialized = False
         self._initialization_error = None
         
@@ -98,48 +91,54 @@ class GFSWaveClient:
             
             # Initialize each configured region
             for region in self.regions:
-                # Check if we have a cached dataset
-                cycle_key = f"{region}_{self.model_run.run_date.strftime('%Y%m%d')}_{self.model_run.cycle_hour:02d}"
-                
-                if cycle_key in self._regional_datasets:
-                    continue
-
                 try:
+                    logger.info(f"🌊 Initializing {region} region wave data...")
+                    
+                    # Download any missing files
                     file_paths = await self._download_regional_files(
                         self.model_run.run_date,
                         f"{self.model_run.cycle_hour:02d}",
                         region
                     )
+                    
                     if not file_paths:
                         error_msg = f"No data files available for {region}"
                         initialization_errors.append(error_msg)
                         logger.error(error_msg)
                         continue
                         
-                    # Load the dataset
-                    ds = await self._load_grib_files(
+                    # Try loading one file to verify data access
+                    test_ds = await self._load_grib_files(
                         region,
                         self.model_run.run_date,
                         f"{self.model_run.cycle_hour:02d}"
                     )
-                    if ds is not None:
-                        self._regional_datasets[cycle_key] = ds
-                    else:
-                        error_msg = f"Failed to load dataset for {region}"
+                    if test_ds is None:
+                        error_msg = f"Failed to load test dataset for {region}"
                         initialization_errors.append(error_msg)
                         logger.error(error_msg)
                         continue
+                    test_ds.close()
                         
                 except Exception as e:
-                    error_msg = f"Error loading dataset for {region}: {str(e)}"
+                    error_msg = f"Error initializing {region} wave data: {str(e)}"
                     initialization_errors.append(error_msg)
                     logger.error(error_msg)
                     continue
             
             if initialization_errors:
                 self._initialization_error = "; ".join(initialization_errors)
-            else:
-                self._is_initialized = True
+                logger.error(f"❌ Wave initialization errors: {self._initialization_error}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=self._initialization_error
+                )
+            
+            self._is_initialized = True
+            logger.info(
+                f"✅ Wave client initialization complete with model run "
+                f"{self.model_run.run_date.strftime('%Y%m%d')} {self.model_run.cycle_hour:02d}Z"
+            )
 
     async def _ensure_initialized(self):
         """Ensure the client is initialized before processing requests."""
@@ -167,22 +166,11 @@ class GFSWaveClient:
             )
         return self._session
         
-    async def close(self, clear_datasets: bool = False):
-        """Close the aiohttp session and optionally cleanup datasets.
-        
-        Args:
-            clear_datasets: If True, also close and clear all loaded datasets.
-                          Default is False to keep datasets in memory.
-        """
+    async def close(self):
+        """Close the aiohttp session."""
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
-            
-        if clear_datasets:
-            # Close any open datasets
-            for ds in self._regional_datasets.values():
-                ds.close()
-            self._regional_datasets.clear()
 
     def _get_region_for_station(self, lat: float, lon: float) -> str:
         """Determine region based on station coordinates."""
@@ -195,32 +183,6 @@ class GFSWaveClient:
             
         return "pacific"
 
-    def _get_grib_file_path(
-        self,
-        region: str,
-        cycle_date: datetime,
-        cycle_hour: str,
-        forecast_hour: int
-    ) -> Path:
-        """Get the path for a GRIB file."""
-        return CACHE_DIR / f"{region}_gfs_{cycle_date.strftime('%Y%m%d')}_{cycle_hour}z_f{forecast_hour:03d}.grib2"
-
-    def _is_file_valid(self, file_path: Path) -> bool:
-        """Check if a file exists and is valid (non-empty and recent)."""
-        if not file_path.exists():
-            return False
-            
-        # Check file size
-        if file_path.stat().st_size < 100:  # Minimum size in bytes
-            return False
-            
-        # Check file age (4 hours max)
-        file_age = datetime.now(timezone.utc) - datetime.fromtimestamp(file_path.stat().st_mtime, timezone.utc)
-        if file_age > timedelta(hours=4):
-            return False
-            
-        return True
-
     def _build_grib_filter_url(
         self,
         cycle_hour: str,
@@ -228,9 +190,9 @@ class GFSWaveClient:
         region: str
     ) -> str:
         """Build a GRIB filter URL for a region."""
-        # Use ModelRun's date_str property to get local date
-        local_date = self.model_run.date_str
-        
+        if not self.model_run:
+            raise ValueError("No model run available")
+            
         # Get region config
         region_config = settings.models[region]
         product = region_config["name"]
@@ -242,12 +204,11 @@ class GFSWaveClient:
             ("var_DIRPW", "on"),
             ("var_HTSGW", "on"),
             ("var_PERPW", "on"),
-            ("dir", f"/gfs.{local_date}/{cycle_hour}/wave/gridded")
+            ("dir", f"/gfs.{self.model_run.date_str}/{cycle_hour}/wave/gridded")
         ]
         
         query = "&".join(f"{k}={v}" for k, v in params)
         url = f"{settings.gfs_wave_filter_url}/filter_gfswave.pl?{query}"
-       # logger.info(f"Built URL for {region} f{forecast_hour:03d}: {url}")
         return url
 
     async def _rate_limit(self):
@@ -410,29 +371,6 @@ class GFSWaveClient:
             logger.error(f"Error loading GRIB files for {region}: {str(e)}")
             return None
 
-    async def _prepare_regional_dataset(
-        self,
-        region: str,
-        cycle_date: datetime,
-        cycle_hour: str
-    ) -> xr.Dataset:
-        """Get the regional dataset that was prepared at startup."""
-        cache_key = f"{region}_{cycle_date.strftime('%Y%m%d')}_{cycle_hour}"
-        
-        if not self._is_initialized:
-            raise HTTPException(
-                status_code=503,
-                detail="Wave service not initialized"
-            )
-        
-        if cache_key not in self._regional_datasets:
-            raise HTTPException(
-                status_code=503,
-                detail=f"No data available for region {region}"
-            )
-            
-        return self._regional_datasets[cache_key]
-
     def _extract_station_forecast(
         self,
         dataset: xr.Dataset,
@@ -459,15 +397,15 @@ class GFSWaveClient:
                 try:
                     # Extract known data types
                     wave_data = WaveDataPoint(
-                        height=time_data.swh.item(),
-                        period=time_data.perpw.item(),
-                        direction=time_data.dirpw.item()
+                        height=float(time_data.swh.item()),
+                        period=float(time_data.perpw.item()),
+                        direction=float(time_data.dirpw.item())
                     )
                     
                     # Create forecast point
                     wave_component = GFSWaveComponent(
                         height_m=wave_data.height,
-                        height_ft=UnitConversions.meters_to_feet(wave_data.height),
+                        height_ft=float(UnitConversions.meters_to_feet(wave_data.height)),
                         period=wave_data.period,
                         direction=wave_data.direction
                     )
@@ -496,6 +434,12 @@ class GFSWaveClient:
         """Get wave forecast for a specific station."""
         try:
             await self._ensure_initialized()
+            
+            if not self.model_run:
+                raise HTTPException(
+                    status_code=503,
+                    detail="No model cycle currently available"
+                )
                 
             # Get station coordinates
             lat = station.location.coordinates[1]
@@ -504,15 +448,24 @@ class GFSWaveClient:
             # Determine region and get dataset
             region = self._get_region_for_station(lat, lon)
             
-            # Prepare dataset for this region if needed
-            dataset = await self._prepare_regional_dataset(
+            # Load dataset for this region
+            dataset = await self._load_grib_files(
                 region,
                 self.model_run.run_date,
                 f"{self.model_run.cycle_hour:02d}"
             )
             
+            if not dataset:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"No data available for region {region}"
+                )
+            
             # Extract forecast
             forecasts = self._extract_station_forecast(dataset, lat, lon)
+            
+            # Close dataset after use
+            dataset.close()
             
             # Return forecast even if empty - let the service layer handle this
             return GFSWaveForecast(

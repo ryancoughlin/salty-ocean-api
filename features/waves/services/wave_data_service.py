@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 
@@ -7,7 +6,6 @@ from features.waves.models.wave_types import (
     WaveForecastPoint,
     WaveForecastResponse
 )
-from core.cache import cached
 from features.waves.services.noaa_gfs_client import NOAAGFSClient
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 from features.stations.services.station_service import StationService
@@ -25,10 +23,6 @@ class WaveDataService:
         self.buoy_client = buoy_client
         self.station_service = station_service
 
-    @cached(
-        namespace="wave_forecast",
-        expire=14400  # 4 hours (max time between model runs)
-    )
     async def get_station_forecast(self, station_id: str) -> WaveForecastResponse:
         """Get wave model forecast for a specific station."""
         try:

@@ -1,27 +1,20 @@
 import logging
 from datetime import datetime, timedelta
 from fastapi import HTTPException
-from features.wind.models.wind_categories import BeaufortScale, WindDirection, TrendType
-from features.wind.models.wind_types import BeaufortScaleEnum, WindDirectionEnum, TrendTypeEnum
-from features.waves.models.wave_categories import WaveHeight, WavePeriod, Conditions
-from features.wind.services.wind_service import WindService
+from features.wind.models.wind_categories import WindDirection, TrendType
+from features.waves.models.wave_categories import Conditions
+from features.wind.services.wind_data_service import WindDataService
 from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
 from features.stations.services.station_service import StationService
 from features.common.models.station_types import Station
 from features.stations.models.summary_types import ConditionSummaryResponse
-from core.cache import cached
 
 logger = logging.getLogger(__name__)
-
-def build_summary_cache_key(func, namespace: str = "", **kwargs) -> str:
-    """Build cache key for station summaries."""
-    station_id = kwargs.get("station_id", "")
-    return f"{namespace}:{station_id}"
 
 class ConditionSummaryService:
     def __init__(
         self,
-        wind_service: WindService,
+        wind_service: WindDataService,
         wave_service: WaveDataServiceV2,
         station_service: StationService
     ):
@@ -29,11 +22,6 @@ class ConditionSummaryService:
         self.wave_service = wave_service
         self.station_service = station_service
 
-    @cached(
-        namespace="station_summary",
-        expire=14400,  # 4 hours (max time between model runs)
-        key_builder=build_summary_cache_key
-    )
     async def get_station_condition_summary(self, station_id: str) -> ConditionSummaryResponse:
         """Generate a human-readable summary of current conditions and trends."""
         try:
@@ -42,7 +30,7 @@ class ConditionSummaryService:
                 raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
 
             # Get forecasts from the services instead of GFS clients
-            wind_forecast = await self.wind_service.get_station_wind_forecast(station_id)
+            wind_forecast = await self.wind_service.get_station_forecast(station_id)
             wave_forecast = await self.wave_service.get_station_forecast(station_id)
 
             if not wind_forecast or not wind_forecast.forecasts:
@@ -67,10 +55,7 @@ class ConditionSummaryService:
             )
 
             # Calculate categories
-            wind_category = BeaufortScale.from_speed(current_wind.speed)
             wind_dir = WindDirection.from_degrees(current_wind.direction)
-            wave_height = WaveHeight.from_height(current_wave.height if current_wave.height is not None else 0.0)
-            wave_period = WavePeriod.from_period(current_wave.period if current_wave.period is not None else 0.0)
             conditions = Conditions.from_wind_wave(
                 current_wind.speed,
                 current_wind.direction,

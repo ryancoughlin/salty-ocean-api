@@ -8,7 +8,6 @@ from fastapi import HTTPException
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from core.config import settings
-from core.cache import cached
 from features.common.model_run import ModelRun
 
 logger = logging.getLogger(__name__)
@@ -222,7 +221,6 @@ class NOAAGFSClient:
         
         return forecasts
 
-    @cached(namespace="gfs_wave_forecast")
     async def get_station_forecast(self, station_id: str, station: Station) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:

@@ -3,26 +3,21 @@ from typing import Dict, List
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 import asyncio
+from aiocache import cached, SimpleMemoryCache
 
 from features.wind.models.wind_types import (
     WindForecastResponse
 )
-from core.cache import cached
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.stations.services.station_service import StationService
 from features.common.services.model_run_service import ModelRun
+from features.common.services.cache_config import (
+    MODEL_FORECAST_EXPIRE,
+    feature_cache_key_builder,
+    get_cache
+)
 
 logger = logging.getLogger(__name__)
-
-def wind_forecast_key_builder(
-    func,
-    namespace: str = "",
-    *args,
-    **kwargs
-) -> str:
-    """Build cache key for wind forecast endpoint."""
-    station_id = kwargs.get("station_id", "")
-    return f"{namespace}:{station_id}"
 
 class WindDataService:
     def __init__(
@@ -34,6 +29,7 @@ class WindDataService:
         self.station_service = station_service
         self._initialization_lock = asyncio.Lock()
         self._is_initialized = False
+        self._cache = get_cache()
         
     async def initialize(self):
         """Initialize the wind data service."""
@@ -51,16 +47,24 @@ class WindDataService:
                 raise
                 
     async def handle_model_run_update(self, model_run: ModelRun):
-        """Handle model run update by reinitializing the service."""
+        """Handle model run update by reinitializing the service and clearing cache."""
         logger.info(f"🔄 Updating wind data service to model run: {model_run}")
         self.gfs_client.update_model_run(model_run)
         self._is_initialized = False
+        
+        # For now, just clear the entire cache on model run update
+        # This is safe because we're using SimpleMemoryCache
+        await self._cache.delete("wind_forecast:*")
+        logger.info("🗑️ Cleared wind forecast cache for new model run")
+        
         await self.initialize()
 
     @cached(
+        ttl=MODEL_FORECAST_EXPIRE,
+        key_builder=feature_cache_key_builder,
         namespace="wind_forecast",
-        expire=14400,  # 4 hours (max time between model runs)
-        key_builder=wind_forecast_key_builder
+        cache=SimpleMemoryCache,
+        noself=True
     )
     async def get_station_forecast(self, station_id: str) -> WindForecastResponse:
         """Get wind model forecast for a specific station."""
@@ -77,7 +81,7 @@ class WindDataService:
                 
             try:
                 # Get forecast from GFS wind service
-                forecast = await self.gfs_client.get_station_wind_forecast(station)
+                forecast = await self.gfs_client.get_station_wind_forecast(station_id, station)
                 
                 if not forecast.forecasts:
                     logger.warning(f"No forecast data available for station {station_id}")
@@ -106,11 +110,21 @@ class WindDataService:
                 # Sort forecasts by time to ensure order
                 filtered_forecasts.sort(key=lambda x: x.time)
                 
-                return WindForecastResponse(
+                response = WindForecastResponse(
                     station=station,
                     forecasts=filtered_forecasts,
                     model_run=forecast.model_run
                 )
+                
+                # Log cache key for debugging
+                cache_key = feature_cache_key_builder(
+                    self.get_station_forecast,
+                    namespace="wind_forecast",
+                    station_id=station_id
+                )
+                logger.info(f"Caching forecast for station {station_id} with key {cache_key}")
+                
+                return response
                 
             except Exception as e:
                 logger.error(f"Error getting GFS forecast for station {station_id}: {str(e)}")

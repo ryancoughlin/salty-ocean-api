@@ -6,7 +6,7 @@ import cfgrib
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 import asyncio
 from fastapi import HTTPException
 
@@ -25,13 +25,13 @@ class GFSWindClient:
     def __init__(self, model_run: Optional[ModelRun] = None):
         self.model_run = model_run
         self.file_storage = GFSFileStorage()
-        self._regional_datasets = {}
         self._is_initialized = False
         self._initialization_lock = asyncio.Lock()
         self._initialization_error: Optional[str] = None
         self.forecast_hours = settings.wind.forecast_hours
         self._request_count = 0
         self._last_request_time = datetime.now()
+        self._datasets: Dict[str, Dict[int, xr.Dataset]] = {}  # region -> {hour -> dataset}
         
         # Rate limiting constants from config
         self.REQUESTS_PER_MINUTE = settings.wind.rate_limit["requests_per_minute"]
@@ -44,9 +44,9 @@ class GFSWindClient:
         logger.info(f"🔄 Updating wind client model run to: {model_run}")
         self.model_run = model_run
         self.file_storage.cleanup_old_files(model_run)
-        self._regional_datasets = {}
         self._is_initialized = False
         self._initialization_error = None
+        self._datasets.clear()  # Clear cached datasets
         
     async def initialize(self):
         """Initialize the wind client by loading the latest model run data."""
@@ -127,6 +127,9 @@ class GFSWindClient:
                         
                     logger.info(f"🔄 Loading {len(valid_files)} wind files for {region_name}...")
                     
+                    # Initialize region's dataset cache
+                    self._datasets[region_name] = {}
+                    
                     # Load each file into a dataset
                     loaded_files = 0
                     for file_path in valid_files:
@@ -138,8 +141,7 @@ class GFSWindClient:
                                 decode_timedelta=False,
                                 backend_kwargs={'indexpath': ''}
                             )
-                            cache_key = f"{region_name}_{self.model_run.date_str}_{self.model_run.cycle_hour:02d}_{forecast_hour:03d}"
-                            self._regional_datasets[cache_key] = ds
+                            self._datasets[region_name][forecast_hour] = ds
                             loaded_files += 1
                         except Exception as e:
                             logger.error(f"❌ Error loading wind file {file_path}: {str(e)}")
@@ -158,7 +160,7 @@ class GFSWindClient:
                     logger.error(f"❌ {error_msg}")
                     continue
             
-            if initialization_errors and not self._regional_datasets:
+            if initialization_errors and not any(self._datasets.values()):
                 # Only fail initialization if we have no data at all
                 self._initialization_error = "; ".join(initialization_errors)
                 logger.error(f"❌ Wind initialization errors: {self._initialization_error}")
@@ -285,57 +287,6 @@ class GFSWindClient:
             logger.error(f"Error processing GRIB data: {str(e)}")
             return None
     
-    async def _prepare_regional_dataset(
-        self,
-        region: str,
-        forecast_hour: int
-    ) -> xr.Dataset:
-        """Prepare regional dataset for processing."""
-        try:
-            cache_key = f"{region}_{self.model_run.date_str}_{self.model_run.cycle_hour:02d}_{forecast_hour:03d}"
-            if cache_key in self._regional_datasets:
-                return self._regional_datasets[cache_key]
-            
-            url = self._build_grib_filter_url(forecast_hour, region)
-            file_path = self.file_storage.get_regional_file_path(region, self.model_run, forecast_hour)
-            
-            if not self.file_storage.is_file_valid(file_path):
-                async with aiohttp.ClientSession(
-                    cookies={'osCsid': 'dummy'},  # Required for NOAA's filter service
-                    headers={
-                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                        'Accept': '*/*'
-                    }
-                ) as session:
-                    async with session.get(url, allow_redirects=False, timeout=300) as response:
-                        print("Downloading new data")
-                        if response.status == 200:
-                            content = await response.read()
-                            await self.file_storage.save_file(file_path, content)
-                        else:
-                            logger.error(f"Initial request failed with status {response.status}")
-                            raise HTTPException(
-                                status_code=503,
-                                detail=f"Failed to download regional GRIB file: {response.status}"
-                            )
-            
-            ds = xr.open_dataset(
-                file_path,
-                engine='cfgrib',
-                decode_timedelta=False,
-                backend_kwargs={'indexpath': ''}
-            )
-            
-            self._regional_datasets[cache_key] = ds
-            return ds
-            
-        except Exception as e:
-            logger.error(f"Error preparing regional dataset for {region}: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error preparing regional dataset: {str(e)}"
-            )
-
     async def get_station_wind_forecast(self, station_id: str, station: Station) -> WindForecastResponse:
         """Get wind forecast for a station using regional data."""
         try:
@@ -351,13 +302,24 @@ class GFSWindClient:
             lon = station.location.coordinates[0]
             region = self._get_region_for_station(lat, lon)
             
+            if region not in self._datasets:
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"No data available for region {region}"
+                )
+            
             forecasts: List[WindForecastPoint] = []
             total_hours = 0
             failed_hours = 0
             
             for hour in range(0, 385, 3):
                 try:
-                    ds = await self._prepare_regional_dataset(region, hour)
+                    if hour not in self._datasets[region]:
+                        logger.warning(f"Missing dataset for hour {hour}")
+                        failed_hours += 1
+                        continue
+                        
+                    ds = self._datasets[region][hour]
                     wind_data = self._process_grib_data(ds, lat, lon)
                     
                     if wind_data:
@@ -398,14 +360,15 @@ class GFSWindClient:
                 detail=f"Error processing wind forecast: {str(e)}"
             )
 
-    async def _fetch_content(self, url: str, timeout: int = 300) -> Optional[bytes]:
+    async def _fetch_content(self, url: str, timeout_seconds: int = 300) -> Optional[bytes]:
         """Simple helper to fetch content from URL, handling redirects."""
         try:
             async with aiohttp.ClientSession(
                 cookies={'osCsid': 'dummy'},
                 headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
             ) as session:
-                async with session.get(url, allow_redirects=True, timeout=timeout) as response:
+                timeout = aiohttp.ClientTimeout(total=timeout_seconds)
+                async with session.get(url, timeout=timeout) as response:
                     if response.status == 200:
                         return await response.read()
                     logger.error(f"Failed to fetch {url}: status {response.status}")

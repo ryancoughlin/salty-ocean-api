@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, Request
 
 from features.waves.models.wave_types import WaveForecastResponse
 from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
-from core.cache import cached
 
 import logging
 
@@ -28,26 +27,5 @@ async def get_station_wave_forecast(
     service: WaveDataServiceV2 = Depends(get_service)
 ):
     """Get wave model forecast for a specific station using GRIB data"""
-    logger.debug(f"Handling forecast request for station {station_id}")
     response = await service.get_station_forecast(station_id)
-    logger.debug(f"Forecast response ready for station {station_id}")
     return response
-
-# Apply caching to the route function after it's defined
-get_station_wave_forecast = cached(
-    namespace="wave_forecast",
-    expire=14400,  # 4 hours (max time between model runs)
-    key_builder=lambda *args, **kwargs: f"wave_forecast:{kwargs['station_id']}"
-)(get_station_wave_forecast)
-
-@router.get(
-    "/stations",
-    response_model=Dict,
-    summary="Get all wave monitoring stations",
-    description="Returns all wave monitoring stations in GeoJSON format"
-)
-async def get_wave_stations(
-    service: WaveDataServiceV2 = Depends(get_service)
-):
-    """Get all wave monitoring stations in GeoJSON format"""
-    return await service.get_stations_geojson() 

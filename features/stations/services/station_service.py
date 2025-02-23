@@ -10,16 +10,6 @@ from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
 
 logger = logging.getLogger(__name__)
 
-def station_observation_key_builder(
-    func,
-    namespace: str = "",
-    *args,
-    **kwargs
-) -> str:
-    """Build cache key for station observations."""
-    station_id = kwargs.get("station_id", "")
-    return f"{namespace}:{station_id}"
-
 class StationService:
     def __init__(self, stations_file: Path = Path("ndbcStations.json")):
         self.stations_file = stations_file

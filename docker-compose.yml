@@ -1,20 +1,21 @@
 services:
   salty-ocean-api:
     container_name: salty-ocean-api
+    image: salty-ocean-api:latest
     build: .
     ports:
       - "8080:5010"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
-      - ./cache:/app/cache
+      - ./downloaded_data:/app/downloaded_data
     environment:
       - ENVIRONMENT=production
       - HOST=0.0.0.0
       - PORT=5010
       # Gunicorn specific settings
       - WORKERS_PER_CORE=1
-      - WEB_CONCURRENCY=1  # Single worker to avoid state conflicts
+      - WEB_CONCURRENCY=1  # Single worker for state management
       - TIMEOUT=300  # Increased timeout for GFS downloads
       # Resource limits to prevent OOM
       - MAX_WORKERS=1

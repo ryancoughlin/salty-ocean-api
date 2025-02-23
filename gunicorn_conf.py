@@ -1,14 +1,20 @@
 import os
+import multiprocessing
 
 # Basic config
 host = os.getenv("HOST", "0.0.0.0")
 port = os.getenv("PORT", "5010")
 bind = f"{host}:{port}"
 
-# Gunicorn config
+# Force single worker mode for state management
+workers = 1
 worker_class = "uvicorn.workers.UvicornWorker"
-workers = 1  # Single worker for simplicity
 keepalive = 120
+timeout = int(os.getenv("TIMEOUT", "300"))
+preload_app = True  # This ensures app is loaded once before forking
+
+# Logging
+loglevel = os.getenv("LOG_LEVEL", "info")
 errorlog = "-"  # stderr
 accesslog = "-"  # stdout
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'

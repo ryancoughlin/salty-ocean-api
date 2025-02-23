@@ -6,6 +6,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 import asyncio
+from typing import Dict, Optional
 
 from core.config import settings
 from core.logging_config import setup_logging
@@ -32,20 +33,43 @@ from features.wind.services.wind_service import WindService
 from features.wind.services.gfs_wind_client import GFSWindClient
 from features.common.services.model_run_service import ModelRunService
 from features.tides.services.tide_service import TideService
+from features.common.model_run import ModelRun
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+class ModelRunState:
+    """Class to manage model run state and clients."""
+    def __init__(self):
+        self.current_model_run: Optional[ModelRun] = None
+        self.gfs_client = None
+        self.gfs_wave_client_v2 = None
+        self.gfs_wind_client = None
+        
+    async def initialize(self, model_run: ModelRun):
+        """Initialize clients with model run."""
+        self.current_model_run = model_run
+        self.gfs_client = NOAAGFSClient(model_run=model_run)
+        self.gfs_wave_client_v2 = GFSWaveClient(model_run=model_run)
+        self.gfs_wind_client = GFSWindClient(model_run=model_run)
+        
+        # Initialize wave and wind data
+        await self.gfs_wave_client_v2.initialize()
+        await self.gfs_wind_client.initialize()
+        
+    async def cleanup(self):
+        """Cleanup clients."""
+        if self.gfs_wave_client_v2:
+            await self.gfs_wave_client_v2.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     try:
         logger.info("🚀 Starting Salty Ocean API...")
-        
-        # Create required directories
-        Path("data").mkdir(exist_ok=True)
-        Path("downloaded_data").mkdir(exist_ok=True)
-        Path(settings.cache_dir).mkdir(exist_ok=True)
+    
+        Path("downloaded_data/gfs_wave").mkdir(exist_ok=True)
+        Path("downloaded_data/gfs_wind").mkdir(exist_ok=True)
 
         # Initialize in-memory cache
         FastAPICache.init(InMemoryBackend(), prefix="salty-ocean")
@@ -59,42 +83,34 @@ async def lifespan(app: FastAPI):
             logger.error("❌ Failed to get initial model run")
             raise Exception("Failed to get initial model run")
             
-        # Store model run service and current model run in app state
+        # Initialize active model run state
+        active_state = ModelRunState()
+        await active_state.initialize(current_model_run)
+        
+        # Store services in app state
         app.state.model_run_service = model_run_service
-        app.state.current_model_run = current_model_run
+        app.state.active_state = active_state
+        app.state.prefetch_state = None  # Will hold prefetched state
             
-        # Initialize services and clients
+        # Initialize services
         station_service = StationService()
         buoy_client = NDBCBuoyClient()
         
-        # Create and initialize GFS clients
-        logger.info("\n📡 Initializing forecast services...")
-        gfs_wave_client = NOAAGFSClient(model_run=current_model_run)
-        gfs_wave_client_v2 = GFSWaveClient(model_run=current_model_run)
-        gfs_wind_client = GFSWindClient(model_run=current_model_run)
-        
-        # Initialize wave and wind data
-        await gfs_wave_client_v2.initialize()
-        await gfs_wind_client.initialize()
-        
-        # Store services and clients in app state
-        app.state.gfs_client = gfs_wave_client
-        app.state.gfs_wave_client_v2 = gfs_wave_client_v2
-        app.state.gfs_wind_client = gfs_wind_client
+        # Store other services in app state
         app.state.station_service = station_service
         app.state.tide_service = TideService()
         app.state.wave_service = WaveDataService(
-            gfs_client=gfs_wave_client,
+            gfs_client=active_state.gfs_client,
             buoy_client=buoy_client,
             station_service=station_service
         )
         app.state.wave_service_v2 = WaveDataServiceV2(
-            gfs_client=gfs_wave_client_v2,
+            gfs_client=active_state.gfs_wave_client_v2,
             buoy_client=buoy_client,
             station_service=station_service
         )
         app.state.wind_service = WindService(
-            gfs_client=gfs_wind_client,
+            gfs_client=active_state.gfs_wind_client,
             station_service=station_service
         )
         app.state.condition_summary_service = ConditionSummaryService(
@@ -103,24 +119,58 @@ async def lifespan(app: FastAPI):
             station_service=station_service
         )
         
+        async def prefetch_new_model_run(new_model_run: ModelRun):
+            """Prefetch data for new model run in background."""
+            try:
+                logger.info(f"🔄 Prefetching data for new model run {new_model_run.date_str} {new_model_run.cycle_hour:02d}Z")
+                new_state = ModelRunState()
+                await new_state.initialize(new_model_run)
+                return new_state
+            except Exception as e:
+                logger.error(f"❌ Error prefetching new model run: {str(e)}")
+                return None
+                
+        async def switch_model_run(new_state: ModelRunState):
+            """Switch to new model run state."""
+            try:
+                old_state = app.state.active_state
+                
+                # Update services with new clients
+                app.state.wave_service.gfs_client = new_state.gfs_client
+                app.state.wave_service_v2.gfs_client = new_state.gfs_wave_client_v2
+                app.state.wind_service.gfs_client = new_state.gfs_wind_client
+                
+                # Switch active state
+                app.state.active_state = new_state
+                
+                # Cleanup old state
+                await old_state.cleanup()
+                logger.info("✅ Successfully switched to new model run")
+                
+            except Exception as e:
+                logger.error(f"❌ Error switching model run: {str(e)}")
+        
         # Task to check for new model runs
         async def check_model_runs():
             while True:
                 try:
                     new_model_run = await model_run_service.get_latest_available_cycle()
+                    current_run = app.state.active_state.current_model_run
+                    
                     if new_model_run and (
-                        new_model_run.run_date != app.state.current_model_run.run_date or 
-                        new_model_run.cycle_hour != app.state.current_model_run.cycle_hour
+                        new_model_run.run_date != current_run.run_date or 
+                        new_model_run.cycle_hour != current_run.cycle_hour
                     ):
-                        logger.info("🔄 New model run detected, updating services...")
-                        # Update all clients with new model run
-                        app.state.gfs_client.update_model_run(new_model_run)
-                        app.state.gfs_wave_client_v2.update_model_run(new_model_run)
-                        app.state.gfs_wind_client.update_model_run(new_model_run)
-                        # Update wind prefetch with new model run
-                        await app.state.wind_prefetch_service.handle_model_run_update(new_model_run)
-                        # Update our reference to current model run in app state
-                        app.state.current_model_run = new_model_run
+                        # Start prefetching if not already in progress
+                        if not app.state.prefetch_state:
+                            logger.info("🔄 New model run detected, starting prefetch...")
+                            app.state.prefetch_state = await prefetch_new_model_run(new_model_run)
+                            
+                            if app.state.prefetch_state:
+                                # Switch to new model run
+                                await switch_model_run(app.state.prefetch_state)
+                                app.state.prefetch_state = None
+                                
                 except Exception as e:
                     logger.error(f"❌ Error checking for new model run: {str(e)}")
                 finally:
@@ -146,16 +196,13 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
             
-        if hasattr(app.state, "prefetch_task"):
-            app.state.prefetch_task.cancel()
-            try:
-                await app.state.prefetch_task
-            except asyncio.CancelledError:
-                pass
+        # Cleanup active state
+        if hasattr(app.state, "active_state"):
+            await app.state.active_state.cleanup()
             
-        # Cleanup wave client
-        if hasattr(app.state, "wave_service_v2"):
-            await app.state.wave_service_v2.gfs_client.close()
+        # Cleanup prefetch state if exists
+        if hasattr(app.state, "prefetch_state") and app.state.prefetch_state:
+            await app.state.prefetch_state.cleanup()
             
         logger.info("👋 API shutdown complete")
 

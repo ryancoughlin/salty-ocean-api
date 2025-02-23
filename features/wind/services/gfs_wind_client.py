@@ -34,6 +34,12 @@ class GFSWindClient:
         }
     }
     
+    # Rate limiting constants
+    REQUESTS_PER_MINUTE = 120
+    REQUEST_INTERVAL = 60 / REQUESTS_PER_MINUTE  # Time between requests in seconds
+    BATCH_SIZE = 30  # Number of requests to make before pausing
+    BATCH_PAUSE = 15  # Seconds to pause after each batch
+    
     def __init__(self, model_run: Optional[ModelRun] = None):
         self.model_run = model_run
         self.file_storage = GFSFileStorage()
@@ -42,6 +48,8 @@ class GFSWindClient:
         self._initialization_lock = asyncio.Lock()
         self._initialization_error: Optional[str] = None
         self.forecast_hours = list(range(0, 385, 3))  # 0 to 384 by 3-hour steps
+        self._request_count = 0
+        self._last_request_time = datetime.now()
         
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run and clean up old files."""
@@ -79,45 +87,9 @@ class GFSWindClient:
                     
                     if missing_files:
                         logger.info(f"📥 Downloading {len(missing_files)} wind files for {region}...")
-                        downloaded = 0
-                        failed = 0
-                        
-                        async with aiohttp.ClientSession(
-                            cookies={'osCsid': 'dummy'},  # Required for NOAA's filter service
-                            headers={
-                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-                            }
-                        ) as session:
-                            for forecast_hour, file_path in missing_files:
-                                url = self._build_grib_filter_url(forecast_hour, region)
-                                if not self.file_storage.is_file_valid(file_path):
-                                    try:
-                                        async with session.get(url, allow_redirects=True, timeout=300) as response:
-                                            if response.status == 302:
-                                                redirect_url = response.headers.get('Location')
-                                                if redirect_url:
-                                                    async with session.get(redirect_url, timeout=300) as redirect_response:
-                                                        if redirect_response.status == 200:
-                                                            content = await redirect_response.read()
-                                                            if await self.file_storage.save_file(file_path, content):
-                                                                downloaded += 1
-                                                                logger.info(f"✅ Downloaded {region} wind file f{forecast_hour:03d}")
-                                                                continue
-                                            elif response.status == 200:
-                                                content = await response.read()
-                                                if await self.file_storage.save_file(file_path, content):
-                                                    downloaded += 1
-                                                    logger.info(f"✅ Downloaded {region} wind file f{forecast_hour:03d}")
-                                                    continue
-                                            
-                                            failed += 1
-                                            logger.error(f"❌ Failed to download {region} wind file f{forecast_hour:03d}: {response.status}")
-                                    except Exception as e:
-                                        failed += 1
-                                        logger.error(f"❌ Error downloading {region} wind file f{forecast_hour:03d}: {str(e)}")
-                                        continue
-                                            
+                        downloaded, failed = await self._download_regional_files(region, missing_files)
                         logger.info(f"📊 {region} wind download summary: {downloaded} succeeded, {failed} failed")
+
                     else:
                         logger.info(f"✨ All wind files already available for {region}")
                     
@@ -219,7 +191,6 @@ class GFSWindClient:
         
         query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))  # Sort params for consistent order
         url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?{query}"
-        logger.debug(f"Built URL for {region} f{forecast_hour:03d}: {url}")
         return url
             
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:
@@ -279,15 +250,23 @@ class GFSWindClient:
             file_path = self.file_storage.get_regional_file_path(region, self.model_run, forecast_hour)
             
             if not self.file_storage.is_file_valid(file_path):
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, allow_redirects=True, timeout=300) as response:
-                        if response.status != 200:
+                async with aiohttp.ClientSession(
+                    cookies={'osCsid': 'dummy'},  # Required for NOAA's filter service
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                        'Accept': '*/*'
+                    }
+                ) as session:
+                    async with session.get(url, allow_redirects=False, timeout=300) as response:
+                        if response.status == 200:
+                            content = await response.read()
+                            await self.file_storage.save_file(file_path, content)
+                        else:
+                            logger.error(f"Initial request failed with status {response.status}")
                             raise HTTPException(
                                 status_code=503,
                                 detail=f"Failed to download regional GRIB file: {response.status}"
                             )
-                        content = await response.read()
-                        await self.file_storage.save_file(file_path, content)
             
             ds = xr.open_dataset(
                 file_path,
@@ -366,4 +345,95 @@ class GFSWindClient:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error processing wind forecast: {str(e)}"
-            ) 
+            )
+
+    async def _fetch_content(self, url: str, timeout: int = 300) -> Optional[bytes]:
+        """Simple helper to fetch content from URL, handling redirects."""
+        try:
+            async with aiohttp.ClientSession(
+                cookies={'osCsid': 'dummy'},
+                headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'}
+            ) as session:
+                async with session.get(url, allow_redirects=True, timeout=timeout) as response:
+                    if response.status == 200:
+                        return await response.read()
+                    logger.error(f"Failed to fetch {url}: status {response.status}")
+                    return None
+        except Exception as e:
+            logger.error(f"Error fetching {url}: {str(e)}")
+            return None
+
+    async def _rate_limit(self):
+        """Implement rate limiting logic."""
+        now = datetime.now()
+        
+        # Reset counter if a minute has passed
+        if (now - self._last_request_time).total_seconds() >= 60:
+            self._request_count = 0
+            self._last_request_time = now
+            
+        # If we've hit our batch size, pause
+        if self._request_count > 0 and self._request_count % self.BATCH_SIZE == 0:
+            logger.info(f"⏸️ Pausing for {self.BATCH_PAUSE}s after batch of {self.BATCH_SIZE} requests...")
+            await asyncio.sleep(self.BATCH_PAUSE)
+            self._request_count = 0
+            self._last_request_time = datetime.now()
+            return
+            
+        # Otherwise, small delay between requests
+        if self._request_count > 0:
+            await asyncio.sleep(self.REQUEST_INTERVAL)
+            
+        self._request_count += 1
+
+    async def _download_grib_file(
+        self,
+        url: str,
+        file_path: Path,
+    ) -> bool:
+        """Download a single GRIB file and save it."""
+        if self.file_storage.is_file_valid(file_path):
+            return True
+
+        try:
+            # Apply rate limiting before request
+            await self._rate_limit()
+            
+            async with aiohttp.ClientSession(
+                cookies={'osCsid': 'dummy'},
+                headers={
+                    'User-Agent': 'curl/7.81.0',
+                    'Accept': '*/*'
+                }
+            ) as session:
+                async with session.get(url, timeout=300) as response:
+                   
+                    if response.status == 200:
+                        content = await response.read()
+
+                        if await self.file_storage.save_file(file_path, content):
+                            return True
+                    else:
+                        logger.error(f"Download failed with status {response.status}")
+                        return False
+                        
+        except Exception as e:
+            logger.error(f"Error downloading file: {str(e)}")
+            return False
+
+    async def _download_regional_files(
+        self,
+        region: str,
+        missing_files: List[Tuple[int, Path]]
+    ) -> Tuple[int, int]:
+        """Download missing files for a region."""
+        downloaded = failed = 0
+        
+        for forecast_hour, file_path in missing_files:
+            url = self._build_grib_filter_url(forecast_hour, region)
+            if await self._download_grib_file(url, file_path):
+                downloaded += 1
+            else:
+                failed += 1
+                
+        return downloaded, failed 

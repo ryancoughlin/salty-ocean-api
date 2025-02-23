@@ -11,16 +11,15 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p data downloaded_data cache/gfs_wave
+RUN mkdir -p data downloaded_data/gfs_wave downloaded_data/gfs_wind
 
-# Expose port
 EXPOSE 5010
 
 # Run the application with gunicorn
-CMD ["gunicorn", "main:app", "--config", "gunicorn_conf.py", "--worker-class", "uvicorn.workers.UvicornWorker"] 
+CMD ["gunicorn", "-c", "gunicorn_conf.py", "--worker-class", "uvicorn.workers.UvicornWorker", "--access-logfile", "-", "--error-logfile", "-", "main:app"] 

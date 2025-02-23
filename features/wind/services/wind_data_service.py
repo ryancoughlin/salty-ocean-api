@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 import asyncio
 
 from features.wind.models.wind_types import (
-    WindForecastPoint,
     WindForecastResponse
 )
 from core.cache import cached

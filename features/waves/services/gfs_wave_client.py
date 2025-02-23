@@ -52,6 +52,12 @@ CACHE_DIR = Path(settings.cache_dir) / "gfs_wave"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 class GFSWaveClient:
+    # Rate limiting constants
+    REQUESTS_PER_MINUTE = 120
+    REQUEST_INTERVAL = 60 / REQUESTS_PER_MINUTE  # Time between requests in seconds
+    BATCH_SIZE = 30  # Number of requests to make before pausing
+    BATCH_PAUSE = 15  # Seconds to pause after each batch
+    
     def __init__(self, model_run: Optional[ModelRun] = None):
         self._session: Optional[aiohttp.ClientSession] = None
         self.model_run = model_run
@@ -64,6 +70,8 @@ class GFSWaveClient:
         self.regions = list(settings.models.keys())
         # Get forecast hours from config and create list
         self.forecast_hours = list(range(0, settings.forecast_hours + 1, 3))  # 0 to max by 3-hour steps
+        self._request_count = 0
+        self._last_request_time = datetime.now()
         
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run."""
@@ -215,7 +223,6 @@ class GFSWaveClient:
 
     def _build_grib_filter_url(
         self,
-        cycle_date: datetime,
         cycle_hour: str,
         forecast_hour: int,
         region: str
@@ -240,8 +247,31 @@ class GFSWaveClient:
         
         query = "&".join(f"{k}={v}" for k, v in params)
         url = f"{settings.gfs_wave_filter_url}/filter_gfswave.pl?{query}"
-        logger.debug(f"Built URL for {region} f{forecast_hour:03d}: {url}")
+       # logger.info(f"Built URL for {region} f{forecast_hour:03d}: {url}")
         return url
+
+    async def _rate_limit(self):
+        """Implement rate limiting logic."""
+        now = datetime.now()
+        
+        # Reset counter if a minute has passed
+        if (now - self._last_request_time).total_seconds() >= 60:
+            self._request_count = 0
+            self._last_request_time = now
+            
+        # If we've hit our batch size, pause
+        if self._request_count > 0 and self._request_count % self.BATCH_SIZE == 0:
+            logger.info(f"⏸️ Pausing for {self.BATCH_PAUSE}s after batch of {self.BATCH_SIZE} requests...")
+            await asyncio.sleep(self.BATCH_PAUSE)
+            self._request_count = 0
+            self._last_request_time = datetime.now()
+            return
+            
+        # Otherwise, small delay between requests
+        if self._request_count > 0:
+            await asyncio.sleep(self.REQUEST_INTERVAL)
+            
+        self._request_count += 1
 
     async def _download_grib_file(
         self,
@@ -251,8 +281,9 @@ class GFSWaveClient:
         """Download a GRIB file and save it to the specified path."""
         try:
             session = await self._init_session()
-
-            print(f"Downloading {url} to {file_path}")
+            
+            # Apply rate limiting before request
+            await self._rate_limit()
             
             async with session.get(url, allow_redirects=True) as response:
                 if response.status != 200:
@@ -285,28 +316,24 @@ class GFSWaveClient:
     ) -> List[Path]:
         """Download missing forecast files for a region."""
         try:
-            # Get list of missing files
             missing_files = self.file_storage.get_missing_files(
                 region,
-                cycle_date,
-                cycle_hour,
+                self.model_run,
                 self.forecast_hours
             )
             
             if not missing_files:
-                logger.info("Files already available for %s", region)
+                logger.info(f"All files available for {region}")
                 return self.file_storage.get_valid_files(
                     region,
-                    cycle_date,
-                    cycle_hour,
+                    self.model_run,
                     self.forecast_hours
                 )
 
-            downloaded = 0
-            failed = 0
+            downloaded = failed = 0
             
             for forecast_hour, file_path in missing_files:
-                url = self._build_grib_filter_url(cycle_date, cycle_hour, forecast_hour, region)
+                url = self._build_grib_filter_url(cycle_hour, forecast_hour, region)
                 result = await self._download_grib_file(url, file_path)
                 if result:
                     downloaded += 1
@@ -314,18 +341,11 @@ class GFSWaveClient:
                     failed += 1
                     
             if downloaded > 0:
-                logger.info(
-                    f"Region {region} download summary:\n"
-                    f"  - Files needed: {len(missing_files)}\n"
-                    f"  - Downloaded: {downloaded}\n"
-                    f"  - Failed: {failed}"
-                )
-            
-            # Return all valid files including previously downloaded ones
+                logger.info(f"Downloaded {downloaded} files for {region}, {failed} failed")
+                
             return self.file_storage.get_valid_files(
                 region,
-                cycle_date,
-                cycle_hour,
+                self.model_run,
                 self.forecast_hours
             )
             
@@ -340,10 +360,8 @@ class GFSWaveClient:
         for fp in file_paths:
             try:
                 if not fp.exists():
-                    logger.error(f"File not found: {fp}")
                     continue
                     
-                # Load GRIB file with explicit datetime decoding settings
                 ds = xr.open_dataset(
                     fp,
                     engine="cfgrib",
@@ -355,10 +373,8 @@ class GFSWaveClient:
                     }
                 )
                 
-                # Use valid_time as the time coordinate
                 valid_time = pd.to_datetime(ds.valid_time.values)
                 ds = ds.assign_coords(time=valid_time)
-                
                 datasets.append(ds)
                 
             except Exception as e:
@@ -366,14 +382,9 @@ class GFSWaveClient:
                 continue
                 
         if not datasets:
-            logger.error("No valid datasets were loaded")
             raise Exception("No valid datasets were loaded")
             
-        # Combine datasets along time dimension
-        combined_ds = xr.concat(datasets, dim="time")
-        
-        # Sort by time to ensure forecast sequence
-        return combined_ds.sortby("time")
+        return xr.concat(datasets, dim="time").sortby("time")
 
     async def _load_grib_files(
         self,
@@ -383,18 +394,16 @@ class GFSWaveClient:
     ) -> Optional[xr.Dataset]:
         """Load GRIB files for a region and combine them into a single dataset."""
         try:
-            # Get all GRIB files for this cycle
-            file_paths = []
-            for hour in self.forecast_hours:
-                file_path = self._get_grib_file_path(region, cycle_date, cycle_hour, hour)
-                if file_path.exists():
-                    file_paths.append(file_path)
+            file_paths = self.file_storage.get_valid_files(
+                region,
+                self.model_run,
+                self.forecast_hours
+            )
                     
             if not file_paths:
                 logger.error(f"No GRIB files found for {region}")
                 return None
                 
-            # Load and combine the datasets
             return self._load_and_combine_dataset(file_paths)
             
         except Exception as e:

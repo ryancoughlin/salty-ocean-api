@@ -61,14 +61,10 @@ class Settings(BaseSettings):
                 "lat": {
                     "start": 0,
                     "end": 55.00011,
-                    "resolution": 0.167,
-                    "points": 331
                 },
                 "lon": {
                     "start": 260,  # -100 degrees in 360-notation
                     "end": 310.00010,  # -50 degrees in 360-notation
-                    "resolution": 0.167,
-                    "points": 301
                 }
             },
             "variables": {
@@ -105,29 +101,19 @@ class Settings(BaseSettings):
                 "interval": 0.125  # Time step interval in days (3 hours)
             }
         },
-        # "pacific": {
-        #     "name": "paclocn.0p16",
-        #     "grid": {
-        #         "lat": {
-        #             "start": 0,
-        #             "end": 60,
-        #             "resolution": 0.16,
-        #             "size": 376
-        #         },
-        #         "lon": {
-        #             "start": -180,
-        #             "end": -115,
-        #             "resolution": 0.16,
-        #             "size": 407
-        #         }
-        #     }
-        # }
-    }
-    
-    request: Dict = {
-        "timeout": 300,
-        "max_retries": 3,
-        "retry_delay": 5000
+        "pacific": {
+            "name": "wcoast.0p16",
+            "grid": {
+                "lat": {
+                    "start": 0,
+                    "end": 60,
+                },
+                "lon": {
+                    "start": -180,
+                    "end": -115,
+                }
+            }
+        }
     }
 
     def get_cache_ttl(self) -> Dict[str, int]:

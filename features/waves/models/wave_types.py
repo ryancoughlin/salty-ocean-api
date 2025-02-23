@@ -15,4 +15,4 @@ class WaveForecastResponse(BaseModel):
     """Complete wave forecast response for a station."""
     station: Station
     forecasts: List[WaveForecastPoint]
-    model_run: str  # e.g. "20250218 06z" 
+    model_run: str  # e.g. "20250218 06z" c

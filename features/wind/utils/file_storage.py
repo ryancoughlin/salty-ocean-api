@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class GFSFileStorage:
     """Handles storage and retrieval of GFS GRIB files."""
     
-    def __init__(self, base_dir: str = "downloaded_data/gfs"):
+    def __init__(self, base_dir: str = "downloaded_data/gfs_wind"):
         """Initialize the file storage with a base directory."""
         self.base_dir = Path(base_dir)
         self._ensure_storage_dir()
@@ -23,20 +23,8 @@ class GFSFileStorage:
         return self.base_dir / f"{region}_gfs_{model_run.date_str}_{model_run.cycle_hour:02d}z_f{forecast_hour:03d}.grib2"
     
     def is_file_valid(self, file_path: Path) -> bool:
-        """Check if a file exists and is valid."""
-        if not file_path.exists():
-            return False
-            
-        # Check file size
-        if file_path.stat().st_size < 100:  # Minimum size in bytes
-            return False
-            
-        # Check file age (4 hours max)
-        file_age = datetime.now(timezone.utc) - datetime.fromtimestamp(file_path.stat().st_mtime, timezone.utc)
-        if file_age > timedelta(hours=4):
-            return False
-            
-        return True
+        """Check if a file exists."""
+        return file_path.exists()
     
     async def save_file(self, file_path: Path, content: bytes) -> bool:
         """Save file content to storage."""
@@ -75,7 +63,7 @@ class GFSFileStorage:
             file_path = self.get_regional_file_path(region, model_run, hour)
             if self.is_file_valid(file_path):
                 valid.append(file_path)
-        return valid
+            return valid
     
     def cleanup_old_files(self, current_run: ModelRun) -> None:
         """Delete files from older model runs."""
@@ -84,12 +72,11 @@ class GFSFileStorage:
             deleted_count = 0
             
             for file_path in self.base_dir.glob("*.grib2"):
-                # Keep files matching current model run pattern
                 if current_pattern not in str(file_path):
                     file_path.unlink()
                     deleted_count += 1
                     
             if deleted_count > 0:
-                logger.info(f"Cleaned up {deleted_count} files from previous model runs")
+                logger.info(f"Cleaned up {deleted_count} wind files from previous model runs")
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}") 

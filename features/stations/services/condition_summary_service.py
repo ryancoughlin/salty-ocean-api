@@ -1,11 +1,6 @@
-from datetime import datetime, timedelta
-from typing import Dict, Tuple
-from fastapi import HTTPException
-import asyncio
 import logging
-
-from features.wind.models.wind_types import WindForecastResponse
-from features.waves.models.wave_types import WaveForecastPoint, WaveForecastResponse
+from datetime import datetime, timedelta
+from fastapi import HTTPException
 from features.wind.models.wind_categories import BeaufortScale, WindDirection, TrendType
 from features.waves.models.wave_categories import WaveHeight, WavePeriod, Conditions
 from features.wind.services.wind_service import WindService
@@ -60,13 +55,13 @@ class ConditionSummaryService:
             current_wind = wind_forecast.forecasts[0]
 
             # Get conditions in 6 hours
-            future_time = datetime.now(current_wave.timestamp.tzinfo) + timedelta(hours=6)
+            future_time = datetime.now(current_wave.time.tzinfo) + timedelta(hours=6)
             future_wind = next(
-                (f for f in wind_forecast.forecasts if f.timestamp >= future_time),
+                (f for f in wind_forecast.forecasts if f.time >= future_time),
                 wind_forecast.forecasts[-1]
             )
             future_wave = next(
-                (f for f in wave_forecast.forecasts if f.timestamp >= future_time),
+                (f for f in wave_forecast.forecasts if f.time >= future_time),
                 wave_forecast.forecasts[-1]
             )
 
@@ -110,7 +105,7 @@ class ConditionSummaryService:
             return ConditionSummaryResponse(
                 station=station,
                 summary=summary,
-                generated_at=datetime.now(current_wave.timestamp.tzinfo)
+                generated_at=datetime.now(current_wave.time.tzinfo)
             )
 
         except HTTPException:

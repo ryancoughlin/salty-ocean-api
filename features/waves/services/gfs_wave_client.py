@@ -34,7 +34,7 @@ class GFSWaveComponent(BaseModel):
 
 class GFSForecastPoint(BaseModel):
     """Single point in GFS wave forecast."""
-    timestamp: datetime = Field(..., description="Forecast timestamp in UTC")
+    time: datetime = Field(..., description="Forecast timestamp in UTC")
     waves: List[GFSWaveComponent] = Field(..., description="Wave components sorted by height")
 
 class GFSModelCycle(BaseModel):
@@ -420,7 +420,7 @@ class GFSWaveClient:
                     )
                     
                     forecasts.append(GFSForecastPoint(
-                        timestamp=pd.Timestamp(t).tz_localize('UTC'),
+                        time=pd.Timestamp(t).tz_localize('UTC'),
                         waves=[wave_component]
                     ))
                     
@@ -433,7 +433,7 @@ class GFSWaveClient:
                     f"lat={lat:.3f}, lon={lon:.3f}"
                 )
             
-            return sorted(forecasts, key=lambda x: x.timestamp)
+            return sorted(forecasts, key=lambda x: x.time)
             
         except Exception as e:
             logger.error(f"Error extracting forecast: {str(e)}")

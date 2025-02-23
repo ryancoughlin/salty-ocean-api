@@ -1,6 +1,50 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, List, Any
+from pydantic import BaseModel, Field
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta, timezone
+
+class GridBounds(BaseModel):
+    """Grid boundary configuration."""
+    start: float
+    end: float
+    resolution: float = Field(default=0.25)
+
+class RegionGrid(BaseModel):
+    """Region grid configuration."""
+    lat: GridBounds
+    lon: GridBounds
+
+class WindRegionConfig(BaseModel):
+    """Configuration for a wind region."""
+    grid: RegionGrid
+    variables: List[str] = Field(
+        default=["UGRD", "VGRD", "GUST"],
+        description="Wind variables to fetch"
+    )
+    levels: List[str] = Field(
+        default=["10_m_above_ground", "surface"],
+        description="Vertical levels to fetch"
+    )
+
+class WindClientConfig(BaseModel):
+    """GFS Wind client configuration."""
+    base_url: str = Field(
+        default="https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl",
+        description="Base URL for GFS GRIB filter"
+    )
+    regions: Dict[str, WindRegionConfig]
+    forecast_hours: List[int] = Field(
+        default=list(range(0, 385, 3)),
+        description="Forecast hours to fetch (0 to 384 by 3-hour steps)"
+    )
+    rate_limit: Dict[str, int] = Field(
+        default={
+            "requests_per_minute": 120,
+            "batch_size": 30,
+            "batch_pause": 15
+        },
+        description="Rate limiting configuration"
+    )
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -45,6 +89,26 @@ class Settings(BaseSettings):
         "time_zone": "lst_ldt",
         "format": "json"
     }
+    
+    # Wind client configuration
+    wind: WindClientConfig = Field(
+        default=WindClientConfig(
+            regions={
+                "atlantic": WindRegionConfig(
+                    grid=RegionGrid(
+                        lat=GridBounds(start=0, end=55),
+                        lon=GridBounds(start=260, end=310)  # -100 to -50 in 360-notation
+                    )
+                ),
+                "pacific": WindRegionConfig(
+                    grid=RegionGrid(
+                        lat=GridBounds(start=0, end=60),
+                        lon=GridBounds(start=180, end=245)
+                    )
+                )
+            }
+        )
+    )
     
     # Wave model settings
     base_url: str = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gfs/prod"
@@ -116,7 +180,7 @@ class Settings(BaseSettings):
         }
     }
 
-    def get_cache_ttl(self) -> Dict[str, int]:
+    def get_cache_ttl(self) -> Dict[str, Optional[int]]:
         """Get cache TTL values. Cache is flushed when new model data is available."""
         return {
             "wave_forecast": 14400,     # 4 hours (max time between model runs)

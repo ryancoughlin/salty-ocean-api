@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 import cfgrib
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 import asyncio
@@ -15,30 +15,12 @@ from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
 from features.common.services.model_run_service import ModelRun
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class GFSWindClient:
     """Client for fetching wind data from NOAA's GFS using NOMADS GRIB Filter."""
-    
-    BASE_URL = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
-    
-    REGIONS = {
-        "atlantic": {
-            "lat": {"start": 0, "end": 55, "resolution": 0.25},
-            "lon": {"start": 260, "end": 310, "resolution": 0.25}  # -100 to -50 in 360-notation
-        },
-        "pacific": {
-            "lat": {"start": 0, "end": 60, "resolution": 0.25},
-            "lon": {"start": 180, "end": 245, "resolution": 0.25}
-        }
-    }
-    
-    # Rate limiting constants
-    REQUESTS_PER_MINUTE = 120
-    REQUEST_INTERVAL = 60 / REQUESTS_PER_MINUTE  # Time between requests in seconds
-    BATCH_SIZE = 30  # Number of requests to make before pausing
-    BATCH_PAUSE = 15  # Seconds to pause after each batch
     
     def __init__(self, model_run: Optional[ModelRun] = None):
         self.model_run = model_run
@@ -47,9 +29,15 @@ class GFSWindClient:
         self._is_initialized = False
         self._initialization_lock = asyncio.Lock()
         self._initialization_error: Optional[str] = None
-        self.forecast_hours = list(range(0, 385, 3))  # 0 to 384 by 3-hour steps
+        self.forecast_hours = settings.wind.forecast_hours
         self._request_count = 0
         self._last_request_time = datetime.now()
+        
+        # Rate limiting constants from config
+        self.REQUESTS_PER_MINUTE = settings.wind.rate_limit["requests_per_minute"]
+        self.REQUEST_INTERVAL = 60 / self.REQUESTS_PER_MINUTE
+        self.BATCH_SIZE = settings.wind.rate_limit["batch_size"]
+        self.BATCH_PAUSE = settings.wind.rate_limit["batch_pause"]
         
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run and clean up old files."""
@@ -76,39 +64,71 @@ class GFSWindClient:
             initialization_errors = []
             
             # Initialize each region
-            for region in self.REGIONS.keys():
+            for region_name, region_config in settings.wind.regions.items():
                 try:
-                    logger.info(f"🌎 Initializing {region} region wind data...")
-                    missing_files = self.file_storage.get_missing_files(
-                        region,
-                        self.model_run,
-                        self.forecast_hours
+                    logger.info(f"🌎 Initializing {region_name} region wind data...")
+                    
+                    # Get list of missing files but sort by forecast hour
+                    missing_files = sorted(
+                        self.file_storage.get_missing_files(
+                            region_name,
+                            self.model_run,
+                            self.forecast_hours
+                        ),
+                        key=lambda x: x[0]  # Sort by forecast hour
                     )
                     
                     if missing_files:
-                        logger.info(f"📥 Downloading {len(missing_files)} wind files for {region}...")
-                        downloaded, failed = await self._download_regional_files(region, missing_files)
-                        logger.info(f"📊 {region} wind download summary: {downloaded} succeeded, {failed} failed")
-
+                        logger.info(f"📥 Attempting to download {len(missing_files)} wind files for {region_name}...")
+                        
+                        # Calculate expected availability time for the first missing hour
+                        first_hour = missing_files[0][0]
+                        expected_time = self.model_run.available_time + timedelta(minutes=max(5, first_hour // 6))
+                        
+                        if datetime.now(timezone.utc) < expected_time:
+                            wait_mins = (expected_time - datetime.now(timezone.utc)).total_seconds() / 60
+                            logger.warning(
+                                f"⚠️ First missing hour {first_hour} not expected until "
+                                f"{expected_time.strftime('%H:%M:%S')} UTC "
+                                f"(in ~{wait_mins:.1f} minutes)"
+                            )
+                        
+                        downloaded, failed = await self._download_regional_files(region_name, missing_files)
+                        
+                        if downloaded == 0:
+                            error_msg = f"Failed to download any wind files for {region_name}"
+                            initialization_errors.append(error_msg)
+                            logger.error(f"❌ {error_msg}")
+                            continue
+                            
+                        logger.info(f"📊 {region_name} wind download summary: {downloaded} succeeded, {failed} failed")
+                        
+                        # If we have some successful downloads but not all, log a warning
+                        if failed > 0:
+                            logger.warning(
+                                f"⚠️ Some forecast hours not yet available for {region_name} "
+                                f"({failed} missing, will retry on next update)"
+                            )
                     else:
-                        logger.info(f"✨ All wind files already available for {region}")
+                        logger.info(f"✨ All wind files already available for {region_name}")
                     
-                    # Load the dataset
+                    # Load the dataset with available files
                     valid_files = self.file_storage.get_valid_files(
-                        region,
+                        region_name,
                         self.model_run,
                         self.forecast_hours
                     )
                     
                     if not valid_files:
-                        error_msg = f"No valid wind files available for {region}"
+                        error_msg = f"No valid wind files available for {region_name}"
                         initialization_errors.append(error_msg)
                         logger.error(f"❌ {error_msg}")
                         continue
                         
-                    logger.info(f"🔄 Loading {len(valid_files)} wind files for {region}...")
+                    logger.info(f"🔄 Loading {len(valid_files)} wind files for {region_name}...")
                     
                     # Load each file into a dataset
+                    loaded_files = 0
                     for file_path in valid_files:
                         try:
                             forecast_hour = int(str(file_path).split('_f')[-1].split('.')[0])
@@ -118,26 +138,43 @@ class GFSWindClient:
                                 decode_timedelta=False,
                                 backend_kwargs={'indexpath': ''}
                             )
-                            cache_key = f"{region}_{self.model_run.date_str}_{self.model_run.cycle_hour:02d}_{forecast_hour:03d}"
+                            cache_key = f"{region_name}_{self.model_run.date_str}_{self.model_run.cycle_hour:02d}_{forecast_hour:03d}"
                             self._regional_datasets[cache_key] = ds
+                            loaded_files += 1
                         except Exception as e:
                             logger.error(f"❌ Error loading wind file {file_path}: {str(e)}")
                             continue
                             
-                    logger.info(f"✅ Successfully loaded wind data for {region}")
+                    if loaded_files > 0:
+                        logger.info(f"✅ Successfully loaded {loaded_files} wind files for {region_name}")
+                    else:
+                        error_msg = f"Failed to load any wind files for {region_name}"
+                        initialization_errors.append(error_msg)
+                        logger.error(f"❌ {error_msg}")
                         
                 except Exception as e:
-                    error_msg = f"Error initializing {region} wind data: {str(e)}"
+                    error_msg = f"Error initializing {region_name} wind data: {str(e)}"
                     initialization_errors.append(error_msg)
                     logger.error(f"❌ {error_msg}")
                     continue
             
-            if initialization_errors:
+            if initialization_errors and not self._regional_datasets:
+                # Only fail initialization if we have no data at all
                 self._initialization_error = "; ".join(initialization_errors)
                 logger.error(f"❌ Wind initialization errors: {self._initialization_error}")
-            else:
-                self._is_initialized = True
-                logger.info("✅ Wind client initialization complete!")
+                raise HTTPException(
+                    status_code=503,
+                    detail=self._initialization_error
+                )
+            elif initialization_errors:
+                # Log warning but continue if we have partial data
+                logger.warning("⚠️ Wind initialization completed with some errors")
+            
+            self._is_initialized = True
+            logger.info(
+                f"✅ Wind client initialization complete with model run "
+                f"{self.model_run.date_str} {self.model_run.cycle_hour:02d}Z"
+            )
 
     async def _ensure_initialized(self):
         """Ensure the client is initialized before processing requests."""
@@ -156,10 +193,11 @@ class GFSWindClient:
         if lon < 0:
             lon = 360 + lon
             
-        for region, bounds in self.REGIONS.items():
-            if (bounds["lat"]["start"] <= lat <= bounds["lat"]["end"] and
-                bounds["lon"]["start"] <= lon <= bounds["lon"]["end"]):
-                return region
+        for region_name, region_config in settings.wind.regions.items():
+            bounds = region_config.grid
+            if (bounds.lat.start <= lat <= bounds.lat.end and
+                bounds.lon.start <= lon <= bounds.lon.end):
+                return region_name
                 
         raise HTTPException(
             status_code=400,
@@ -172,26 +210,37 @@ class GFSWindClient:
         region: str
     ) -> str:
         """Build URL for NOMADS GRIB filter service for a region."""
-        bounds = self.REGIONS[region]
+        if not self.model_run:
+            raise ValueError("No model run available")
+            
+        region_config = settings.wind.regions[region]
+        bounds = region_config.grid
+        
+        # Build the directory path and URL-encode it
+        dir_path = f"/gfs.{self.model_run.date_str}/{self.model_run.cycle_hour:02d}/atmos"
+        dir_path = dir_path.replace("/", "%2F")
         
         params = {
-            "dir": f"/gfs.{self.model_run.date_str}/{self.model_run.cycle_hour:02d}/atmos",
             "file": f"gfs.t{self.model_run.cycle_hour:02d}z.pgrb2.0p25.f{forecast_hour:03d}",
-            "var_UGRD": "on",
-            "var_VGRD": "on",
-            "var_GUST": "on",
-            "lev_10_m_above_ground": "on",
-            "lev_surface": "on",
+            "dir": dir_path,
             "subregion": "",
-            "toplat": f"{bounds['lat']['end']}",
-            "bottomlat": f"{bounds['lat']['start']}",
-            "leftlon": f"{bounds['lon']['start']}",
-            "rightlon": f"{bounds['lon']['end']}"
+            "leftlon": str(bounds.lon.start),
+            "rightlon": str(bounds.lon.end),
+            "toplat": str(bounds.lat.end),
+            "bottomlat": str(bounds.lat.start)
         }
         
-        query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))  # Sort params for consistent order
-        url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?{query}"
-        logger.info(f"Building URL for {url}")
+        # Add variables and levels from config
+        for var in region_config.variables:
+            params[f"var_{var}"] = "on"
+            
+        for level in region_config.levels:
+            params[f"lev_{level}"] = "on"
+        
+        # Build query string with sorted parameters for consistency
+        query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+        url = f"{settings.wind.base_url}?{query}"
+        logger.info(f"Building URL for forecast hour {forecast_hour}: {url}")
         return url
             
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:
@@ -404,15 +453,15 @@ class GFSWindClient:
             async with aiohttp.ClientSession(
                 cookies={'osCsid': 'dummy'},
                 headers={
-                    'User-Agent': 'curl/7.81.0',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
                     'Accept': '*/*'
                 }
             ) as session:
-                async with session.get(url, timeout=300) as response:
-                   
+                # Use ClientTimeout object for proper timeout handling
+                timeout = aiohttp.ClientTimeout(total=300)
+                async with session.get(url, timeout=timeout) as response:
                     if response.status == 200:
                         content = await response.read()
-
                         if await self.file_storage.save_file(file_path, content):
                             return True
                     else:
@@ -422,6 +471,8 @@ class GFSWindClient:
         except Exception as e:
             logger.error(f"Error downloading file: {str(e)}")
             return False
+            
+        return False  # Ensure we always return a bool
 
     async def _download_regional_files(
         self,
@@ -432,10 +483,24 @@ class GFSWindClient:
         downloaded = failed = 0
         
         for forecast_hour, file_path in missing_files:
+            # Skip forecast hours that are likely not available yet
+            if not self.model_run:
+                continue
+                
+            # Calculate the expected availability time for this forecast hour
+            # GFS files become available progressively, with early hours first
+            expected_time = self.model_run.available_time + timedelta(minutes=max(5, forecast_hour // 6))
+            if datetime.now(timezone.utc) < expected_time:
+                logger.info(f"Skipping forecast hour {forecast_hour}, not expected until {expected_time}")
+                continue
+                
             url = self._build_grib_filter_url(forecast_hour, region)
             if await self._download_grib_file(url, file_path):
                 downloaded += 1
             else:
                 failed += 1
+                
+            # Respect rate limit between downloads
+            await self._rate_limit()
                 
         return downloaded, failed 

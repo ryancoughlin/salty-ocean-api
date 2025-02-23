@@ -7,7 +7,6 @@ from pathlib import Path
 from features.common.models.station_types import Station, Location
 from features.waves.models.ndbc_types import NDBCObservation
 from features.waves.services.ndbc_buoy_client import NDBCBuoyClient
-from core.cache import cached
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class StationService:
                 stations_data = json.load(f)
                 self._stations = [
                     Station(
-                        station_id=station["id"],
+                        id=station["id"],
                         name=station["name"],
                         location=Location(
                             type="Point",
@@ -69,28 +68,40 @@ class StationService:
             )
         return station
 
-    @cached(
-        namespace="station_observations",
-        expire=900,  # 15 minutes in seconds
-        key_builder=station_observation_key_builder
-    )
     async def get_station_observations(self, station_id: str) -> NDBCObservation:
         """Get current observations for a station."""
         # Verify station exists
         station = self.get_station(station_id)
         
         # Get observations from NDBC
-        observation = await self.buoy_client.get_observation(station_id, {
+        station_data = await self.buoy_client.get_observation(station_id, {
             "name": station.name,
             "location": {
                 "type": "Point",
                 "coordinates": station.location.coordinates
             }
         })
-        if not observation:
+        if not station_data:
             raise HTTPException(
                 status_code=404,
                 detail=f"No observations found for station {station_id}"
             )
         
-        return observation 
+        return station_data.observations
+
+    async def get_stations_geojson(self) -> Dict:
+        """Get stations in GeoJSON format."""
+        stations = self._load_stations()
+        features = [
+            {
+                "type": "Feature",
+                "geometry": station.location.dict(),
+                "properties": {
+                    "id": station.station_id,
+                    "name": station.name,
+                    "type": station.type
+                }
+            }
+            for station in stations
+        ]
+        return {"type": "FeatureCollection", "features": features} 

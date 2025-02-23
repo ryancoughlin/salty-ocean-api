@@ -191,6 +191,7 @@ class GFSWindClient:
         
         query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))  # Sort params for consistent order
         url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?{query}"
+        logger.info(f"Building URL for {url}")
         return url
             
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:

@@ -82,21 +82,40 @@ class GFSWindClient:
                         downloaded = 0
                         failed = 0
                         
-                        for forecast_hour, file_path in missing_files:
-                            url = self._build_grib_filter_url(forecast_hour, region)
-                            if not self.file_storage.is_file_valid(file_path):
-                                async with aiohttp.ClientSession() as session:
-                                    async with session.get(url, allow_redirects=True, timeout=300) as response:
-                                        if response.status != 200:
+                        async with aiohttp.ClientSession(
+                            cookies={'osCsid': 'dummy'},  # Required for NOAA's filter service
+                            headers={
+                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                            }
+                        ) as session:
+                            for forecast_hour, file_path in missing_files:
+                                url = self._build_grib_filter_url(forecast_hour, region)
+                                if not self.file_storage.is_file_valid(file_path):
+                                    try:
+                                        async with session.get(url, allow_redirects=True, timeout=300) as response:
+                                            if response.status == 302:
+                                                redirect_url = response.headers.get('Location')
+                                                if redirect_url:
+                                                    async with session.get(redirect_url, timeout=300) as redirect_response:
+                                                        if redirect_response.status == 200:
+                                                            content = await redirect_response.read()
+                                                            if await self.file_storage.save_file(file_path, content):
+                                                                downloaded += 1
+                                                                logger.info(f"✅ Downloaded {region} wind file f{forecast_hour:03d}")
+                                                                continue
+                                            elif response.status == 200:
+                                                content = await response.read()
+                                                if await self.file_storage.save_file(file_path, content):
+                                                    downloaded += 1
+                                                    logger.info(f"✅ Downloaded {region} wind file f{forecast_hour:03d}")
+                                                    continue
+                                            
                                             failed += 1
                                             logger.error(f"❌ Failed to download {region} wind file f{forecast_hour:03d}: {response.status}")
-                                            continue
-                                        content = await response.read()
-                                        if await self.file_storage.save_file(file_path, content):
-                                            downloaded += 1
-                                            logger.info(f"✅ Downloaded {region} wind file f{forecast_hour:03d}")
-                                        else:
-                                            failed += 1
+                                    except Exception as e:
+                                        failed += 1
+                                        logger.error(f"❌ Error downloading {region} wind file f{forecast_hour:03d}: {str(e)}")
+                                        continue
                                             
                         logger.info(f"📊 {region} wind download summary: {downloaded} succeeded, {failed} failed")
                     else:
@@ -198,8 +217,10 @@ class GFSWindClient:
             "rightlon": f"{bounds['lon']['end']}"
         }
         
-        query = "&".join(f"{k}={v}" for k, v in params.items())
-        return f"{self.BASE_URL}?{query}"
+        query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))  # Sort params for consistent order
+        url = f"https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?{query}"
+        logger.debug(f"Built URL for {region} f{forecast_hour:03d}: {url}")
+        return url
             
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:
         """Calculate wind speed and direction from U and V components."""

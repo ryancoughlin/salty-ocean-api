@@ -1,0 +1,121 @@
+# Wave and Wind Forecast Processing
+
+## Overview
+Wave and wind forecasts are processed through parallel but similar pipelines, using NOAA GFS GRIB2 data files. Both systems use a regional approach to optimize data handling and reduce API load.
+
+## Common Components
+- Model Run Management: Both use `ModelRun` to track GFS model cycles (00Z, 06Z, 12Z, 18Z)
+- Regional Processing: Data divided into Atlantic/Pacific regions
+- Caching: 4-hour cache duration matching GFS model run frequency
+- File Storage: GRIB files stored locally in `cache/gfs_wave/` and `cache/gfs_wind/`
+
+## Wave Forecast Pipeline
+
+### Data Flow
+1. Request → `wave_routes_v2.py` → `wave_data_service_v2.py` → `gfs_wave_client.py`
+2. Response: `WaveForecastResponse` with 7-day forecast at 3-hour intervals
+
+### Processing Steps
+1. **Initialization**
+   - Load regional datasets on startup
+   - Download missing GRIB files if needed
+   - Process files into xarray datasets
+
+2. **Station Forecast**
+   - Determine region based on coordinates
+   - Extract nearest point data
+   - Process wave components:
+     - Height (meters → feet)
+     - Period (seconds)
+     - Direction (degrees)
+
+3. **Data Validation**
+   - Heights ≥ 0
+   - Periods ≥ 0
+   - Directions 0-360°
+   - Skip invalid points
+
+## Wind Forecast Pipeline
+
+### Data Flow
+1. Request → `wind_routes.py` → `wind_service.py` → `gfs_wind_client.py`
+2. Response: `WindForecastResponse` with forecast points
+
+### Processing Steps
+1. **Initialization**
+   - Regional data loading at startup
+   - Automatic GRIB file management
+   - Dataset preparation per region
+
+2. **Station Forecast**
+   - Region selection by coordinates
+   - Extract U/V components and gust
+   - Calculate:
+     - Wind speed (m/s → mph)
+     - Direction (from U/V)
+     - Gust speed (m/s → mph)
+
+3. **Data Validation**
+   - Valid coordinates check
+   - Speed/gust ≥ 0
+   - Direction 0-360°
+
+## Regional Boundaries
+
+### Atlantic Region
+- Longitude: 260° to 310° (-100° to -50°)
+- Latitude: 0° to 55°
+- Resolution: 0.167° (~18.5km)
+
+### Pacific Region
+- Longitude: 180° to 245°
+- Latitude: 0° to 60°
+- Resolution: 0.167° (~18.5km)
+
+## Error Handling
+1. **Download Errors**
+   - Retry with exponential backoff
+   - Maximum 3 retries
+   - Log failed downloads
+   - Continue with available data
+
+2. **Processing Errors**
+   - Log invalid data points
+   - Skip bad time points
+   - Continue with valid points
+   - Return 503 if no valid data
+
+3. **Validation Errors**
+   - Log out of range values
+   - Skip invalid points
+   - Include coordinates in logs
+
+## Performance Optimization
+1. **Memory Management**
+   - Use Dask for large datasets
+   - Process in time chunks
+   - Clear memory after processing
+   - Close datasets when done
+
+2. **Concurrency**
+   - Parallel file downloads
+   - Independent region processing
+   - Async I/O operations
+   - Connection pooling
+
+## Caching Strategy
+1. **GRIB Files**
+   - Location: `cache/gfs_{wave|wind}/`
+   - Format: `{region}_gfs_{YYYYMMDD}_{HH}z_f{FFF}.grib2`
+   - Expire: 4 hours (matches model run)
+
+2. **API Responses**
+   - Key: `{feature}_forecast:{station_id}`
+   - Duration: 4 hours
+   - Clear on new model run
+
+## Key Files
+- Wave: `features/waves/services/gfs_wave_client.py`
+- Wind: `features/wind/services/gfs_wind_client.py`
+- Routes: `features/waves/routes/wave_routes_v2.py`, `features/wind/routes/wind_routes.py`
+- Services: `features/waves/services/wave_data_service_v2.py`, `features/wind/services/wind_service.py` 

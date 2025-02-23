@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 class ModelRunService:
     """Service to check for available GFS model runs."""
     
-    def _print_model_run_info(self, model_run: ModelRun, check_date: date, cycle: int):
-        """Print model run information with both UTC and EST times."""
+    def _log_model_run_info(self, model_run: ModelRun, check_date: date, cycle: int):
+        """Log model run information with both UTC and EST times."""
         utc_time = model_run.available_time
         est_time = utc_time.astimezone(timezone(timedelta(hours=-5)))
-        print(f"\n✨ Using GFS model run: {check_date.strftime('%Y%m%d')} {cycle:02d}Z")
-        print(f"⏰ Available since: {utc_time.strftime('%H:%M:%S')} UTC ({est_time.strftime('%H:%M:%S')} EST)")
-        print(f"⌛ Delay: {model_run.delay_minutes} minutes\n")
+        logger.info(f"✨ Using GFS model run: {check_date.strftime('%Y%m%d')} {cycle:02d}Z")
+        logger.info(f"⏰ Available since: {utc_time.strftime('%H:%M:%S')} UTC ({est_time.strftime('%H:%M:%S')} EST)")
+        logger.info(f"⌛ Delay: {model_run.delay_minutes} minutes")
 
     async def check_grib_file_for_cycle(
         self,
@@ -78,7 +78,13 @@ class ModelRunService:
             for cycle in sorted(available_cycles, reverse=True):
                 model_run = await self.check_grib_file_for_cycle(check_date, cycle)
                 if model_run:
-                    self._print_model_run_info(model_run, check_date, cycle)
+                    # Only log model run info during startup or when a new run is detected
+                    if not hasattr(self, '_last_model_run') or (
+                        self._last_model_run.run_date != model_run.run_date or 
+                        self._last_model_run.cycle_hour != model_run.cycle_hour
+                    ):
+                        self._log_model_run_info(model_run, check_date, cycle)
+                        self._last_model_run = model_run
                     return model_run
         
         # If we get here, use yesterday's last successful cycle

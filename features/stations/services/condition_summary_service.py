@@ -40,9 +40,9 @@ class ConditionSummaryService:
             if not station:
                 raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
 
-            # Get forecasts directly from GFS clients
-            wind_forecast = await self.wind_service.gfs_client.get_station_wind_forecast(station)
-            wave_forecast = await self.wave_service.gfs_client.get_station_forecast(station_id, station)
+            # Get forecasts from the services instead of GFS clients
+            wind_forecast = await self.wind_service.get_station_wind_forecast(station_id)
+            wave_forecast = await self.wave_service.get_station_forecast(station_id)
 
             if not wind_forecast or not wind_forecast.forecasts:
                 raise HTTPException(status_code=503, detail="Unable to fetch wind conditions")
@@ -68,29 +68,29 @@ class ConditionSummaryService:
             # Calculate categories
             wind_category = BeaufortScale.from_speed(current_wind.speed)
             wind_dir = WindDirection.from_degrees(current_wind.direction)
-            wave_height = WaveHeight.from_height(current_wave.waves[0].height_ft if current_wave.waves else 0)
-            wave_period = WavePeriod.from_period(current_wave.waves[0].period if current_wave.waves else 0)
+            wave_height = WaveHeight.from_height(current_wave.height)
+            wave_period = WavePeriod.from_period(current_wave.period)
             conditions = Conditions.from_wind_wave(
                 current_wind.speed,
                 current_wind.direction,
-                current_wave.waves[0].direction if current_wave.waves else 0
+                current_wave.direction
             )
 
             # Get trends
             wind_trend = self._get_trend_description(current_wind.speed, future_wind.speed)
             wave_trend = self._get_trend_description(
-                current_wave.waves[0].height_ft if current_wave.waves else 0,
-                future_wave.waves[0].height_ft if future_wave.waves else 0
+                current_wave.height,
+                future_wave.height
             )
             wind_quality = self._get_coast_wind_quality(wind_dir, station)
 
             # Build summary
             summary_parts = [
-                f"{wave_height.description} {current_wave.waves[0].height_ft:.1f}ft waves" if current_wave.waves else "No wave data"
+                f"{wave_height.description} {current_wave.height:.1f}ft waves"
             ]
             
-            if current_wave.waves and current_wave.waves[0].period:
-                summary_parts.append(f"at {current_wave.waves[0].period:.0f}s intervals")
+            if current_wave.period:
+                summary_parts.append(f"at {current_wave.period:.0f}s intervals")
                 
             summary_parts.extend([
                 f"{wave_trend.value}",

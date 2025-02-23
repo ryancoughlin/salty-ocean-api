@@ -62,7 +62,7 @@ async def get_station_observations(
 )
 @cached(
     namespace="station_summary",
-    expire=900,  # 15 minutes in seconds
+    expire=14400,  # 4 hours (max time between model runs)
     key_builder=build_summary_cache_key
 )
 async def get_station_conditions(

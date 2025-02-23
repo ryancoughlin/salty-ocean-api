@@ -1,24 +1,26 @@
 from enum import Enum
+from .wind_types import BeaufortScaleEnum, WindDirectionEnum, TrendTypeEnum, BeaufortScaleModel, WindDirectionModel
 
 class BeaufortScale(Enum):
-    CALM = (0, 1, "Calm")
-    LIGHT_AIR = (1, 3, "Light Air")
-    LIGHT_BREEZE = (4, 7, "Light Breeze")
-    GENTLE_BREEZE = (8, 12, "Gentle Breeze")
-    MODERATE_BREEZE = (13, 18, "Moderate Breeze")
-    FRESH_BREEZE = (19, 24, "Fresh Breeze")
-    STRONG_BREEZE = (25, 31, "Strong Breeze")
-    NEAR_GALE = (32, 38, "Near Gale")
-    GALE = (39, 46, "Gale")
-    STRONG_GALE = (47, 54, "Strong Gale")
-    STORM = (55, 63, "Storm")
-    VIOLENT_STORM = (64, 72, "Violent Storm")
-    HURRICANE = (73, 999, "Hurricane")
+    CALM = BeaufortScaleModel(category=BeaufortScaleEnum.CALM, min_speed=0, max_speed=1, description="Calm")
+    LIGHT_AIR = BeaufortScaleModel(category=BeaufortScaleEnum.LIGHT_AIR, min_speed=1, max_speed=3, description="Light Air")
+    LIGHT_BREEZE = BeaufortScaleModel(category=BeaufortScaleEnum.LIGHT_BREEZE, min_speed=4, max_speed=7, description="Light Breeze")
+    GENTLE_BREEZE = BeaufortScaleModel(category=BeaufortScaleEnum.GENTLE_BREEZE, min_speed=8, max_speed=12, description="Gentle Breeze")
+    MODERATE_BREEZE = BeaufortScaleModel(category=BeaufortScaleEnum.MODERATE_BREEZE, min_speed=13, max_speed=18, description="Moderate Breeze")
+    FRESH_BREEZE = BeaufortScaleModel(category=BeaufortScaleEnum.FRESH_BREEZE, min_speed=19, max_speed=24, description="Fresh Breeze")
+    STRONG_BREEZE = BeaufortScaleModel(category=BeaufortScaleEnum.STRONG_BREEZE, min_speed=25, max_speed=31, description="Strong Breeze")
+    NEAR_GALE = BeaufortScaleModel(category=BeaufortScaleEnum.NEAR_GALE, min_speed=32, max_speed=38, description="Near Gale")
+    GALE = BeaufortScaleModel(category=BeaufortScaleEnum.GALE, min_speed=39, max_speed=46, description="Gale")
+    STRONG_GALE = BeaufortScaleModel(category=BeaufortScaleEnum.STRONG_GALE, min_speed=47, max_speed=54, description="Strong Gale")
+    STORM = BeaufortScaleModel(category=BeaufortScaleEnum.STORM, min_speed=55, max_speed=63, description="Storm")
+    VIOLENT_STORM = BeaufortScaleModel(category=BeaufortScaleEnum.VIOLENT_STORM, min_speed=64, max_speed=72, description="Violent Storm")
+    HURRICANE = BeaufortScaleModel(category=BeaufortScaleEnum.HURRICANE, min_speed=73, max_speed=999, description="Hurricane")
 
-    def __init__(self, min_speed: int, max_speed: int, description: str):
-        self.min_speed = min_speed
-        self.max_speed = max_speed
-        self.description = description
+    def __init__(self, model: BeaufortScaleModel):
+        self.min_speed = model.min_speed
+        self.max_speed = model.max_speed
+        self.description = model.description
+        self.category = model.category
 
     @classmethod
     def from_speed(cls, speed: float) -> 'BeaufortScale':
@@ -28,19 +30,20 @@ class BeaufortScale(Enum):
         return cls.HURRICANE if speed > 72 else cls.CALM
 
 class WindDirection(Enum):
-    N = (337.5, 22.5, "North")
-    NE = (22.5, 67.5, "Northeast")
-    E = (67.5, 112.5, "East")
-    SE = (112.5, 157.5, "Southeast")
-    S = (157.5, 202.5, "South")
-    SW = (202.5, 247.5, "Southwest")
-    W = (247.5, 292.5, "West")
-    NW = (292.5, 337.5, "Northwest")
+    N = WindDirectionModel(direction=WindDirectionEnum.N, min_deg=337.5, max_deg=22.5, description="North")
+    NE = WindDirectionModel(direction=WindDirectionEnum.NE, min_deg=22.5, max_deg=67.5, description="Northeast")
+    E = WindDirectionModel(direction=WindDirectionEnum.E, min_deg=67.5, max_deg=112.5, description="East")
+    SE = WindDirectionModel(direction=WindDirectionEnum.SE, min_deg=112.5, max_deg=157.5, description="Southeast")
+    S = WindDirectionModel(direction=WindDirectionEnum.S, min_deg=157.5, max_deg=202.5, description="South")
+    SW = WindDirectionModel(direction=WindDirectionEnum.SW, min_deg=202.5, max_deg=247.5, description="Southwest")
+    W = WindDirectionModel(direction=WindDirectionEnum.W, min_deg=247.5, max_deg=292.5, description="West")
+    NW = WindDirectionModel(direction=WindDirectionEnum.NW, min_deg=292.5, max_deg=337.5, description="Northwest")
 
-    def __init__(self, min_deg: float, max_deg: float, description: str):
-        self.min_deg = min_deg
-        self.max_deg = max_deg
-        self.description = description
+    def __init__(self, model: WindDirectionModel):
+        self.min_deg = model.min_deg
+        self.max_deg = model.max_deg
+        self.description = model.description
+        self.direction = model.direction
 
     @classmethod
     def from_degrees(cls, degrees: float) -> 'WindDirection':
@@ -70,6 +73,6 @@ class WindCategory(Enum):
 
 class TrendType(Enum):
     """Trend types for conditions."""
-    STEADY = "steady"
-    BUILDING = "building"
-    DROPPING = "dropping" 
+    STEADY = TrendTypeEnum.STEADY
+    BUILDING = TrendTypeEnum.BUILDING
+    DROPPING = TrendTypeEnum.DROPPING 

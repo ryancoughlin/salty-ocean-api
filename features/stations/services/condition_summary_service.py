@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from fastapi import HTTPException
 from features.wind.models.wind_categories import BeaufortScale, WindDirection, TrendType
+from features.wind.models.wind_types import BeaufortScaleEnum, WindDirectionEnum, TrendTypeEnum
 from features.waves.models.wave_categories import WaveHeight, WavePeriod, Conditions
 from features.wind.services.wind_service import WindService
 from features.waves.services.wave_data_service_v2 import WaveDataServiceV2
@@ -30,7 +31,7 @@ class ConditionSummaryService:
 
     @cached(
         namespace="station_summary",
-        expire=900,  # 15 minutes in seconds
+        expire=14400,  # 4 hours (max time between model runs)
         key_builder=build_summary_cache_key
     )
     async def get_station_condition_summary(self, station_id: str) -> ConditionSummaryResponse:
@@ -68,44 +69,41 @@ class ConditionSummaryService:
             # Calculate categories
             wind_category = BeaufortScale.from_speed(current_wind.speed)
             wind_dir = WindDirection.from_degrees(current_wind.direction)
-            wave_height = WaveHeight.from_height(current_wave.height)
-            wave_period = WavePeriod.from_period(current_wave.period)
+            wave_height = WaveHeight.from_height(current_wave.height if current_wave.height is not None else 0.0)
+            wave_period = WavePeriod.from_period(current_wave.period if current_wave.period is not None else 0.0)
             conditions = Conditions.from_wind_wave(
                 current_wind.speed,
                 current_wind.direction,
-                current_wave.direction
+                current_wave.direction if current_wave.direction is not None else 0.0
             )
 
             # Get trends
             wind_trend = self._get_trend_description(current_wind.speed, future_wind.speed)
             wave_trend = self._get_trend_description(
-                current_wave.height,
-                future_wave.height
+                current_wave.height if current_wave.height is not None else 0.0,
+                future_wave.height if future_wave.height is not None else 0.0
             )
             wind_quality = self._get_coast_wind_quality(wind_dir, station)
 
             # Build summary
-            summary_parts = [
-                f"{wave_height.description} {current_wave.height:.1f}ft waves"
-            ]
-            
+            wave_desc = f"{current_wave.height:.1f}ft"
             if current_wave.period:
-                summary_parts.append(f"at {current_wave.period:.0f}s intervals")
-                
-            summary_parts.extend([
-                f"{wave_trend.value}",
-                f"with {wind_category.description.lower()}",
-                f"{current_wind.speed:.0f}mph {wind_dir.description.lower()} winds ({wind_quality})",
-                f"{wind_trend.value}",
-                f"Conditions are {conditions.value.lower()}"
-            ])
+                wave_desc += f" {current_wave.period:.0f}s"
+            wave_desc += " waves"
+            if wave_trend.value.lower() != "steady":
+                wave_desc += f" are {wave_trend.value.lower()}"
 
-            summary = ", ".join(summary_parts[:-1]) + ". " + summary_parts[-1] + "."
+            wind_desc = f"winds are {current_wind.speed:.0f}mph {wind_quality} from the {wind_dir.description.lower()}"
+            if wind_trend.value.lower() != "steady":
+                wind_desc += f" and {wind_trend.value.lower()}"
 
+            summary = f"{wave_desc}, {wind_desc}, making for {conditions.value.lower()} conditions."
+
+            # Create response with structured data
             return ConditionSummaryResponse(
                 station=station,
                 summary=summary,
-                generated_at=datetime.now(current_wave.time.tzinfo)
+                generated_at=datetime.now(current_wave.time.tzinfo),
             )
 
         except HTTPException:
@@ -129,12 +127,50 @@ class ConditionSummaryService:
             return TrendType.DROPPING
 
     def _get_coast_wind_quality(self, wind_dir: WindDirection, station: Station) -> str:
-        """Determine if wind direction is favorable based on coast location."""
-        # East Coast
-        if station.location.coordinates[0] < -50:  # Rough estimate of east coast longitude
-            favorable = {WindDirection.W, WindDirection.NW, WindDirection.SW}
-            return "favorable" if wind_dir in favorable else "unfavorable"
+        """Determine wind direction relative to coast (offshore/onshore/etc)."""
+        # East Coast (including Gulf Coast)
+        if station.location.coordinates[0] > -100 and station.location.coordinates[0] < -60:
+            # Perfect offshore: W
+            # Semi offshore: NW, SW
+            # Side-shore: N, S
+            # Semi onshore: NE, SE
+            # Direct onshore: E
+            if wind_dir == WindDirection.W:
+                return "offshore"
+            elif wind_dir in {WindDirection.NW, WindDirection.SW}:
+                return "semi-offshore"
+            elif wind_dir in {WindDirection.N, WindDirection.S}:
+                return "side-shore"
+            elif wind_dir in {WindDirection.NE, WindDirection.SE}:
+                return "semi-onshore"
+            else:  # E
+                return "onshore"
         # West Coast
+        elif station.location.coordinates[0] <= -100:
+            # Perfect offshore: E
+            # Semi offshore: NE, SE
+            # Side-shore: N, S
+            # Semi onshore: NW, SW
+            # Direct onshore: W
+            if wind_dir == WindDirection.E:
+                return "offshore"
+            elif wind_dir in {WindDirection.NE, WindDirection.SE}:
+                return "semi-offshore"
+            elif wind_dir in {WindDirection.N, WindDirection.S}:
+                return "side-shore"
+            elif wind_dir in {WindDirection.NW, WindDirection.SW}:
+                return "semi-onshore"
+            else:  # W
+                return "onshore"
+        # Default case (e.g. Hawaii, Alaska)
         else:
-            favorable = {WindDirection.E, WindDirection.SE, WindDirection.NE}
-            return "favorable" if wind_dir in favorable else "unfavorable" 
+            if wind_dir == WindDirection.W:
+                return "offshore"
+            elif wind_dir in {WindDirection.NW, WindDirection.SW}:
+                return "semi-offshore"
+            elif wind_dir in {WindDirection.N, WindDirection.S}:
+                return "side-shore"
+            elif wind_dir in {WindDirection.NE, WindDirection.SE}:
+                return "semi-onshore"
+            else:  # E
+                return "onshore" 

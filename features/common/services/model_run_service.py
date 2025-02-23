@@ -15,7 +15,7 @@ class ModelRunService:
         """Log model run information with both UTC and EST times."""
         logger.info(f"📊 Model Run: {model_run.date_str} {cycle:02d}Z")
         logger.info(f"   ├─ Available: {model_run.available_time.strftime('%H:%M:%S')} UTC ({model_run.local_time.strftime('%H:%M:%S')} EST)")
-        logger.info(f"   └─ Delay: {model_run.delay_minutes} minutes")
+        logger.info(f"   └─ Expected: {model_run.expected_available_time.strftime('%H:%M:%S')} UTC")
 
     async def check_grib_file_for_cycle(
         self,

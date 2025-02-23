@@ -258,6 +258,7 @@ class GFSWindClient:
                     }
                 ) as session:
                     async with session.get(url, allow_redirects=False, timeout=300) as response:
+                        print("Downloading new data")
                         if response.status == 200:
                             content = await response.read()
                             await self.file_storage.save_file(file_path, content)

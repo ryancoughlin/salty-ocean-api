@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, date, time, timezone
+from datetime import datetime, date, time, timezone, timedelta
 from typing import Optional, Tuple, ClassVar, List
 from pydantic import BaseModel, validator
 
@@ -10,11 +10,11 @@ class ModelRun(BaseModel):
     run_date: date
     cycle_hour: int
     available_time: datetime
-    delay_minutes: Optional[int] = None
 
     # Constants
     VALID_CYCLES: ClassVar[List[int]] = [0, 6, 12, 18]
-    PROCESSING_DELAY_HOURS: ClassVar[int] = 4
+    # Typical hours after cycle start when runs become available
+    TYPICAL_PUBLISH_DELAY: ClassVar[float] = 3.5  # 3.5 hours after cycle start
 
     @staticmethod
     def get_current_time() -> Tuple[datetime, datetime]:
@@ -28,7 +28,7 @@ class ModelRun(BaseModel):
         """Get list of cycles that should be available based on current hour."""
         return [
             c for c in ModelRun.VALID_CYCLES 
-            if (c + ModelRun.PROCESSING_DELAY_HOURS <= current_hour) or check_previous_day
+            if (c + ModelRun.TYPICAL_PUBLISH_DELAY <= current_hour) or check_previous_day
         ]
 
     @validator('run_date')
@@ -70,21 +70,15 @@ class ModelRun(BaseModel):
         """Get the available time in local time zone."""
         return self.available_time.astimezone()  # Convert to system's local timezone
 
-    @validator('delay_minutes', always=True)
-    def compute_delay(cls, v, values):
-        if 'run_date' in values and 'cycle_hour' in values:
-            # Create timezone-aware datetime for the scheduled time in local time
-            scheduled_dt = datetime.combine(
-                values['run_date'],
-                time(hour=values['cycle_hour'])
-            )
-            
-            # Calculate delay using local time
-            current_time = datetime.now()
-            delay = (current_time - scheduled_dt).total_seconds() / 60.0
-            return int(delay)
-        return v
+    @property 
+    def expected_available_time(self) -> datetime:
+        """Calculate when this model run is expected to be available based on NOAA's typical schedule."""
+        run_start = datetime.combine(
+            self.run_date,
+            time(hour=self.cycle_hour)
+        ).replace(tzinfo=timezone.utc)
+        return run_start + timedelta(hours=self.TYPICAL_PUBLISH_DELAY)
 
     def __str__(self):
         return (f"ModelRun(run_date={self.local_date}, cycle_hour={self.cycle_hour}Z, "
-                f"available_time={self.local_time}, delay_minutes={self.delay_minutes})")
+                f"available_time={self.local_time})")

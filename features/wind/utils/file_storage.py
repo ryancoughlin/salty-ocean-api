@@ -63,7 +63,7 @@ class GFSFileStorage:
             file_path = self.get_regional_file_path(region, model_run, hour)
             if self.is_file_valid(file_path):
                 valid.append(file_path)
-            return valid
+        return valid
     
     def cleanup_old_files(self, current_run: ModelRun) -> None:
         """Delete files from older model runs."""

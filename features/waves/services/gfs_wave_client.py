@@ -57,6 +57,8 @@ class GFSWaveClient:
         self.model_run = model_run
         self._regional_datasets: Dict[str, xr.Dataset] = {}
         self._is_initialized = False
+        self._initialization_lock = asyncio.Lock()
+        self._initialization_error: Optional[str] = None
         self.file_storage = GFSWaveFileStorage()
         # Get regions from config
         self.regions = list(settings.models.keys())
@@ -68,50 +70,80 @@ class GFSWaveClient:
         self.model_run = model_run
         # Clear cached datasets when model run changes
         self._regional_datasets.clear()
+        self._is_initialized = False
+        self._initialization_error = None
         
     async def initialize(self):
         """Initialize the wave client by loading the latest model run data."""
-        if not self.model_run:
-            raise HTTPException(
-                status_code=503,
-                detail="No model cycle currently available"
-            )
+        async with self._initialization_lock:
+            if self._is_initialized:
+                return
+                
+            if not self.model_run:
+                self._initialization_error = "No model cycle currently available"
+                raise HTTPException(
+                    status_code=503,
+                    detail=self._initialization_error
+                )
             
-        # Initialize each configured region
-        for region in self.regions:
-            # Check if we have a cached dataset
-            cycle_key = f"{region}_{self.model_run.run_date.strftime('%Y%m%d')}_{self.model_run.cycle_hour:02d}"
+            initialization_errors = []
             
-            if cycle_key in self._regional_datasets:
-                continue
+            # Initialize each configured region
+            for region in self.regions:
+                # Check if we have a cached dataset
+                cycle_key = f"{region}_{self.model_run.run_date.strftime('%Y%m%d')}_{self.model_run.cycle_hour:02d}"
+                
+                if cycle_key in self._regional_datasets:
+                    continue
 
+                try:
+                    file_paths = await self._download_regional_files(
+                        self.model_run.run_date,
+                        f"{self.model_run.cycle_hour:02d}",
+                        region
+                    )
+                    if not file_paths:
+                        error_msg = f"No data files available for {region}"
+                        initialization_errors.append(error_msg)
+                        logger.error(error_msg)
+                        continue
+                        
+                    # Load the dataset
+                    ds = await self._load_grib_files(
+                        region,
+                        self.model_run.run_date,
+                        f"{self.model_run.cycle_hour:02d}"
+                    )
+                    if ds is not None:
+                        self._regional_datasets[cycle_key] = ds
+                    else:
+                        error_msg = f"Failed to load dataset for {region}"
+                        initialization_errors.append(error_msg)
+                        logger.error(error_msg)
+                        continue
+                        
+                except Exception as e:
+                    error_msg = f"Error loading dataset for {region}: {str(e)}"
+                    initialization_errors.append(error_msg)
+                    logger.error(error_msg)
+                    continue
+            
+            if initialization_errors:
+                self._initialization_error = "; ".join(initialization_errors)
+            else:
+                self._is_initialized = True
+
+    async def _ensure_initialized(self):
+        """Ensure the client is initialized before processing requests."""
+        if not self._is_initialized:
             try:
-                file_paths = await self._download_regional_files(
-                    self.model_run.run_date,
-                    f"{self.model_run.cycle_hour:02d}",
-                    region
-                )
-                if not file_paths:
-                    logger.error(f"No data files available for {region}")
-                    continue
-                    
-                # Load the dataset
-                ds = await self._load_grib_files(
-                    region,
-                    self.model_run.run_date,
-                    f"{self.model_run.cycle_hour:02d}"
-                )
-                if ds is not None:
-                    self._regional_datasets[cycle_key] = ds
-                else:
-                    logger.error(f"Failed to load dataset for {region}")
-                    continue
-                    
+                await self.initialize()
             except Exception as e:
-                logger.error(f"Error loading dataset for {region}: {str(e)}")
-                continue
-        
-        self._is_initialized = True
+                logger.error(f"Initialization failed: {str(e)}")
+                raise HTTPException(
+                    status_code=503,
+                    detail=self._initialization_error or "Service initialization failed"
+                )
 
     async def _init_session(self) -> aiohttp.ClientSession:
         """Initialize or return existing aiohttp session."""
@@ -442,11 +474,7 @@ class GFSWaveClient:
     async def get_station_forecast(self, station_id: str, station: Station) -> GFSWaveForecast:
         """Get wave forecast for a specific station."""
         try:
-            if not self.model_run:
-                raise HTTPException(
-                    status_code=503,
-                    detail="No model cycle currently available"
-                )
+            await self._ensure_initialized()
                 
             # Get station coordinates
             lat = station.location.coordinates[1]

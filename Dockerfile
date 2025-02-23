@@ -16,10 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p data downloaded_data
+RUN mkdir -p data downloaded_data cache/gfs_wave
 
 # Expose port
 EXPOSE 5010
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5010"] 
+# Run the application with gunicorn
+CMD ["gunicorn", "main:app", "--config", "gunicorn_conf.py", "--worker-class", "uvicorn.workers.UvicornWorker"] 

@@ -12,4 +12,5 @@ eccodes>=1.0.0
 fastapi-cache2>=0.2.1
 gunicorn>=21.2.0
 geojson-pydantic>=1.0.1
+aiocache>=0.12.2
 

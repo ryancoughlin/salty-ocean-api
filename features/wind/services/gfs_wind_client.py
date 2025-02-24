@@ -222,8 +222,10 @@ class GFSWindClient:
         dir_path = f"/gfs.{self.model_run.date_str}/{self.model_run.cycle_hour:02d}/atmos"
         dir_path = dir_path.replace("/", "%2F")
         
+        file_name = f"gfs.t{self.model_run.cycle_hour:02d}z.pgrb2.0p25.f{forecast_hour:03d}"
+        
         params = {
-            "file": f"gfs.t{self.model_run.cycle_hour:02d}z.pgrb2.0p25.f{forecast_hour:03d}",
+            "file": file_name,
             "dir": dir_path,
             "subregion": "",
             "leftlon": str(bounds.lon.start),
@@ -242,7 +244,15 @@ class GFSWindClient:
         # Build query string with sorted parameters for consistency
         query = "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         url = f"{settings.wind.base_url}?{query}"
-        logger.info(f"Building URL for forecast hour {forecast_hour}: {url}")
+        
+        logger.info(
+            f"Building URL for forecast hour {forecast_hour}:\n"
+            f"  Base URL: {settings.wind.base_url}\n"
+            f"  Model Run: {self.model_run.date_str} {self.model_run.cycle_hour:02d}Z\n"
+            f"  File: {file_name}\n"
+            f"  Region: {region} (lat: {bounds.lat.start}-{bounds.lat.end}, lon: {bounds.lon.start}-{bounds.lon.end})\n"
+            f"  Full URL: {url}"
+        )
         return url
             
     def _calculate_wind(self, u: float, v: float) -> tuple[float, float]:
@@ -422,13 +432,25 @@ class GFSWindClient:
             ) as session:
                 # Use ClientTimeout object for proper timeout handling
                 timeout = aiohttp.ClientTimeout(total=300)
+                logger.info(f"Attempting download from: {url}")
                 async with session.get(url, timeout=timeout) as response:
                     if response.status == 200:
                         content = await response.read()
+                        content_size = len(content)
+                        logger.info(f"Downloaded {content_size} bytes")
+                        if content_size < 1000:  # Increased minimum size check
+                            logger.error(f"Downloaded file too small ({content_size} bytes), likely error page")
+                            return False
                         if await self.file_storage.save_file(file_path, content):
                             return True
                     else:
                         logger.error(f"Download failed with status {response.status}")
+                        if response.status == 404:
+                            try:
+                                error_content = await response.text()
+                                logger.error(f"404 response content: {error_content[:200]}...")  # Log first 200 chars
+                            except Exception as e:
+                                logger.error(f"Could not read error content: {str(e)}")
                         return False
                         
         except Exception as e:
@@ -444,6 +466,9 @@ class GFSWindClient:
     ) -> Tuple[int, int]:
         """Download missing files for a region."""
         downloaded = failed = 0
+        skipped = 0
+        
+        logger.info(f"Starting download of {len(missing_files)} files for {region}")
         
         for forecast_hour, file_path in missing_files:
             # Skip forecast hours that are likely not available yet
@@ -453,9 +478,23 @@ class GFSWindClient:
             # Calculate the expected availability time for this forecast hour
             # GFS files become available progressively, with early hours first
             expected_time = self.model_run.available_time + timedelta(minutes=max(5, forecast_hour // 6))
-            if datetime.now(timezone.utc) < expected_time:
-                logger.info(f"Skipping forecast hour {forecast_hour}, not expected until {expected_time}")
+            current_time = datetime.now(timezone.utc)
+            
+            if current_time < expected_time:
+                logger.info(
+                    f"⏳ Skipping forecast hour {forecast_hour}, not expected until "
+                    f"{expected_time.strftime('%H:%M:%S')} UTC "
+                    f"(in {(expected_time - current_time).total_seconds() / 60:.1f} minutes)"
+                )
+                skipped += 1
                 continue
+                
+            # Log attempt with timing info
+            logger.info(
+                f"📥 Attempting forecast hour {forecast_hour} "
+                f"(expected since {expected_time.strftime('%H:%M:%S')} UTC, "
+                f"current time {current_time.strftime('%H:%M:%S')} UTC)"
+            )
                 
             url = self._build_grib_filter_url(forecast_hour, region)
             if await self._download_grib_file(url, file_path):
@@ -465,5 +504,13 @@ class GFSWindClient:
                 
             # Respect rate limit between downloads
             await self._rate_limit()
+                
+        logger.info(
+            f"Download summary for {region}:\n"
+            f"  - Downloaded: {downloaded}\n"
+            f"  - Failed: {failed}\n"
+            f"  - Skipped (not yet available): {skipped}\n"
+            f"  - Total files needed: {len(missing_files)}"
+        )
                 
         return downloaded, failed 

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
+from features.common.services.rate_limiter import RateLimiter
 from core.config import settings
 from features.common.model_run import ModelRun
 from features.waves.services.file_storage import GFSWaveFileStorage
@@ -48,12 +49,6 @@ class GFSWaveForecast(BaseModel):
     forecasts: List[GFSForecastPoint]
 
 class GFSWaveClient:
-    # Rate limiting constants
-    REQUESTS_PER_MINUTE = 120
-    REQUEST_INTERVAL = 60 / REQUESTS_PER_MINUTE  # Time between requests in seconds
-    BATCH_SIZE = 30  # Number of requests to make before pausing
-    BATCH_PAUSE = 15  # Seconds to pause after each batch
-    
     def __init__(self, model_run: Optional[ModelRun] = None):
         self._session: Optional[aiohttp.ClientSession] = None
         self.model_run = model_run
@@ -65,8 +60,13 @@ class GFSWaveClient:
         self.regions = list(settings.models.keys())
         # Get forecast hours from config and create list
         self.forecast_hours = list(range(0, settings.forecast_hours + 1, 3))  # 0 to max by 3-hour steps
-        self._request_count = 0
-        self._last_request_time = datetime.now()
+        
+        # Use shared rate limiter
+        self.rate_limiter = RateLimiter(
+            requests_per_minute=120,  # Default value
+            batch_size=30,            # Default value
+            batch_pause=15            # Default value
+        )
         
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run."""
@@ -95,8 +95,10 @@ class GFSWaveClient:
                     logger.info(f"🌊 Initializing {region} region wave data...")
                     
                     # Download any missing files
+                    # Convert run_date to datetime if needed
+                    cycle_date = datetime.combine(self.model_run.run_date, datetime.min.time(), tzinfo=timezone.utc)
                     file_paths = await self._download_regional_files(
-                        self.model_run.run_date,
+                        cycle_date,
                         f"{self.model_run.cycle_hour:02d}",
                         region
                     )
@@ -110,7 +112,7 @@ class GFSWaveClient:
                     # Try loading one file to verify data access
                     test_ds = await self._load_grib_files(
                         region,
-                        self.model_run.run_date,
+                        cycle_date,
                         f"{self.model_run.cycle_hour:02d}"
                     )
                     if test_ds is None:
@@ -212,27 +214,8 @@ class GFSWaveClient:
         return url
 
     async def _rate_limit(self):
-        """Implement rate limiting logic."""
-        now = datetime.now()
-        
-        # Reset counter if a minute has passed
-        if (now - self._last_request_time).total_seconds() >= 60:
-            self._request_count = 0
-            self._last_request_time = now
-            
-        # If we've hit our batch size, pause
-        if self._request_count > 0 and self._request_count % self.BATCH_SIZE == 0:
-            logger.info(f"⏸️ Pausing for {self.BATCH_PAUSE}s after batch of {self.BATCH_SIZE} requests...")
-            await asyncio.sleep(self.BATCH_PAUSE)
-            self._request_count = 0
-            self._last_request_time = datetime.now()
-            return
-            
-        # Otherwise, small delay between requests
-        if self._request_count > 0:
-            await asyncio.sleep(self.REQUEST_INTERVAL)
-            
-        self._request_count += 1
+        """Apply rate limiting using the shared rate limiter."""
+        await self.rate_limiter.limit()
 
     async def _download_grib_file(
         self,
@@ -277,9 +260,13 @@ class GFSWaveClient:
     ) -> List[Path]:
         """Download missing forecast files for a region."""
         try:
+            if not self.model_run:
+                logger.error("No model run available for downloading files")
+                return []
+                
             missing_files = self.file_storage.get_missing_files(
                 region,
-                self.model_run,
+                self.model_run,  # This should be non-null at this point
                 self.forecast_hours
             )
             
@@ -287,7 +274,7 @@ class GFSWaveClient:
                 logger.info(f"All files available for {region}")
                 return self.file_storage.get_valid_files(
                     region,
-                    self.model_run,
+                    self.model_run,  # This should be non-null at this point
                     self.forecast_hours
                 )
 
@@ -306,7 +293,7 @@ class GFSWaveClient:
                 
             return self.file_storage.get_valid_files(
                 region,
-                self.model_run,
+                self.model_run,  # This should be non-null at this point
                 self.forecast_hours
             )
             
@@ -355,9 +342,13 @@ class GFSWaveClient:
     ) -> Optional[xr.Dataset]:
         """Load GRIB files for a region and combine them into a single dataset."""
         try:
+            if not self.model_run:
+                logger.error("No model run available for loading files")
+                return None
+                
             file_paths = self.file_storage.get_valid_files(
                 region,
-                self.model_run,
+                self.model_run,  # This should be non-null at this point
                 self.forecast_hours
             )
                     
@@ -402,10 +393,13 @@ class GFSWaveClient:
                         direction=float(time_data.dirpw.item())
                     )
                     
-                    # Create forecast point
+                    # Create forecast point with safe conversion
+                    height_m = wave_data.height
+                    height_ft = float(UnitConversions.meters_to_feet(height_m)) if height_m is not None else 0.0
+                    
                     wave_component = GFSWaveComponent(
-                        height_m=wave_data.height,
-                        height_ft=float(UnitConversions.meters_to_feet(wave_data.height)),
+                        height_m=height_m,
+                        height_ft=height_ft,
                         period=wave_data.period,
                         direction=wave_data.direction
                     )
@@ -448,10 +442,13 @@ class GFSWaveClient:
             # Determine region and get dataset
             region = self._get_region_for_station(lat, lon)
             
+            # Convert run_date to datetime if needed
+            cycle_date = datetime.combine(self.model_run.run_date, datetime.min.time(), tzinfo=timezone.utc)
+            
             # Load dataset for this region
             dataset = await self._load_grib_files(
                 region,
-                self.model_run.run_date,
+                cycle_date,
                 f"{self.model_run.cycle_hour:02d}"
             )
             

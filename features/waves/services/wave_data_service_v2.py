@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 from aiocache import cached, SimpleMemoryCache
@@ -17,10 +17,14 @@ from features.common.services.cache_config import (
     feature_cache_key_builder,
     get_cache
 )
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class WaveDataServiceV2:
+    # Default forecast range in days if not specified in settings
+    DEFAULT_FORECAST_DAYS = 7
+    
     def __init__(
         self, 
         gfs_client: GFSWaveClient,
@@ -31,15 +35,27 @@ class WaveDataServiceV2:
         self.buoy_client = buoy_client
         self.station_service = station_service
         self._cache = get_cache()
+        # Get forecast days from settings or use default
+        self.forecast_days = getattr(settings, 'wave_forecast_days', self.DEFAULT_FORECAST_DAYS)
+        logger.info(f"Wave forecast range set to {self.forecast_days} days")
 
     async def handle_model_run_update(self, model_run: ModelRun):
-        """Handle model run update by clearing cache."""
+        """Handle model run update by clearing affected cache entries."""
         logger.info(f"🔄 Updating wave data service to model run: {model_run}")
         
-        # For now, just clear the entire cache on model run update
-        # This is safe because we're using SimpleMemoryCache
-        await self._cache.delete("wave_forecast:*")
-        logger.info("🗑️ Cleared wave forecast cache for new model run")
+        try:
+            # Get all cache keys matching the pattern
+            keys = await self._cache.raw("keys", "wave_forecast:*")
+            if keys:
+                logger.info(f"Found {len(keys)} wave forecast cache entries to invalidate")
+                for key in keys:
+                    await self._cache.delete(key)
+                logger.info(f"🗑️ Cleared {len(keys)} wave forecast cache entries for new model run")
+            else:
+                logger.info("No wave forecast cache entries to clear")
+        except Exception as e:
+            logger.error(f"Error clearing wave forecast cache: {str(e)}")
+            # Continue even if cache clearing fails - better to serve stale data than no data
 
     @cached(
         ttl=MODEL_FORECAST_EXPIRE,
@@ -69,29 +85,31 @@ class WaveDataServiceV2:
                         detail=f"No forecast data available for station {station_id}"
                     )
                 
-                # Set time range for exactly 7 days
+                # Set time range based on configuration
                 now = datetime.now(timezone.utc)
-                end_time = now + timedelta(days=7)
+                end_time = now + timedelta(days=self.forecast_days)
                 
                 # Round current time down to nearest 3-hour interval
                 now = now.replace(minute=0, second=0, microsecond=0)
                 now = now.replace(hour=(now.hour // 3) * 3)
                 
-                # Convert to API response format
+                # Convert to API response format with proper null handling
                 forecast_points = []
                 for point in gfs_forecast.forecasts:
-                    # Only include points within 7 day range and at 3-hour intervals
+                    # Only include points within configured day range and at 3-hour intervals
                     point_hour = point.time.replace(minute=0, second=0, microsecond=0)
                     if (point_hour >= now and 
                         point_hour <= end_time and 
                         point_hour.hour % 3 == 0):
-                        # Get primary wave component (highest)
+                        # Get primary wave component (highest) with null safety
                         primary_wave = point.waves[0] if point.waves else None
+                        
+                        # Create forecast point with safe null handling
                         forecast_points.append(WaveForecastPoint(
                             time=point_hour,
-                            height=primary_wave.height_ft if primary_wave else None,
-                            period=primary_wave.period if primary_wave else None,
-                            direction=primary_wave.direction if primary_wave else None
+                            height=primary_wave.height_ft if primary_wave else 0.0,
+                            period=primary_wave.period if primary_wave else 0.0,
+                            direction=primary_wave.direction if primary_wave else 0.0
                         ))
                 
                 # Sort forecasts by time to ensure order

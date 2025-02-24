@@ -15,6 +15,7 @@ from features.common.models.station_types import Station
 from features.common.utils.conversions import UnitConversions
 from features.wind.utils.file_storage import GFSFileStorage
 from features.common.services.model_run_service import ModelRun
+from features.common.services.rate_limiter import RateLimiter
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -29,15 +30,14 @@ class GFSWindClient:
         self._initialization_lock = asyncio.Lock()
         self._initialization_error: Optional[str] = None
         self.forecast_hours = settings.wind.forecast_hours
-        self._request_count = 0
-        self._last_request_time = datetime.now()
         self._datasets: Dict[str, Dict[int, xr.Dataset]] = {}  # region -> {hour -> dataset}
         
-        # Rate limiting constants from config
-        self.REQUESTS_PER_MINUTE = settings.wind.rate_limit["requests_per_minute"]
-        self.REQUEST_INTERVAL = 60 / self.REQUESTS_PER_MINUTE
-        self.BATCH_SIZE = settings.wind.rate_limit["batch_size"]
-        self.BATCH_PAUSE = settings.wind.rate_limit["batch_pause"]
+        # Use shared rate limiter
+        self.rate_limiter = RateLimiter(
+            requests_per_minute=settings.wind.rate_limit["requests_per_minute"],
+            batch_size=settings.wind.rate_limit["batch_size"],
+            batch_pause=settings.wind.rate_limit["batch_pause"]
+        )
         
     def update_model_run(self, model_run: ModelRun):
         """Update the current model run and clean up old files."""
@@ -61,6 +61,26 @@ class GFSWindClient:
                     detail=self._initialization_error
                 )
             
+            # Calculate how long the model run has been available
+            hours_since_available = (datetime.now(timezone.utc) - self.model_run.available_time).total_seconds() / 3600
+            
+            # Determine maximum forecast hour based on availability time
+            # GFS files are published progressively, with early forecast hours first
+            # Typically, forecast hours up to ~120 are available within the first hour
+            # Higher forecast hours become available over the next 1-2 hours
+            max_forecast_hour = min(384, int(hours_since_available * 120))
+            
+            # Ensure we have at least some forecast hours (minimum 72 hours)
+            max_forecast_hour = max(72, max_forecast_hour)
+            
+            # Filter forecast hours to only include those likely to be available
+            available_forecast_hours = [h for h in self.forecast_hours if h <= max_forecast_hour]
+            
+            logger.info(
+                f"Model run {self.model_run.date_str} {self.model_run.cycle_hour:02d}Z has been available for "
+                f"{hours_since_available:.1f} hours. Using forecast hours up to {max_forecast_hour}"
+            )
+            
             initialization_errors = []
             
             # Initialize each region
@@ -73,7 +93,7 @@ class GFSWindClient:
                         self.file_storage.get_missing_files(
                             region_name,
                             self.model_run,
-                            self.forecast_hours
+                            available_forecast_hours  # Use filtered forecast hours
                         ),
                         key=lambda x: x[0]  # Sort by forecast hour
                     )
@@ -116,7 +136,7 @@ class GFSWindClient:
                     valid_files = self.file_storage.get_valid_files(
                         region_name,
                         self.model_run,
-                        self.forecast_hours
+                        available_forecast_hours  # Use filtered forecast hours
                     )
                     
                     if not valid_files:
@@ -336,11 +356,15 @@ class GFSWindClient:
                         valid_time, u, v, gust = wind_data
                         speed, direction = self._calculate_wind(u, v)
                         
+                        # Ensure speed and gust are not None before conversion
+                        speed_mph = UnitConversions.ms_to_mph(speed) if speed is not None else 0.0
+                        gust_mph = UnitConversions.ms_to_mph(gust) if gust is not None else 0.0
+                        
                         forecasts.append(WindForecastPoint(
                             time=valid_time,
-                            speed=UnitConversions.ms_to_mph(speed),
+                            speed=speed_mph,
                             direction=direction,
-                            gust=UnitConversions.ms_to_mph(gust)
+                            gust=gust_mph
                         ))
                         total_hours += 1
                         
@@ -388,27 +412,8 @@ class GFSWindClient:
             return None
 
     async def _rate_limit(self):
-        """Implement rate limiting logic."""
-        now = datetime.now()
-        
-        # Reset counter if a minute has passed
-        if (now - self._last_request_time).total_seconds() >= 60:
-            self._request_count = 0
-            self._last_request_time = now
-            
-        # If we've hit our batch size, pause
-        if self._request_count > 0 and self._request_count % self.BATCH_SIZE == 0:
-            logger.info(f"⏸️ Pausing for {self.BATCH_PAUSE}s after batch of {self.BATCH_SIZE} requests...")
-            await asyncio.sleep(self.BATCH_PAUSE)
-            self._request_count = 0
-            self._last_request_time = datetime.now()
-            return
-            
-        # Otherwise, small delay between requests
-        if self._request_count > 0:
-            await asyncio.sleep(self.REQUEST_INTERVAL)
-            
-        self._request_count += 1
+        """Apply rate limiting using the shared rate limiter."""
+        await self.rate_limiter.limit()
 
     async def _download_grib_file(
         self,
@@ -470,6 +475,35 @@ class GFSWindClient:
         
         logger.info(f"Starting download of {len(missing_files)} files for {region}")
         
+        # Group files by forecast hour ranges for better logging
+        hour_ranges = {
+            "0-24": [], "24-48": [], "48-72": [], "72-120": [], 
+            "120-240": [], "240-384": []
+        }
+        
+        for forecast_hour, file_path in missing_files:
+            if forecast_hour <= 24:
+                hour_ranges["0-24"].append((forecast_hour, file_path))
+            elif forecast_hour <= 48:
+                hour_ranges["24-48"].append((forecast_hour, file_path))
+            elif forecast_hour <= 72:
+                hour_ranges["48-72"].append((forecast_hour, file_path))
+            elif forecast_hour <= 120:
+                hour_ranges["72-120"].append((forecast_hour, file_path))
+            elif forecast_hour <= 240:
+                hour_ranges["120-240"].append((forecast_hour, file_path))
+            else:
+                hour_ranges["240-384"].append((forecast_hour, file_path))
+                
+        # Log the distribution of files by hour range
+        for range_name, files in hour_ranges.items():
+            if files:
+                logger.info(f"Range {range_name} hours: {len(files)} files to download")
+        
+        # Track consecutive failures to detect patterns
+        consecutive_failures = 0
+        max_consecutive_failures = 5
+        
         for forecast_hour, file_path in missing_files:
             # Skip forecast hours that are likely not available yet
             if not self.model_run:
@@ -499,8 +533,29 @@ class GFSWindClient:
             url = self._build_grib_filter_url(forecast_hour, region)
             if await self._download_grib_file(url, file_path):
                 downloaded += 1
+                consecutive_failures = 0  # Reset consecutive failures counter
             else:
                 failed += 1
+                consecutive_failures += 1
+                
+                # If we've had too many consecutive failures, skip ahead to avoid wasting time
+                if consecutive_failures >= max_consecutive_failures:
+                    next_range_start = (forecast_hour // 24 + 1) * 24  # Skip to next day's worth of forecasts
+                    logger.warning(
+                        f"⚠️ {consecutive_failures} consecutive failures detected. "
+                        f"Skipping ahead to forecast hour {next_range_start}"
+                    )
+                    
+                    # Find the next forecast hour to try
+                    next_files = [(h, p) for h, p in missing_files if h >= next_range_start]
+                    if next_files:
+                        # Skip to the next range
+                        forecast_hour, file_path = next_files[0]
+                        consecutive_failures = 0
+                    else:
+                        # No more files to try in higher ranges
+                        logger.warning("No more files to try in higher forecast ranges")
+                        break
                 
             # Respect rate limit between downloads
             await self._rate_limit()

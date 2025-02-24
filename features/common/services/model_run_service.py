@@ -17,6 +17,29 @@ class ModelRunService:
         logger.info(f"   ├─ Available: {model_run.available_time.strftime('%H:%M:%S')} UTC ({model_run.local_time.strftime('%H:%M:%S')} EST)")
         logger.info(f"   └─ Expected: {model_run.expected_available_time.strftime('%H:%M:%S')} UTC")
 
+    @staticmethod
+    def is_newer_run(new_run: ModelRun, current_run: ModelRun) -> bool:
+        """Check if a model run is newer than the current one.
+        
+        Args:
+            new_run: The potentially newer model run
+            current_run: The current model run
+            
+        Returns:
+            bool: True if new_run is newer than current_run
+        """
+        if not new_run or not current_run:
+            return False
+            
+        # Compare dates first
+        if new_run.run_date > current_run.run_date:
+            return True
+        elif new_run.run_date < current_run.run_date:
+            return False
+            
+        # Same date, compare cycle hours
+        return new_run.cycle_hour > current_run.cycle_hour
+
     async def check_grib_file_for_cycle(
         self,
         target_date: date,
@@ -38,7 +61,9 @@ class ModelRunService:
         
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.head(url, timeout=30) as response:
+                # Use proper ClientTimeout object
+                timeout = aiohttp.ClientTimeout(total=30)
+                async with session.head(url, timeout=timeout) as response:
                     if response.status != 200:
                         return None
                         
@@ -83,10 +108,7 @@ class ModelRunService:
                 model_run = await self.check_grib_file_for_cycle(check_date, cycle)
                 if model_run:
                     # Only log model run info during startup or when a new run is detected
-                    if not hasattr(self, '_last_model_run') or (
-                        self._last_model_run.run_date != model_run.run_date or 
-                        self._last_model_run.cycle_hour != model_run.cycle_hour
-                    ):
+                    if not hasattr(self, '_last_model_run') or self.is_newer_run(model_run, self._last_model_run):
                         self._log_model_run_info(model_run, check_date, cycle)
                         self._last_model_run = model_run
                     return model_run

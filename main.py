@@ -89,6 +89,11 @@ async def lifespan(app: FastAPI):
         station_service = StationService()
         buoy_client = NDBCBuoyClient()
         
+        # Ensure clients are initialized before creating services
+        if not active_state.gfs_client or not active_state.gfs_wave_client_v2 or not active_state.gfs_wind_client:
+            logger.error("❌ Failed to initialize one or more clients")
+            raise Exception("Failed to initialize clients")
+            
         # Store other services in app state
         app.state.station_service = station_service
         app.state.tide_service = TideService()
@@ -150,10 +155,8 @@ async def lifespan(app: FastAPI):
                     new_model_run = await model_run_service.get_latest_available_cycle()
                     current_run = app.state.active_state.current_model_run
                     
-                    if new_model_run and (
-                        new_model_run.run_date != current_run.run_date or 
-                        new_model_run.cycle_hour != current_run.cycle_hour
-                    ):
+                    # Use the simplified comparison method
+                    if new_model_run and model_run_service.is_newer_run(new_model_run, current_run):
                         # Start prefetching if not already in progress
                         if not app.state.prefetch_state:
                             logger.info("🔄 New model run detected, starting prefetch...")
